@@ -3,6 +3,8 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { globalLimiter } from './middleware/rateLimit';
 import { authRouter } from './routes/auth';
+import { eventsRouter } from './routes/events';
+import { musicbrainzRouter } from './routes/musicbrainz';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -16,6 +18,8 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 app.use('/auth', authRouter);
+app.use('/events', eventsRouter);
+app.use('/mb', musicbrainzRouter);
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {

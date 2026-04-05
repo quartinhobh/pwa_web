@@ -50,6 +50,14 @@ function buildApp(): App {
     });
   }
 
+  if (process.env.NODE_ENV === 'test') {
+    // Inert stub app for unit tests that don't touch Firestore/Auth.
+    return initializeApp({
+      projectId: 'quartinho-test',
+      databaseURL: 'http://127.0.0.1:9000/?ns=quartinho-test',
+    });
+  }
+
   return initializeApp({ credential: applicationDefault() });
 }
 

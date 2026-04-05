@@ -119,6 +119,31 @@ export interface EventPhoto {
   createdAt: number;
 }
 
+export interface EventCreatePayload {
+  mbAlbumId: string;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  extras: EventExtras;
+  spotifyPlaylistUrl: string | null;
+}
+
+export interface MusicBrainzTrack {
+  id: string;
+  title: string;
+  position: number;
+  length: number; // ms
+}
+
+export interface MusicBrainzRelease {
+  id: string;
+  title: string;
+  artistCredit: string;
+  date: string;
+  tracks: MusicBrainzTrack[];
+}
+
 export interface ApiResponse<T> {
   data: T;
   error?: string;

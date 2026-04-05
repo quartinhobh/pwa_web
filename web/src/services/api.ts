@@ -1,3 +1,5 @@
+import type { Event, MusicBrainzRelease, MusicBrainzTrack } from '@/types';
+
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000';
 
 export interface GuestSessionResponse {
@@ -33,4 +35,47 @@ export async function postLinkSession(
   });
   if (!res.ok) throw new Error(`POST /auth/link failed: ${res.status}`);
   return (await res.json()) as LinkSessionResponse;
+}
+
+export async function fetchEvents(): Promise<Event[]> {
+  const res = await fetch(`${API_URL}/events`);
+  if (!res.ok) throw new Error(`GET /events failed: ${res.status}`);
+  const body = (await res.json()) as { events: Event[] };
+  return body.events;
+}
+
+export async function fetchCurrentEvent(): Promise<Event | null> {
+  const res = await fetch(`${API_URL}/events/current`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`GET /events/current failed: ${res.status}`);
+  const body = (await res.json()) as { event: Event };
+  return body.event;
+}
+
+export async function fetchEventById(id: string): Promise<Event | null> {
+  const res = await fetch(`${API_URL}/events/${encodeURIComponent(id)}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`GET /events/${id} failed: ${res.status}`);
+  const body = (await res.json()) as { event: Event };
+  return body.event;
+}
+
+export async function fetchMusicBrainzAlbum(
+  mbid: string,
+): Promise<MusicBrainzRelease> {
+  const res = await fetch(`${API_URL}/mb/album/${encodeURIComponent(mbid)}`);
+  if (!res.ok) throw new Error(`GET /mb/album failed: ${res.status}`);
+  const body = (await res.json()) as { release: MusicBrainzRelease };
+  return body.release;
+}
+
+export async function fetchMusicBrainzTracks(
+  mbid: string,
+): Promise<MusicBrainzTrack[]> {
+  const res = await fetch(
+    `${API_URL}/mb/release-groups/${encodeURIComponent(mbid)}/tracks`,
+  );
+  if (!res.ok) throw new Error(`GET /mb/tracks failed: ${res.status}`);
+  const body = (await res.json()) as { tracks: MusicBrainzTrack[] };
+  return body.tracks;
 }

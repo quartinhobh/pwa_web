@@ -29,7 +29,13 @@ async function clearAuth(): Promise<void> {
   );
 }
 
-describe('POST /auth/guest', () => {
+const EMULATOR = !!process.env.FIRESTORE_EMULATOR_HOST;
+if (!EMULATOR) {
+  // eslint-disable-next-line no-console
+  console.log('[auth.test] skipping: FIRESTORE_EMULATOR_HOST not set');
+}
+
+describe.skipIf(!EMULATOR)('POST /auth/guest', () => {
   beforeAll(async () => {
     await clearFirestore();
     await clearAuth();
@@ -71,7 +77,7 @@ describe('POST /auth/guest', () => {
   });
 });
 
-describe('POST /auth/link', () => {
+describe.skipIf(!EMULATOR)('POST /auth/link', () => {
   let uid: string;
   let idToken: string;
   let sessionId: string;
