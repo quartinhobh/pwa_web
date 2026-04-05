@@ -5,7 +5,8 @@
         ".read": "auth != null",
         "messages": {
           "$messageId": {
-            ".write": "auth != null && !root.child('bans').child(auth.uid).exists() && !data.child('isDeleted').exists()"
+            ".write": "auth != null && !root.child('bans').child(auth.uid).exists() && !data.child('isDeleted').exists()",
+            ".validate": "newData.hasChildren(['uid','displayName','text','timestamp']) && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 500"
           }
         }
       }

@@ -1,7 +1,11 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
-import { getDatabase, type Database } from 'firebase/database';
+import {
+  getDatabase,
+  connectDatabaseEmulator,
+  type Database,
+} from 'firebase/database';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 interface FirebaseClientConfig {
@@ -45,6 +49,11 @@ export const storage: FirebaseStorage = getStorage(firebaseApp);
 if (import.meta.env.VITE_USE_EMULATOR === 'true') {
   try {
     connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+  } catch {
+    // already connected
+  }
+  try {
+    connectDatabaseEmulator(realtimeDb, 'localhost', 9000);
   } catch {
     // already connected
   }
