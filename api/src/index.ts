@@ -1,18 +1,21 @@
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import { globalLimiter } from './middleware/rateLimit';
+import { authRouter } from './routes/auth';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
 app.use(cors());
 app.use(express.json());
+app.use(globalLimiter);
 
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', service: 'quartinho-api' });
 });
 
-// Routes are added by feature-builder in Phase 3.
+app.use('/auth', authRouter);
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
