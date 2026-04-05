@@ -1,0 +1,27 @@
+services:
+  firebase-emulators:
+    image: andreysenov/firebase-tools:latest-node-20
+    command: >
+      firebase emulators:start
+      --only auth,firestore,database,storage
+      --project=quartinho-dev
+      --export-on-exit=/data
+      --import=/data
+    working_dir: /firebase
+    volumes:
+      - ./firebase.json:/firebase/firebase.json:ro
+      - ./firebase:/firebase/firebase:ro
+      - ./.firebase-data:/data
+    ports:
+      - "9099:9099"
+      - "8080:8080"
+      - "9000:9000"
+      - "9199:9199"
+      - "4000:4000"
+      - "4400:4400"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4400/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s

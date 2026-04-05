@@ -12,7 +12,11 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "emulators": "bunx firebase-tools emulators:start --only auth,firestore,database"
+    "emulators": "bunx firebase-tools emulators:start --only auth,firestore,database,storage",
+    "emulators:up": "docker compose up -d firebase-emulators",
+    "emulators:down": "docker compose down",
+    "emulators:logs": "docker compose logs -f firebase-emulators",
+    "test:emulators": "FIRESTORE_EMULATOR_HOST=localhost:8080 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_DATABASE_EMULATOR_HOST=localhost:9000 FIREBASE_STORAGE_EMULATOR_HOST=localhost:9199 bun run --filter=api test"
   },
   "devDependencies": {
     "turbo": "^2.0.0",

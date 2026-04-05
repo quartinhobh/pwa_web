@@ -34,10 +34,14 @@ bun-debug.log*
 dagrobin.db
 tasks/dagrobin.db
 tasks/blobs/
+tasks
 
 # Firebase
 .firebase/
+.firebase-data/
 firebase-debug.log
 
 # PWA
 web/dev-dist/
+
+private_key.json
