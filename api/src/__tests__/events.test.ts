@@ -139,4 +139,51 @@ describe.skipIf(!EMULATOR)('Events API', () => {
     const gone = await request(app).get(`/events/${id}`);
     expect(gone.status).toBe(404);
   });
+
+  it('PUT /events/:id/spotify — admin sets valid URL, rejects bad ones', async () => {
+    const { token } = await createUserWithRole('admin');
+    const created = await request(app)
+      .post('/events')
+      .set('Authorization', `Bearer ${token}`)
+      .send(samplePayload);
+    const id = created.body.event.id as string;
+
+    // Valid
+    const ok = await request(app)
+      .put(`/events/${id}/spotify`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        spotifyPlaylistUrl: 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
+      });
+    expect(ok.status).toBe(200);
+    expect(ok.body.event.spotifyPlaylistUrl).toContain('open.spotify.com/playlist/');
+
+    // Invalid URL
+    const bad = await request(app)
+      .put(`/events/${id}/spotify`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ spotifyPlaylistUrl: 'https://example.com/nope' });
+    expect(bad.status).toBe(400);
+  });
+});
+
+describe('PUT /events/:id/spotify (unconditional)', () => {
+  it('rejects unauthenticated requests with 401', async () => {
+    const res = await request(app)
+      .put('/events/e1/spotify')
+      .send({
+        spotifyPlaylistUrl: 'https://open.spotify.com/playlist/abc123',
+      });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects invalid bearer token with 401', async () => {
+    const res = await request(app)
+      .put('/events/e1/spotify')
+      .set('Authorization', 'Bearer nope')
+      .send({
+        spotifyPlaylistUrl: 'https://open.spotify.com/playlist/abc123',
+      });
+    expect(res.status).toBe(401);
+  });
 });

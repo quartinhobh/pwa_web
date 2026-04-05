@@ -166,6 +166,69 @@ describe.skipIf(!EMULATOR)('POST /auth/link', () => {
   });
 });
 
+describe('GET /auth/me (unconditional)', () => {
+  it('returns 401 without bearer token', async () => {
+    const res = await request(app).get('/auth/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 401 with invalid bearer token', async () => {
+    const res = await request(app)
+      .get('/auth/me')
+      .set('Authorization', 'Bearer not-a-token');
+    expect(res.status).toBe(401);
+  });
+});
+
+describe.skipIf(!EMULATOR)('GET /auth/me (emulator)', () => {
+  beforeEach(async () => {
+    await clearFirestore();
+    await clearAuth();
+  });
+
+  it('returns the linked user with role=user after /auth/link', async () => {
+    const user = await adminAuth.createUser({
+      email: `me-${Date.now()}@example.com`,
+      password: 'testpass123',
+      displayName: 'MeTester',
+    });
+    const customToken = await adminAuth.createCustomToken(user.uid);
+    const authHost = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099';
+    const exchange = await fetch(
+      `http://${authHost}/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=fake-api-key`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: customToken, returnSecureToken: true }),
+      },
+    );
+    const { idToken } = (await exchange.json()) as { idToken: string };
+
+    // Before linking, /me should still succeed with guest fallback.
+    const beforeLink = await request(app)
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${idToken}`);
+    expect(beforeLink.status).toBe(200);
+    expect(beforeLink.body.userId).toBe(user.uid);
+    expect(beforeLink.body.role).toBe('guest');
+
+    // Link creates the users/{uid} doc with role=user.
+    const guestRes = await request(app).post('/auth/guest').send({});
+    await request(app)
+      .post('/auth/link')
+      .set('Authorization', `Bearer ${idToken}`)
+      .send({ sessionId: guestRes.body.sessionId });
+
+    const afterLink = await request(app)
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${idToken}`);
+    expect(afterLink.status).toBe(200);
+    expect(afterLink.body.userId).toBe(user.uid);
+    expect(afterLink.body.role).toBe('user');
+    expect(afterLink.body.displayName).toBe('MeTester');
+  });
+});
+
 afterAll(async () => {
   // best-effort cleanup
 });

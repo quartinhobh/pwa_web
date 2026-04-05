@@ -1,17 +1,114 @@
 import type {
   Ban,
   Event,
+  EventExtras,
   EventStatus,
   ModerationLog,
   MusicBrainzRelease,
   MusicBrainzTrack,
   Photo,
   PhotoCategory,
+  UserRole,
   UserVote,
   VoteTallies,
 } from '@/types';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000';
+
+export interface CurrentUserResponse {
+  userId: string;
+  email: string | null;
+  displayName: string;
+  role: UserRole;
+}
+
+export async function fetchCurrentUser(
+  idToken: string,
+): Promise<CurrentUserResponse> {
+  const res = await fetch(`${API_URL}/auth/me`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) throw new Error(`GET /auth/me failed: ${res.status}`);
+  return (await res.json()) as CurrentUserResponse;
+}
+
+export interface EventCreatePayload {
+  mbAlbumId: string;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  extras: EventExtras;
+  spotifyPlaylistUrl: string | null;
+}
+
+export async function createEvent(
+  payload: EventCreatePayload,
+  idToken: string,
+): Promise<Event> {
+  const res = await fetch(`${API_URL}/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`POST /events failed: ${res.status}`);
+  const body = (await res.json()) as { event: Event };
+  return body.event;
+}
+
+export async function updateEvent(
+  id: string,
+  patch: Partial<EventCreatePayload>,
+  idToken: string,
+): Promise<Event> {
+  const res = await fetch(`${API_URL}/events/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) throw new Error(`PUT /events/${id} failed: ${res.status}`);
+  const body = (await res.json()) as { event: Event };
+  return body.event;
+}
+
+export async function deleteEvent(
+  id: string,
+  idToken: string,
+): Promise<void> {
+  const res = await fetch(`${API_URL}/events/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) throw new Error(`DELETE /events/${id} failed: ${res.status}`);
+}
+
+export async function setSpotifyPlaylist(
+  eventId: string,
+  spotifyPlaylistUrl: string,
+  idToken: string,
+): Promise<Event> {
+  const res = await fetch(
+    `${API_URL}/events/${encodeURIComponent(eventId)}/spotify`,
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ spotifyPlaylistUrl }),
+    },
+  );
+  if (!res.ok)
+    throw new Error(`PUT /events/${eventId}/spotify failed: ${res.status}`);
+  const body = (await res.json()) as { event: Event };
+  return body.event;
+}
 
 export interface GuestSessionResponse {
   sessionId: string;

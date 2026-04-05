@@ -117,6 +117,36 @@ eventsRouter.put(
   },
 );
 
+const SPOTIFY_PLAYLIST_RE =
+  /^https:\/\/open\.spotify\.com\/playlist\/[A-Za-z0-9]+(\?.*)?$/;
+
+eventsRouter.put(
+  '/:id/spotify',
+  writeLimiter,
+  requireAuth,
+  requireRole('admin'),
+  async (req: Request, res: Response) => {
+    const body = req.body as { spotifyPlaylistUrl?: unknown } | undefined;
+    const url = body?.spotifyPlaylistUrl;
+    if (typeof url !== 'string' || !SPOTIFY_PLAYLIST_RE.test(url)) {
+      res.status(400).json({ error: 'invalid_spotify_url' });
+      return;
+    }
+    try {
+      const updated = await updateEvent(req.params.id!, {
+        spotifyPlaylistUrl: url,
+      });
+      if (!updated) {
+        res.status(404).json({ error: 'not_found' });
+        return;
+      }
+      res.status(200).json({ event: updated });
+    } catch {
+      res.status(500).json({ error: 'spotify_update_failed' });
+    }
+  },
+);
+
 eventsRouter.delete(
   '/:id',
   writeLimiter,

@@ -5,10 +5,12 @@
 import { Router, type Request, type Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { authGuestLimiter } from '../middleware/rateLimit';
+import { adminDb } from '../config/firebase';
 import {
   createGuestSession,
   linkSessionToUser,
 } from '../services/sessionService';
+import type { UserRole } from '../types';
 
 export const authRouter: Router = Router();
 
@@ -57,6 +59,41 @@ authRouter.post(
         return;
       }
       res.status(500).json({ error: 'link_failed' });
+    }
+  },
+);
+
+// GET /auth/me — returns the authenticated user's profile.
+// Reads users/{uid}; if the doc does not exist yet (e.g. first call before
+// /auth/link), returns a safe default with role='guest'.
+authRouter.get(
+  '/me',
+  requireAuth,
+  async (req: Request, res: Response) => {
+    if (!req.user) {
+      res.status(401).json({ error: 'unauthenticated' });
+      return;
+    }
+    try {
+      const uid = req.user.uid;
+      const snap = await adminDb.collection('users').doc(uid).get();
+      const data = snap.exists
+        ? (snap.data() as {
+            email?: string | null;
+            displayName?: string;
+            role?: UserRole;
+          })
+        : undefined;
+      res.status(200).json({
+        userId: uid,
+        email: data?.email ?? req.user.email ?? null,
+        displayName:
+          data?.displayName ??
+          ((req.user.name as string | undefined) ?? 'Guest'),
+        role: (data?.role ?? 'guest') as UserRole,
+      });
+    } catch {
+      res.status(500).json({ error: 'me_failed' });
     }
   },
 );

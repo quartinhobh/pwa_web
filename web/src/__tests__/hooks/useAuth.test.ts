@@ -52,10 +52,21 @@ describe('useAuth', () => {
     signInWithPopupMock.mockResolvedValue({
       user: { uid: 'uid-999', getIdToken: vi.fn().mockResolvedValue('idtok-abc') },
     });
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ success: true, firebaseUid: 'uid-999' }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, firebaseUid: 'uid-999' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          userId: 'uid-999',
+          email: 'a@b.com',
+          displayName: 'A',
+          role: 'user',
+        }),
+      });
     vi.stubGlobal('fetch', fetchMock);
 
     const { result } = renderHook(() => useAuth());
@@ -72,6 +83,46 @@ describe('useAuth', () => {
       }),
     );
     await waitFor(() => expect(useSessionStore.getState().firebaseUid).toBe('uid-999'));
+  });
+
+  it('signInWithGoogle fetches /auth/me and stores role/email/displayName', async () => {
+    signInWithPopupMock.mockResolvedValue({
+      user: { uid: 'uid-admin', getIdToken: vi.fn().mockResolvedValue('idtok-admin') },
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, firebaseUid: 'uid-admin' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          userId: 'uid-admin',
+          email: 'admin@quartinho.test',
+          displayName: 'Gustavo',
+          role: 'admin',
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useAuth());
+    await act(async () => {
+      await result.current.signInWithGoogle();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/auth/me'),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer idtok-admin' }),
+      }),
+    );
+    await waitFor(() => {
+      const state = useSessionStore.getState();
+      expect(state.role).toBe('admin');
+      expect(state.email).toBe('admin@quartinho.test');
+      expect(state.displayName).toBe('Gustavo');
+    });
   });
 
   it('signOut clears firebaseUid in the store', async () => {
