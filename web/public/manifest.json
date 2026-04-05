@@ -1,0 +1,22 @@
+{
+  "name": "Quartinho - Clube de Escuta",
+  "short_name": "Quartinho",
+  "description": "Clube de escuta coletiva",
+  "theme_color": "#98D9C2",
+  "background_color": "#F5F5DC",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

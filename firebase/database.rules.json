@@ -1,0 +1,14 @@
+{
+  "rules": {
+    "chats": {
+      "$eventId": {
+        ".read": "auth != null",
+        "messages": {
+          "$messageId": {
+            ".write": "auth != null && !root.child('bans').child(auth.uid).exists() && !data.child('isDeleted').exists()"
+          }
+        }
+      }
+    }
+  }
+}
