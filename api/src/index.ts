@@ -5,6 +5,7 @@ import { globalLimiter } from './middleware/rateLimit';
 import { authRouter } from './routes/auth';
 import { eventsRouter } from './routes/events';
 import { musicbrainzRouter } from './routes/musicbrainz';
+import { lyricsRouter } from './routes/lyrics';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -20,6 +21,7 @@ app.get('/health', (_req: Request, res: Response) => {
 app.use('/auth', authRouter);
 app.use('/events', eventsRouter);
 app.use('/mb', musicbrainzRouter);
+app.use('/lyrics', lyricsRouter);
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {

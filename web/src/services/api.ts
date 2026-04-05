@@ -69,6 +69,23 @@ export async function fetchMusicBrainzAlbum(
   return body.release;
 }
 
+export interface LyricsResponse {
+  lyrics: string | null;
+  source: string | null;
+  cached: boolean;
+}
+
+export async function fetchLyrics(
+  artist: string,
+  title: string,
+): Promise<LyricsResponse> {
+  const res = await fetch(
+    `${API_URL}/lyrics/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`,
+  );
+  if (!res.ok) throw new Error(`GET /lyrics failed: ${res.status}`);
+  return (await res.json()) as LyricsResponse;
+}
+
 export async function fetchMusicBrainzTracks(
   mbid: string,
 ): Promise<MusicBrainzTrack[]> {
