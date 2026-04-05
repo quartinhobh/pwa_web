@@ -1,4 +1,10 @@
-import type { Event, MusicBrainzRelease, MusicBrainzTrack } from '@/types';
+import type {
+  Event,
+  MusicBrainzRelease,
+  MusicBrainzTrack,
+  UserVote,
+  VoteTallies,
+} from '@/types';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:3000';
 
@@ -84,6 +90,44 @@ export async function fetchLyrics(
   );
   if (!res.ok) throw new Error(`GET /lyrics failed: ${res.status}`);
   return (await res.json()) as LyricsResponse;
+}
+
+export async function fetchTallies(eventId: string): Promise<VoteTallies> {
+  const res = await fetch(`${API_URL}/votes/${encodeURIComponent(eventId)}`);
+  if (!res.ok) throw new Error(`GET /votes/${eventId} failed: ${res.status}`);
+  return (await res.json()) as VoteTallies;
+}
+
+export async function fetchUserVote(
+  eventId: string,
+  idToken: string | null,
+): Promise<UserVote | null> {
+  if (!idToken) return null;
+  const res = await fetch(
+    `${API_URL}/votes/${encodeURIComponent(eventId)}/user`,
+    { headers: { Authorization: `Bearer ${idToken}` } },
+  );
+  if (!res.ok) throw new Error(`GET /votes/${eventId}/user failed: ${res.status}`);
+  const body = (await res.json()) as { vote: UserVote | null };
+  return body.vote;
+}
+
+export async function postVote(
+  eventId: string,
+  idToken: string,
+  favoriteTrackId: string,
+  leastLikedTrackId: string,
+): Promise<VoteTallies> {
+  const res = await fetch(`${API_URL}/votes/${encodeURIComponent(eventId)}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ favoriteTrackId, leastLikedTrackId }),
+  });
+  if (!res.ok) throw new Error(`POST /votes/${eventId} failed: ${res.status}`);
+  return (await res.json()) as VoteTallies;
 }
 
 export async function fetchMusicBrainzTracks(

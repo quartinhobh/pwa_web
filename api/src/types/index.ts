@@ -70,6 +70,31 @@ export interface VoteRecord {
   updatedAt: number;
 }
 
+// ── P3-D Voting contract ───────────────────────────────────────────────
+
+export interface VoteSubmission {
+  eventId: string;
+  favoriteTrackId: string;
+  leastLikedTrackId: string;
+}
+
+export interface VoteBucket {
+  count: number;
+  voterIds: string[];
+}
+
+export interface VoteTallies {
+  favorites: Record<string, VoteBucket>;
+  leastLiked: Record<string, VoteBucket>;
+  updatedAt: number;
+}
+
+export interface UserVote {
+  favoriteTrackId: string;
+  leastLikedTrackId: string;
+  updatedAt: number;
+}
+
 export interface ChatMessage {
   uid: string;
   displayName: string;
