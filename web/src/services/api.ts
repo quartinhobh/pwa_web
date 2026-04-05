@@ -1,9 +1,12 @@
 import type {
   Ban,
   Event,
+  EventStatus,
   ModerationLog,
   MusicBrainzRelease,
   MusicBrainzTrack,
+  Photo,
+  PhotoCategory,
   UserVote,
   VoteTallies,
 } from '@/types';
@@ -45,8 +48,9 @@ export async function postLinkSession(
   return (await res.json()) as LinkSessionResponse;
 }
 
-export async function fetchEvents(): Promise<Event[]> {
-  const res = await fetch(`${API_URL}/events`);
+export async function fetchEvents(status?: EventStatus): Promise<Event[]> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  const res = await fetch(`${API_URL}/events${qs}`);
   if (!res.ok) throw new Error(`GET /events failed: ${res.status}`);
   const body = (await res.json()) as { events: Event[] };
   return body.events;
@@ -205,6 +209,52 @@ export async function fetchModerationLogs(
   if (!res.ok) throw new Error(`GET moderation/logs failed: ${res.status}`);
   const body = (await res.json()) as { logs: ModerationLog[] };
   return body.logs;
+}
+
+// ── P3-G Photos ────────────────────────────────────────────────────
+
+export async function fetchPhotos(eventId: string): Promise<Photo[]> {
+  const res = await fetch(`${API_URL}/photos/${encodeURIComponent(eventId)}`);
+  if (!res.ok) throw new Error(`GET /photos/${eventId} failed: ${res.status}`);
+  const body = (await res.json()) as { photos: Photo[] };
+  return body.photos;
+}
+
+export async function uploadPhoto(
+  eventId: string,
+  category: PhotoCategory,
+  file: File,
+  idToken: string,
+): Promise<Photo> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(
+    `${API_URL}/photos/${encodeURIComponent(eventId)}/${category}/upload`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}` },
+      body: form,
+    },
+  );
+  if (!res.ok) throw new Error(`POST /photos upload failed: ${res.status}`);
+  const body = (await res.json()) as { photo: Photo };
+  return body.photo;
+}
+
+export async function deletePhoto(
+  eventId: string,
+  category: PhotoCategory,
+  photoId: string,
+  idToken: string,
+): Promise<void> {
+  const res = await fetch(
+    `${API_URL}/photos/${encodeURIComponent(eventId)}/${category}/${encodeURIComponent(photoId)}`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${idToken}` },
+    },
+  );
+  if (!res.ok) throw new Error(`DELETE /photos failed: ${res.status}`);
 }
 
 export async function fetchMusicBrainzTracks(

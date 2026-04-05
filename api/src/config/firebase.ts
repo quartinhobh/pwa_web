@@ -1,12 +1,17 @@
 // Firebase Admin SDK initialization.
 // Owner: architect (stub) / feature-builder (wiring). No business logic here.
 //
-// Supports two modes:
-//   1. Production: service-account credentials from env vars.
-//   2. Emulator: when FIREBASE_AUTH_EMULATOR_HOST / FIRESTORE_EMULATOR_HOST /
-//      FIREBASE_DATABASE_EMULATOR_HOST are set, Admin SDK auto-detects them.
-//      A projectId is still required — we fall back to 'quartinho-emulator'.
+// Credential resolution order (first match wins):
+//   1. Emulator: FIREBASE_AUTH_EMULATOR_HOST / FIRESTORE_EMULATOR_HOST /
+//      FIREBASE_DATABASE_EMULATOR_HOST set → no credentials needed.
+//   2. FIREBASE_SERVICE_ACCOUNT_PATH → path to the service-account JSON
+//      (e.g. ../private_key.json). Recommended for local dev.
+//   3. FIREBASE_PROJECT_ID + FIREBASE_CLIENT_EMAIL + FIREBASE_PRIVATE_KEY env
+//      vars (useful for hosted deploys that only accept env).
+//   4. GOOGLE_APPLICATION_CREDENTIALS via applicationDefault() (GCP runtime).
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   applicationDefault,
   cert,
@@ -17,6 +22,7 @@ import {
 import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { getDatabase, type Database } from 'firebase-admin/database';
+import { getStorage, type Storage } from 'firebase-admin/storage';
 
 function buildApp(): App {
   const existing = getApps()[0];
@@ -40,6 +46,27 @@ function buildApp(): App {
     });
   }
 
+  // (2) Service-account JSON file on disk — recommended for local dev.
+  const saPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+  if (saPath) {
+    const absolute = resolve(process.cwd(), saPath);
+    const raw = readFileSync(absolute, 'utf8');
+    const json = JSON.parse(raw) as {
+      project_id: string;
+      client_email: string;
+      private_key: string;
+    };
+    return initializeApp({
+      credential: cert({
+        projectId: json.project_id,
+        clientEmail: json.client_email,
+        privateKey: json.private_key,
+      }),
+      databaseURL: process.env.FIREBASE_DATABASE_URL,
+    });
+  }
+
+  // (3) Individual env vars (hosted deploys).
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
@@ -66,4 +93,8 @@ const app: App = buildApp();
 export const adminAuth: Auth = getAuth(app);
 export const adminDb: Firestore = getFirestore(app);
 export const adminRtdb: Database = getDatabase(app);
+export const adminStorage: Storage = getStorage(app);
+export const STORAGE_BUCKET: string =
+  process.env.FIREBASE_STORAGE_BUCKET ??
+  `${process.env.FIREBASE_PROJECT_ID ?? 'quartinho-emulator'}.appspot.com`;
 export const adminApp: App = app;

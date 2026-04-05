@@ -140,6 +140,10 @@ Auth: any authenticated user.
 
 ## Photos
 
+### GET /photos/:eventId
+Public. Returns all photos across both categories for an event, sorted by `createdAt` desc.
+- 200: `{ photos: Photo[] }` where `Photo = { id, url, category: 'category1'|'category2', uploadedBy, createdAt }`
+
 ### POST /photos/:eventId/category1/upload  [Admin]
 - multipart/form-data, field `file` (image, ≤5MB, jpg/png/webp)
 - 201: `EventPhoto`

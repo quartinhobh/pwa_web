@@ -8,6 +8,7 @@ import { musicbrainzRouter } from './routes/musicbrainz';
 import { lyricsRouter } from './routes/lyrics';
 import { votesRouter } from './routes/votes';
 import { moderationRouter } from './routes/moderation';
+import { photosRouter } from './routes/photos';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -26,6 +27,7 @@ app.use('/mb', musicbrainzRouter);
 app.use('/lyrics', lyricsRouter);
 app.use('/votes', votesRouter);
 app.use('/moderation', moderationRouter);
+app.use('/photos', photosRouter);
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {

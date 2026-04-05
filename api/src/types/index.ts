@@ -144,6 +144,24 @@ export interface EventPhoto {
   createdAt: number;
 }
 
+// ── P3-G Photos ────────────────────────────────────────────────────────
+
+export type PhotoCategory = 'category1' | 'category2';
+
+export interface Photo {
+  id: string;
+  url: string;
+  category: PhotoCategory;
+  uploadedBy: string;
+  createdAt: number;
+}
+
+export interface PhotoUploadPayload {
+  category: PhotoCategory;
+  file: Buffer;
+  mimeType: string;
+}
+
 export interface EventCreatePayload {
   mbAlbumId: string;
   title: string;
