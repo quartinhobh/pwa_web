@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { LoadingState } from '@/components/common/LoadingState';
 import ZineFrame from '@/components/common/ZineFrame';
 import { useShopData } from '@/hooks/useShopData';
 import type { PixConfig } from '@/types';
@@ -85,11 +84,7 @@ function PixQrCode({ config }: { config: PixConfig }) {
 }
 
 export const Shop: React.FC = () => {
-  const { products, pix, loading } = useShopData(null);
-
-  if (loading && products.length === 0) {
-    return <LoadingState />;
-  }
+  const { products, pix } = useShopData(null);
 
   const hasPix = !!pix.key;
   if (products.length === 0 && !hasPix) {

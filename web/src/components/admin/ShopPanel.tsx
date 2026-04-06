@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -15,7 +15,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ZineFrame from '@/components/common/ZineFrame';
-import { LoadingState } from '@/components/common/LoadingState';
 import Button from '@/components/common/Button';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/services/firebase';
@@ -54,9 +53,14 @@ export interface ShopPanelProps {
 }
 
 export const ShopPanel: React.FC<ShopPanelProps> = ({ mode = 'all' }) => {
-  const { products, pix, loading, refresh } = useShopData(null);
+  const { products, pix, refresh } = useShopData(null);
   const [pixLocal, setPixLocal] = useState(pix);
   const [pixSaved, setPixSaved] = useState(false);
+
+  // Sync local pix state when cache updates
+  useEffect(() => {
+    setPixLocal(pix);
+  }, [pix]);
 
   const [emoji, setEmoji] = useState('');
   const [name, setName] = useState('');
@@ -109,8 +113,6 @@ export const ShopPanel: React.FC<ShopPanelProps> = ({ mode = 'all' }) => {
     await deleteShopProduct(id, token);
     await refresh();
   }
-
-  if (loading && products.length === 0) return <LoadingState />;
 
   const showPix = mode === 'pix' || mode === 'all';
   const showProducts = mode === 'products' || mode === 'all';
