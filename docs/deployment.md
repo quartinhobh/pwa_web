@@ -30,6 +30,8 @@ bunx firebase-tools login          # Firebase CLI (interativo, abre browser)
 2. Nome: `quartinho` (ou o que quiser)
 3. Desabilita Google Analytics (não precisa)
 
+ grep '^FIREBASE_PRIVATE_KEY=' api/.env.production | cut -d= -f2- | tr -d '"' | sed 's/\\n/\n/g' | pbcopy    
+
 ### 1.2 Criar bancos de dados
 Cada um precisa ser criado **manualmente** no Console:
 
