@@ -7,7 +7,7 @@ import app from '../index';
 
 const EMULATOR = !!process.env.FIRESTORE_EMULATOR_HOST;
 if (!EMULATOR) {
-  // eslint-disable-next-line no-console
+   
   console.log('[events.test] skipping: FIRESTORE_EMULATOR_HOST not set');
 }
 

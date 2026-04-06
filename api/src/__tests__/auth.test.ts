@@ -31,7 +31,7 @@ async function clearAuth(): Promise<void> {
 
 const EMULATOR = !!process.env.FIRESTORE_EMULATOR_HOST;
 if (!EMULATOR) {
-  // eslint-disable-next-line no-console
+   
   console.log('[auth.test] skipping: FIRESTORE_EMULATOR_HOST not set');
 }
 

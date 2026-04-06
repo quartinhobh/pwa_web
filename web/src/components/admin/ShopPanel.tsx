@@ -84,7 +84,7 @@ export const ShopPanel: React.FC<ShopPanelProps> = ({ mode = 'all' }) => {
     setLoading(false);
   }
 
-  useEffect(() => { void refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void refresh(); }, []);  
 
   async function savePix() {
     const token = await getToken();
