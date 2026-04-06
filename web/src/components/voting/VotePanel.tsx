@@ -30,6 +30,7 @@ export const VotePanel: React.FC<VotePanelProps> = ({
   const [localError, setLocalError] = useState<string | null>(null);
 
   const alreadyVoted = !!userVote;
+  const [collapsed, setCollapsed] = useState(!!userVote);
   const sameTrack = favorite !== null && favorite === least;
   const canSubmit = !!favorite && !!least && !sameTrack && !submitting;
 
@@ -40,12 +41,30 @@ export const VotePanel: React.FC<VotePanelProps> = ({
     try {
       await onSubmit(favorite, least);
       setConfirmed(true);
+      setCollapsed(true);
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'vote_failed');
     } finally {
       setSubmitting(false);
     }
   };
+
+  if (collapsed) {
+    return (
+      <ZineFrame bg="mint">
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+          className="w-full flex items-center justify-between"
+        >
+          <h3 className="font-display text-zine-burntOrange text-xl">Votação</h3>
+          <span className="font-body text-zine-burntOrange text-sm">
+            ✓ voto registrado · ver detalhes
+          </span>
+        </button>
+      </ZineFrame>
+    );
+  }
 
   return (
     <ZineFrame bg="mint">

@@ -55,6 +55,9 @@ export const Header: React.FC = () => {
             </button>
             {isAuthenticated ? (
               <>
+                <span className="font-body text-sm text-zine-cream truncate max-w-[120px]">
+                  {user?.displayName ?? user?.email ?? ''}
+                </span>
                 {isAdminOrMod && (
                   <Link
                     to="/admin"
@@ -63,9 +66,6 @@ export const Header: React.FC = () => {
                     admin
                   </Link>
                 )}
-                <span className="font-body text-sm text-zine-cream truncate max-w-[120px]">
-                  {user?.displayName ?? user?.email ?? ''}
-                </span>
                 <button
                   type="button"
                   onClick={() => void signOut()}

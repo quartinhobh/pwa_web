@@ -82,8 +82,8 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId }) => {
 
   return (
     <div className="flex flex-col gap-4">
-      <AlbumDisplay event={event} album={album} />
-      <TrackList tracks={album?.tracks ?? []} />
+      <AlbumDisplay event={event} album={album} coverUrl={event.album?.coverUrl} />
+      <TrackList tracks={album?.tracks ?? []} artistCredit={album?.artistCredit} />
       <VoteResults tallies={tallies} tracks={album?.tracks ?? []} />
 
       <ZineFrame bg="periwinkle" borderColor="cream">
@@ -105,7 +105,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId }) => {
                 : 'bg-zine-periwinkle text-zine-cream'
             }`}
           >
-            Categoria 1
+            Fotos do evento
           </button>
           <button
             type="button"
@@ -119,7 +119,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId }) => {
                 : 'bg-zine-periwinkle text-zine-cream'
             }`}
           >
-            Categoria 2
+            Playlist
           </button>
         </div>
         {visible.length === 0 ? (

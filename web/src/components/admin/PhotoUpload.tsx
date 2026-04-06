@@ -60,8 +60,8 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
             onChange={(e) => setCategory(e.target.value as PhotoCategory)}
             className="border-4 border-zine-burntYellow bg-zine-cream text-zine-burntOrange font-body p-2"
           >
-            <option value="category1">Categoria 1</option>
-            <option value="category2">Categoria 2</option>
+            <option value="category1">Fotos do evento</option>
+            <option value="category2">Playlist</option>
           </select>
         </label>
 

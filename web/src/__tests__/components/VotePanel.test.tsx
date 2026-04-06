@@ -22,7 +22,8 @@ describe('VotePanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /enviar voto/i }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('t1', 't3'));
-    expect(await screen.findByText('Voto registrado.')).toBeInTheDocument();
+    // After submit the panel collapses — look for the collapsed banner.
+    expect(await screen.findByText(/voto registrado/i)).toBeInTheDocument();
   });
 
   it('disables submit when same track chosen for both', () => {
@@ -37,7 +38,7 @@ describe('VotePanel', () => {
     expect(screen.getByRole('button', { name: /enviar voto/i })).toBeDisabled();
   });
 
-  it('is disabled and shows prior selection when already voted', () => {
+  it('is collapsed when already voted and expands on click', async () => {
     const onSubmit = vi.fn();
     render(
       <VotePanel
@@ -50,9 +51,11 @@ describe('VotePanel', () => {
         onSubmit={onSubmit}
       />,
     );
-    // Confirmation shown immediately
-    expect(screen.getByText('Voto registrado.')).toBeInTheDocument();
-    // Fields disabled
+    // Collapsed state shows summary.
+    expect(screen.getByText(/voto registrado/i)).toBeInTheDocument();
+    // Expand.
+    fireEvent.click(screen.getByText(/ver detalhes/i));
+    // Now the radios are visible and disabled.
     const favBeta = screen.getAllByRole('radio', { name: 'Beta' })[0]!;
     expect(favBeta).toBeDisabled();
     expect((favBeta as HTMLInputElement).checked).toBe(true);

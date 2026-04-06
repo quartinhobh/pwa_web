@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useEvent } from '@/hooks/useEvent';
-import { useLyrics } from '@/hooks/useLyrics';
 import { useVotes } from '@/hooks/useVotes';
 import { useAuth } from '@/hooks/useAuth';
 import { AlbumDisplay } from '@/components/events/AlbumDisplay';
 import { TrackList } from '@/components/events/TrackList';
-import { LyricsDisplay } from '@/components/events/LyricsDisplay';
 import { VotePanel } from '@/components/voting/VotePanel';
 import ZineFrame from '@/components/common/ZineFrame';
 
@@ -23,11 +21,6 @@ function shouldShowLocation(eventDate: string): boolean {
 
 export const Listen: React.FC = () => {
   const { event, album, tracks, loading, error } = useEvent(null);
-  const firstTrack = tracks[0] ?? null;
-  const { lyrics, loading: lyricsLoading } = useLyrics(
-    album?.artistCredit ?? null,
-    firstTrack?.title ?? null,
-  );
 
   const { user } = useAuth();
   const [idToken, setIdToken] = useState<string | null>(null);
@@ -99,7 +92,7 @@ export const Listen: React.FC = () => {
         </div>
       )}
 
-      <AlbumDisplay event={event} album={album} />
+      <AlbumDisplay event={event} album={album} coverUrl={event.album?.coverUrl} />
 
       {/* Date + time + location */}
       <ZineFrame bg="cream" borderColor="burntYellow">
@@ -126,10 +119,37 @@ export const Listen: React.FC = () => {
         </div>
       </ZineFrame>
 
+      {/* Event links — Spotify, extras */}
+      {(event.spotifyPlaylistUrl || event.extras.links.length > 0) && (
+        <div className="flex flex-wrap justify-center gap-3">
+          {event.spotifyPlaylistUrl && (
+            <a
+              href={event.spotifyPlaylistUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-body font-bold text-sm bg-zine-burntYellow text-zine-cream px-4 py-2 border-4 border-zine-cream dark:border-zine-cream/30 hover:bg-zine-burntOrange"
+            >
+              ouvir no Spotify
+            </a>
+          )}
+          {event.extras.links.map((link, i) => (
+            <a
+              key={i}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-body font-bold text-sm bg-zine-periwinkle dark:bg-zine-periwinkle-dark text-zine-cream px-4 py-2 border-4 border-zine-cream dark:border-zine-cream/30 hover:bg-zine-burntOrange"
+            >
+              {link.label || link.url}
+            </a>
+          ))}
+        </div>
+      )}
+
       {/* Tracks + voting (live only) */}
       {isLive && (
         <>
-          <TrackList tracks={tracks} />
+          <TrackList tracks={tracks} artistCredit={album?.artistCredit} />
           {idToken ? (
             <VotePanel
               tracks={tracks}
@@ -137,13 +157,12 @@ export const Listen: React.FC = () => {
               onSubmit={submitVote}
             />
           ) : null}
-          <LyricsDisplay lyrics={lyrics} loading={lyricsLoading} />
         </>
       )}
 
       {/* Upcoming: show tracklist preview but no voting */}
       {isUpcoming && tracks.length > 0 && (
-        <TrackList tracks={tracks} />
+        <TrackList tracks={tracks} artistCredit={album?.artistCredit} />
       )}
 
       {/* Link to past events */}

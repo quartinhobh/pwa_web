@@ -19,10 +19,26 @@ export function useAuth() {
     useSessionStore();
   const [user, setUser] = useState<User | null>(auth.currentUser ?? null);
 
+  // Sync local state + re-hydrate profile on refresh (Firebase Auth persists
+  // the user in IndexedDB but zustand's role/displayName are in localStorage
+  // which may be stale or cleared). When onAuthStateChanged fires with a user
+  // we pull fresh profile from /auth/me.
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (next) => setUser(next));
+    const unsub = onAuthStateChanged(auth, async (next) => {
+      setUser(next);
+      if (next) {
+        setFirebaseUid(next.uid);
+        try {
+          const idToken = await next.getIdToken();
+          const me = await fetchCurrentUser(idToken);
+          setStoreUser(me);
+        } catch {
+          // API offline — keep whatever localStorage had.
+        }
+      }
+    });
     return unsub;
-  }, []);
+  }, [setFirebaseUid, setStoreUser]);
 
   /** Shared post-sign-in: link session + pull profile. */
   async function afterSignIn(result: UserCredential): Promise<void> {
