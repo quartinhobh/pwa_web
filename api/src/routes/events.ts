@@ -34,7 +34,8 @@ eventsRouter.get('/current', async (_req: Request, res: Response) => {
       return;
     }
     res.status(200).json({ event });
-  } catch {
+  } catch (err) {
+    console.error('[GET /events/current]', err);
     res.status(500).json({ error: 'current_failed' });
   }
 });

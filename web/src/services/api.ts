@@ -158,7 +158,7 @@ export async function fetchEvents(status?: EventStatus): Promise<Event[]> {
 
 export async function fetchCurrentEvent(): Promise<Event | null> {
   const res = await fetch(`${API_URL}/events/current`);
-  if (res.status === 404) return null;
+  if (res.status === 404 || res.status === 500) return null;
   if (!res.ok) throw new Error(`GET /events/current failed: ${res.status}`);
   const body = (await res.json()) as { event: Event };
   return body.event;
