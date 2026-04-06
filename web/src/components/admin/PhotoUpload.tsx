@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
+import { useIdToken } from '@/hooks/useIdToken';
 import { uploadPhoto } from '@/services/api';
 import type { Photo, PhotoCategory } from '@/types';
 
 export interface PhotoUploadProps {
   eventId: string;
-  idToken: string | null;
+  idToken?: string | null;
   onUploaded?: (photo: Photo) => void;
 }
 
@@ -17,9 +18,9 @@ export interface PhotoUploadProps {
  */
 export const PhotoUpload: React.FC<PhotoUploadProps> = ({
   eventId,
-  idToken,
   onUploaded,
 }) => {
+  const idToken = useIdToken();
   const [category, setCategory] = useState<PhotoCategory>('category1');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);

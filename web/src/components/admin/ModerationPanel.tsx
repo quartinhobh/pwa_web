@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
 import { useModeration } from '@/hooks/useModeration';
+import { useIdToken } from '@/hooks/useIdToken';
 import { fetchUserProfile } from '@/services/api';
 
 export interface ModerationPanelProps {
-  idToken: string | null;
+  idToken?: string | null;
 }
 
 /** Lightweight in-memory cache: userId → displayName. */
@@ -41,7 +42,8 @@ function useUserNames(idToken: string | null, userIds: string[]) {
   return (id: string) => names[id] ?? id.slice(0, 8) + '…';
 }
 
-export const ModerationPanel: React.FC<ModerationPanelProps> = ({ idToken }) => {
+export const ModerationPanel: React.FC<ModerationPanelProps> = () => {
+  const idToken = useIdToken();
   const { bans, logs, loading, error, unbanUser } = useModeration(idToken);
   const allUserIds = [
     ...bans.map((b) => b.userId),

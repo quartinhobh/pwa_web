@@ -452,6 +452,15 @@ export async function importProductsCsv(
   return (await res.json()) as { imported: number };
 }
 
+export async function reorderProducts(ids: string[], idToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/shop/products/reorder`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) throw new Error(`PUT /shop/products/reorder failed: ${res.status}`);
+}
+
 export async function deleteShopProduct(id: string, idToken: string): Promise<void> {
   const res = await fetch(`${API_URL}/shop/products/${encodeURIComponent(id)}`, {
     method: 'DELETE',

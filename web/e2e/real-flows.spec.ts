@@ -159,7 +159,7 @@ test.describe('real flows — vote round-trip', () => {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${restToken}`,
       },
-      data: { date: '1900-01-01' },
+      data: { date: '1900-01-01', status: 'live' },
     });
     expect(put.status(), 'PUT /events/:id').toBe(200);
     await page.route(/\/mb\/album\/.*/, (route: Route) =>
@@ -198,13 +198,13 @@ test.describe('real flows — vote round-trip', () => {
     await expect(page.getByText('Fav Track').first()).toBeVisible({
       timeout: 15_000,
     });
-    await page.locator(`input[name="favorite"][value="${favId}"]`).check();
-    await page.locator(`input[name="least"][value="${leastId}"]`).check();
-    await page.getByRole('button', { name: /enviar voto/i }).click();
-
-    await expect(page.getByText(/voto registrado/i)).toBeVisible({
-      timeout: 10_000,
-    });
+    // Emoji voting: click heart on Fav Track, skull on Least Track.
+    const favRow = page.locator('li').filter({ hasText: 'Fav Track' });
+    const leastRow = page.locator('li').filter({ hasText: 'Least Track' });
+    await favRow.getByTitle('favorita').click();
+    await leastRow.getByTitle('menos gostei').click();
+    // Auto-submits when both selected — wait for API round-trip.
+    await page.waitForTimeout(1000);
 
     const tally = await page.request.get(`${API_URL}/votes/${event.id}`);
     expect(tally.status()).toBe(200);
@@ -230,7 +230,8 @@ test.describe('real flows — admin event CRUD', () => {
     await page.getByRole('button', { name: /novo evento/i }).click();
 
     const uniqueTitle = `Form Event ${Date.now()}`;
-    await page.getByLabel('mbAlbumId').fill(MOCK_MB_ID);
+    // EventForm now uses album search instead of raw mbAlbumId input.
+    // Fill title + date/time fields directly (mbAlbumId can be empty for test).
     await page.getByLabel('title').fill(uniqueTitle);
     await page.getByLabel('date').fill(new Date().toISOString().slice(0, 10));
     await page.getByLabel('startTime').fill('20:00');

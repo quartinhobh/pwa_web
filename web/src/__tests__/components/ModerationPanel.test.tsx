@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+
+vi.mock('@/hooks/useIdToken', () => ({ useIdToken: () => 'fake-token' }));
+
 import { ModerationPanel } from '@/components/admin/ModerationPanel';
 
 type FetchCall = { ok?: boolean; status?: number; body: unknown };

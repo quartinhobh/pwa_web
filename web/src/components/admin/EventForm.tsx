@@ -2,12 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
 import { createEvent, updateEvent, searchMusicBrainz, type MbSearchResult } from '@/services/api';
+import { useIdToken } from '@/hooks/useIdToken';
 import type { Event } from '@/types';
 
 export interface EventFormProps {
   mode: 'create' | 'edit';
   initial?: Event;
-  idToken: string | null;
+  idToken?: string | null; // deprecated — uses useIdToken() internally
   onSaved?: (event: Event) => void;
 }
 
@@ -17,9 +18,9 @@ const inputClass =
 export const EventForm: React.FC<EventFormProps> = ({
   mode,
   initial,
-  idToken,
   onSaved,
 }) => {
+  const idToken = useIdToken();
   const [mbAlbumId, setMbAlbumId] = useState(initial?.mbAlbumId ?? '');
   const [title, setTitle] = useState(initial?.title ?? '');
   const [date, setDate] = useState(initial?.date ?? '');

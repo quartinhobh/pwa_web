@@ -1,4 +1,19 @@
 import React, { useEffect, useState } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -10,6 +25,7 @@ import {
   createProduct,
   importProductsCsv,
   deleteShopProduct,
+  reorderProducts,
 } from '@/services/api';
 import type { Product, PixConfig } from '@/types';
 
@@ -81,8 +97,6 @@ export const ShopPanel: React.FC<ShopPanelProps> = ({ mode = 'all' }) => {
 
   async function addProduct() {
     setFeedback(null);
-    const token = await getToken();
-    if (!token) { setFeedback('não autenticado — faça login primeiro'); return; }
     if (!name.trim()) { setFeedback('nome obrigatório'); return; }
     // Normalize price: accept "25", "25,00", "25.00", "R$ 25,00", "R$25"
     const cleaned = price.replace(/[R$\s]/gi, '').replace(',', '.').trim();
@@ -90,6 +104,8 @@ export const ShopPanel: React.FC<ShopPanelProps> = ({ mode = 'all' }) => {
     // If user typed raw centavos like "1500" (no decimal), detect: >10000 cents = likely centavos
     if (cleaned && !cleaned.includes('.') && cents > 10000) cents = Math.round(parseFloat(cleaned));
     if (!cents || cents <= 0 || isNaN(cents)) { setFeedback('preço inválido (ex: 25,00)'); return; }
+    const token = await getToken();
+    if (!token) { setFeedback('não autenticado — faça login primeiro'); return; }
     try {
       await createProduct({ emoji, name, description: desc, price: cents }, token);
       setEmoji(''); setName(''); setDesc(''); setPrice('');
@@ -185,7 +201,7 @@ export const ShopPanel: React.FC<ShopPanelProps> = ({ mode = 'all' }) => {
         <Button onClick={() => void handleImport()} className="mt-2">importar</Button>
       </ZineFrame>}
 
-      {/* Product list */}
+      {/* Product list — drag to reorder */}
       {showProducts && <ZineFrame bg="cream">
         <h3 className="font-display text-xl text-zine-burntOrange mb-3">
           Produtos ({products.length})
@@ -193,25 +209,121 @@ export const ShopPanel: React.FC<ShopPanelProps> = ({ mode = 'all' }) => {
         {products.length === 0 ? (
           <p className="font-body text-zine-burntOrange/60 italic">Nenhum produto.</p>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {products.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-3 border-b border-zine-burntOrange/20 pb-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  {p.emoji && <span className="text-xl">{p.emoji}</span>}
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-display text-zine-burntOrange dark:text-zine-cream text-sm truncate">{p.name}</span>
-                    {p.description && <span className="font-body text-xs text-zine-burntOrange/60 dark:text-zine-cream/60 truncate">{p.description}</span>}
-                    <span className="font-body text-xs text-zine-burntYellow">{formatPrice(p.price)}</span>
-                  </div>
-                </div>
-                <Button onClick={() => void handleDelete(p.id)}>apagar</Button>
-              </li>
-            ))}
-          </ul>
+          <SortableProductList
+            products={products}
+            onReorder={async (reordered) => {
+              setProducts(reordered);
+              const token = await getToken();
+              if (token) {
+                await reorderProducts(reordered.map((p) => p.id), token);
+              }
+            }}
+            onDelete={handleDelete}
+          />
         )}
       </ZineFrame>}
     </div>
   );
 };
+
+// ── Drag handle (zine-style: wobbly dots instead of straight lines) ────
+
+function DragHandle() {
+  return (
+    <span
+      aria-label="arrastar"
+      className="cursor-grab active:cursor-grabbing select-none text-zine-burntYellow font-display text-lg leading-none px-1"
+      style={{ filter: 'url(#zine-wobble)' }}
+    >
+      ⁞⁞
+    </span>
+  );
+}
+
+// ── Sortable product row ───────────────────────────────────────────────
+
+function SortableProductItem({
+  product,
+  onDelete,
+}: {
+  product: Product;
+  onDelete: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: product.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center justify-between gap-3 border-b border-zine-burntOrange/20 pb-2"
+    >
+      <div {...attributes} {...listeners} className="touch-none shrink-0">
+        <DragHandle />
+      </div>
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        {product.emoji && <span className="text-xl">{product.emoji}</span>}
+        <div className="flex flex-col min-w-0">
+          <span className="font-display text-zine-burntOrange dark:text-zine-cream text-sm truncate">
+            {product.name}
+          </span>
+          {product.description && (
+            <span className="font-body text-xs text-zine-burntOrange/60 dark:text-zine-cream/60 truncate">
+              {product.description}
+            </span>
+          )}
+          <span className="font-body text-xs text-zine-burntYellow">
+            {formatPrice(product.price)}
+          </span>
+        </div>
+      </div>
+      <Button onClick={() => void onDelete(product.id)}>apagar</Button>
+    </li>
+  );
+}
+
+// ── Sortable product list with DnD context ─────────────────────────────
+
+function SortableProductList({
+  products,
+  onReorder,
+  onDelete,
+}: {
+  products: Product[];
+  onReorder: (reordered: Product[]) => void;
+  onDelete: (id: string) => void;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = products.findIndex((p) => p.id === active.id);
+    const newIdx = products.findIndex((p) => p.id === over.id);
+    if (oldIdx < 0 || newIdx < 0) return;
+    onReorder(arrayMove(products, oldIdx, newIdx));
+  }
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={products.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+        <ul className="flex flex-col gap-2">
+          {products.map((p) => (
+            <SortableProductItem key={p.id} product={p} onDelete={onDelete} />
+          ))}
+        </ul>
+      </SortableContext>
+    </DndContext>
+  );
+}
 
 export default ShopPanel;

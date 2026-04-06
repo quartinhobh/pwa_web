@@ -99,7 +99,8 @@ export const Shop: React.FC = () => {
     return <main className="font-body text-zine-burntOrange dark:text-zine-cream p-4">carregando…</main>;
   }
 
-  if (products.length === 0 && !pixConfig) {
+  const hasPix = !!pixConfig?.key;
+  if (products.length === 0 && !hasPix) {
     return (
       <main className="p-4">
         <ZineFrame bg="mint">
@@ -153,7 +154,7 @@ export const Shop: React.FC = () => {
         </div>
       )}
 
-      {pixConfig && pixConfig.key && (
+      {hasPix && (
         <ZineFrame bg="periwinkle">
           <h3 className="font-display text-xl text-zine-cream text-center mb-3">
             pagar com PIX

@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Event } from '@/types';
 
+vi.mock('@/hooks/useIdToken', () => ({ useIdToken: () => 'fake-token' }));
 vi.mock('@/services/api', () => ({
   createEvent: vi.fn(),
   updateEvent: vi.fn(),
@@ -62,7 +63,7 @@ describe('EventForm', () => {
     await waitFor(() => expect(createMock).toHaveBeenCalled());
     const [payload, token] = createMock.mock.calls[0]!;
     expect(payload.title).toBe('New Night');
-    expect(token).toBe('tok');
+    expect(token).toBe('fake-token');
     expect(onSaved).toHaveBeenCalled();
   });
 
@@ -79,6 +80,6 @@ describe('EventForm', () => {
     const [id, patch, token] = updateMock.mock.calls[0]!;
     expect(id).toBe('e1');
     expect(patch.title).toBe('Edited');
-    expect(token).toBe('tok');
+    expect(token).toBe('fake-token');
   });
 });

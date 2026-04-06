@@ -9,6 +9,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  reorderProducts,
 } from '../services/shopService';
 
 export const shopRouter: Router = Router();
@@ -45,7 +46,9 @@ shopRouter.put(
     const key = typeof body?.key === 'string' ? body.key.trim() : '';
     const beneficiary = typeof body?.beneficiary === 'string' ? body.beneficiary.trim().slice(0, 25) : '';
     const city = typeof body?.city === 'string' ? body.city.trim().slice(0, 15) : '';
-    if (!key || !beneficiary || !city) {
+    // All empty = clear PIX config. Otherwise all required.
+    const allEmpty = !key && !beneficiary && !city;
+    if (!allEmpty && (!key || !beneficiary || !city)) {
       res.status(400).json({ error: 'missing_fields' });
       return;
     }
@@ -94,6 +97,22 @@ shopRouter.post(
     } catch {
       res.status(500).json({ error: 'create_product_failed' });
     }
+  },
+);
+
+// Reorder products
+shopRouter.put(
+  '/products/reorder',
+  writeLimiter,
+  requireAuth,
+  requireRole('admin'),
+  async (req: Request, res: Response) => {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids as string[] : [];
+    if (ids.length === 0) { res.status(400).json({ error: 'empty_ids' }); return; }
+    try {
+      await reorderProducts(ids);
+      res.status(200).json({ ok: true });
+    } catch { res.status(500).json({ error: 'reorder_failed' }); }
   },
 );
 

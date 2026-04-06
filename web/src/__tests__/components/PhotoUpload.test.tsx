@@ -1,5 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+vi.mock('@/hooks/useIdToken', () => ({ useIdToken: () => 'fake-token' }));
+
 import { PhotoUpload } from '@/components/admin/PhotoUpload';
 
 vi.mock('@/services/api', () => ({
@@ -51,7 +53,7 @@ describe('PhotoUpload', () => {
     fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
 
     await waitFor(() => {
-      expect(uploadPhoto).toHaveBeenCalledWith('evt1', 'category1', file, 'tok');
+      expect(uploadPhoto).toHaveBeenCalledWith('evt1', 'category1', file, 'fake-token');
       expect(onUploaded).toHaveBeenCalledWith(fakePhoto);
     });
   });

@@ -5,6 +5,7 @@ import EventForm from '@/components/admin/EventForm';
 import PhotoUpload from '@/components/admin/PhotoUpload';
 import ModerationPanel from '@/components/admin/ModerationPanel';
 import ShopPanel from '@/components/admin/ShopPanel';
+import { useIdToken } from '@/hooks/useIdToken';
 import {
   deleteEvent as apiDeleteEvent,
   deletePhoto as apiDeletePhoto,
@@ -14,7 +15,7 @@ import {
 import type { Event, Photo } from '@/types';
 
 export interface AdminPanelProps {
-  idToken: string | null;
+  idToken?: string | null;
 }
 
 type Tab = 'events' | 'photos' | 'moderation' | 'lojinha' | 'pix';
@@ -32,7 +33,8 @@ function getHashTab(): Tab {
   return valid.includes(hash as Tab) ? (hash as Tab) : 'events';
 }
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ idToken }) => {
+export const AdminPanel: React.FC<AdminPanelProps> = () => {
+  const idToken = useIdToken();
   const [tab, setTabState] = useState<Tab>(getHashTab);
 
   function setTab(t: Tab) {
