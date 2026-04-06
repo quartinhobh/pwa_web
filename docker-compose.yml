@@ -1,4 +1,5 @@
 services:
+  # ── Firebase Emulator Suite ────────────────────────────────────────────
   firebase-emulators:
     image: andreysenov/firebase-tools:latest-node-20
     command: >
@@ -7,6 +8,7 @@ services:
       --project=quartinho-dev
       --export-on-exit=/data
       --import=/data
+    user: "0:0"
     working_dir: /firebase
     volumes:
       - ./firebase.json:/firebase/firebase.json:ro
@@ -14,7 +16,7 @@ services:
       - ./.firebase-data:/data
     ports:
       - "9099:9099"
-      - "8080:8080"
+      - "8085:8080"
       - "9000:9000"
       - "9199:9199"
       - "4000:4000"
@@ -25,3 +27,56 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+
+  # ── API (Express + Firebase Admin) ─────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: bun run --watch api/src/index.ts
+    working_dir: /app
+    environment:
+      NODE_ENV: development
+      PORT: "3001"
+      FIREBASE_PROJECT_ID: quartinho-dev
+      GCLOUD_PROJECT: quartinho-dev
+      # Container→container: use service DNS, not localhost.
+      FIREBASE_AUTH_EMULATOR_HOST: firebase-emulators:9099
+      FIRESTORE_EMULATOR_HOST: firebase-emulators:8080
+      FIREBASE_DATABASE_EMULATOR_HOST: firebase-emulators:9000
+      FIREBASE_STORAGE_EMULATOR_HOST: firebase-emulators:9199
+      FIREBASE_DATABASE_URL: http://firebase-emulators:9000/?ns=quartinho-dev
+      FIREBASE_STORAGE_BUCKET: quartinho-dev.appspot.com
+      MUSICBRAINZ_USER_AGENT: Quartinho/1.0 (dev@localhost)
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    ports:
+      - "3001:3001"
+    depends_on:
+      firebase-emulators:
+        condition: service_started
+
+  # ── Web (Vite + React) ────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: bun run --filter=web dev -- --host 0.0.0.0
+    working_dir: /app
+    environment:
+      VITE_USE_EMULATOR: "true"
+      # Browser hits the api via host port mapping → localhost, not container DNS.
+      VITE_API_URL: http://localhost:3001
+      VITE_FIREBASE_CONFIG: >-
+        {"apiKey":"fake-dev-key","authDomain":"quartinho-dev.firebaseapp.com","projectId":"quartinho-dev","storageBucket":"quartinho-dev.appspot.com","messagingSenderId":"0","appId":"dev","databaseURL":"http://localhost:9000/?ns=quartinho-dev"}
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  node_modules:

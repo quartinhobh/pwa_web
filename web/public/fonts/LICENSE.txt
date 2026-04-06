@@ -1,0 +1,9 @@
+Self-hosted fonts — SIL Open Font License (OFL) 1.1.
+
+Alfa Slab One — Copyright 2011 The Alfa Slab One Project Authors
+  (https://github.com/cyrealtype/Alfa-Slab-One)
+Bitter — Copyright 2011 The Bitter Project Authors
+  (https://github.com/solmatas/BitterPro)
+
+Font files bundled via Fontsource (https://fontsource.org) for offline PWA use.
+Full OFL-1.1 text: https://scripts.sil.org/OFL

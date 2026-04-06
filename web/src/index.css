@@ -38,12 +38,20 @@
   font-display: swap;
 }
 
+/* ── Light mode (default) ─────────────────────────────────────────────── */
 html,
 body {
   background-color: #F5F5DC; /* zine.cream */
   color: #1A1A1A;            /* never pure black */
   font-family: 'Bitter', Georgia, serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* ── Dark mode ────────────────────────────────────────────────────────── */
+html.dark,
+html.dark body {
+  background-color: #1A1A1A;
+  color: #F5F5DC;
 }
 
 /* Global grain overlay — SVG feTurbulence, no PNG. Section 13.4 */
@@ -56,4 +64,10 @@ body::after {
   opacity: 0.08;
   z-index: 9999;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+/* In dark mode, multiply makes grain invisible (0×dark=0).
+   Screen lightens instead — subtle bright speckle on dark bg. */
+html.dark body::after {
+  mix-blend-mode: screen;
 }

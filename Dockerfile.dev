@@ -1,0 +1,12 @@
+FROM oven/bun:latest
+WORKDIR /app
+
+# Copy workspace package manifests for dependency install layer caching.
+COPY package.json bun.lock ./
+COPY api/package.json ./api/
+COPY web/package.json ./web/
+
+RUN bun install --frozen-lockfile
+
+# Source code is bind-mounted at runtime — no COPY here.
+# node_modules live in a named volume to avoid host↔container binary conflicts.

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quartinho — offline</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        background: #F5F5DC;
+        color: #1A1A1A;
+        font-family: 'Bitter', Georgia, serif;
+      }
+      main {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 4rem 1.5rem;
+        text-align: center;
+      }
+      .frame {
+        background: #98D9C2;
+        border: 4px solid #F5F5DC;
+        padding: 2rem 1.25rem;
+        box-shadow: 0 0 0 4px #8B9FD4;
+      }
+      h1 {
+        font-family: 'Alfa Slab One', Georgia, serif;
+        font-size: 2.25rem;
+        color: #F5F5DC;
+        margin: 0 0 1rem;
+      }
+      p { line-height: 1.5; color: #1A1A1A; margin: 0.5rem 0; }
+      .cta {
+        display: inline-block;
+        margin-top: 1.25rem;
+        padding: 0.6rem 1.25rem;
+        background: #E8A42C;
+        color: #F5F5DC;
+        font-weight: 700;
+        text-decoration: none;
+        border: 4px solid #F5F5DC;
+      }
+      .cta:hover { background: #D97642; }
+      .bora { color: #E8A42C; font-style: italic; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="frame">
+        <h1>sem sinal</h1>
+        <p>você está offline. o <span class="bora">quartinho</span> precisa de internet pra puxar os eventos.</p>
+        <p>tenta de novo em um instante.</p>
+        <a href="/" class="cta">tentar de novo</a>
+      </div>
+    </main>
+  </body>
+</html>

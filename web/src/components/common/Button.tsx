@@ -5,11 +5,6 @@ export interface ButtonProps
   children: React.ReactNode;
 }
 
-/**
- * Button — single zine variant (Section 13.5).
- * Solid burntYellow bg, cream text, cream hand-drawn border.
- * Hover: wobble + shift to burntOrange. No primary/secondary ladder.
- */
 export const Button: React.FC<ButtonProps> = ({
   children,
   className = '',
@@ -22,9 +17,10 @@ export const Button: React.FC<ButtonProps> = ({
         'inline-block',
         'font-body font-bold',
         'px-5 py-2',
-        'border-4 border-zine-cream',
+        'border-4 border-zine-cream dark:border-zine-cream/30',
         'bg-zine-burntYellow text-zine-cream',
-        'hover:bg-zine-burntOrange hover:wobble',
+        'dark:bg-zine-burntYellow-bright dark:text-zine-surface-dark',
+        'hover:bg-zine-burntOrange dark:hover:bg-zine-burntOrange-bright hover:wobble',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-zine-burntOrange',
         'disabled:opacity-60 disabled:cursor-not-allowed',
         'transition-colors',

@@ -44,6 +44,7 @@ export async function createEvent(
     date: payload.date,
     startTime: payload.startTime,
     endTime: payload.endTime,
+    location: payload.location ?? null,
     status: 'upcoming' satisfies EventStatus,
     extras: payload.extras,
     spotifyPlaylistUrl: payload.spotifyPlaylistUrl,

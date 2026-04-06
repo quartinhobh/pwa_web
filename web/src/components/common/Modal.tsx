@@ -36,7 +36,7 @@ export const Modal: React.FC<ModalProps> = ({
       aria-label={title}
       onClick={onClose}
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      style={{ backgroundColor: 'rgba(26, 26, 26, 0.6)' }}
+      style={{ backgroundColor: 'rgba(26, 26, 26, 0.7)' }}
     >
       <div
         onClick={(e) => e.stopPropagation()}

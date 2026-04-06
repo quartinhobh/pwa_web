@@ -38,6 +38,7 @@ const event: Event = {
   date: '2025-01-01',
   startTime: '20:00',
   endTime: '22:00',
+  location: null,
   status: 'upcoming',
   extras: { text: '', links: [], images: [] },
   spotifyPlaylistUrl: null,

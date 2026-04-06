@@ -45,6 +45,7 @@ export interface Event {
   date: string;
   startTime: string;
   endTime: string;
+  location: string | null;
   status: EventStatus;
   extras: EventExtras;
   spotifyPlaylistUrl: string | null;

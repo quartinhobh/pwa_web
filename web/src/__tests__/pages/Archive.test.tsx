@@ -16,6 +16,7 @@ const archivedEvent: Event = {
   date: '2024-01-15',
   startTime: '20:00',
   endTime: '22:00',
+  location: null,
   status: 'archived',
   extras: { text: '', links: [], images: [] },
   spotifyPlaylistUrl: null,

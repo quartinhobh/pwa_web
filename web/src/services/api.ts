@@ -297,6 +297,17 @@ export async function fetchBans(idToken: string): Promise<Ban[]> {
   return body.bans;
 }
 
+export async function fetchUserProfile(
+  userId: string,
+  idToken: string,
+): Promise<{ userId: string; displayName: string | null; email: string | null; role: string }> {
+  const res = await fetch(`${API_URL}/moderation/users/${encodeURIComponent(userId)}`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) throw new Error(`GET moderation/users/${userId} failed: ${res.status}`);
+  return (await res.json()) as { userId: string; displayName: string | null; email: string | null; role: string };
+}
+
 export async function fetchModerationLogs(
   idToken: string,
 ): Promise<ModerationLog[]> {

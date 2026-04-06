@@ -7,6 +7,7 @@ export interface ChatMessageProps {
   message: ChatMessageType & { id?: string };
   canModerate?: boolean;
   onDelete?: (messageId: string, reason?: string) => Promise<void> | void;
+  onBan?: (userId: string, reason?: string) => Promise<void> | void;
 }
 
 function formatRelative(ts: number): string {
@@ -33,15 +34,21 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
   canModerate = false,
   onDelete,
+  onBan,
 }) => {
-  const [confirming, setConfirming] = useState(false);
+  const [confirming, setConfirming] = useState<'delete' | 'ban' | null>(null);
   const [reason, setReason] = useState('');
   const showDelete = canModerate && !!onDelete && !!message.id && !message.isDeleted;
+  const showBan = canModerate && !!onBan && !!message.uid && !message.isDeleted;
 
   const handleConfirm = async (): Promise<void> => {
-    if (!onDelete || !message.id) return;
-    await onDelete(message.id, reason.trim() ? reason.trim() : undefined);
-    setConfirming(false);
+    const trimmed = reason.trim() || undefined;
+    if (confirming === 'delete' && onDelete && message.id) {
+      await onDelete(message.id, trimmed);
+    } else if (confirming === 'ban' && onBan && message.uid) {
+      await onBan(message.uid, trimmed);
+    }
+    setConfirming(null);
     setReason('');
   };
 
@@ -57,15 +64,29 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         >
           {formatRelative(message.timestamp)}
         </span>
-        {showDelete && (
-          <button
-            type="button"
-            data-testid="chat-delete-btn"
-            onClick={() => setConfirming(true)}
-            className="ml-auto font-body text-xs text-zine-burntOrange/80 underline hover:text-zine-burntOrange focus:outline-none focus-visible:ring-2 focus-visible:ring-zine-burntOrange"
-          >
-            apagar
-          </button>
+        {(showDelete || showBan) && (
+          <span className="ml-auto flex gap-2">
+            {showDelete && (
+              <button
+                type="button"
+                data-testid="chat-delete-btn"
+                onClick={() => setConfirming('delete')}
+                className="font-body text-xs text-zine-burntOrange/80 underline hover:text-zine-burntOrange"
+              >
+                apagar
+              </button>
+            )}
+            {showBan && (
+              <button
+                type="button"
+                data-testid="chat-ban-btn"
+                onClick={() => setConfirming('ban')}
+                className="font-body text-xs text-zine-burntOrange underline hover:text-zine-burntOrange font-bold"
+              >
+                banir
+              </button>
+            )}
+          </span>
         )}
       </div>
       <p className="font-body text-zine-burntOrange break-words">
@@ -75,30 +96,30 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           message.text
         )}
       </p>
-      {showDelete && (
+      {confirming && (
         <Modal
-          isOpen={confirming}
-          onClose={() => setConfirming(false)}
-          title="Apagar mensagem"
+          isOpen={!!confirming}
+          onClose={() => setConfirming(null)}
+          title={confirming === 'ban' ? `Banir ${message.displayName}` : 'Apagar mensagem'}
         >
           <div className="flex flex-col gap-3">
             <label className="font-body text-sm" style={{ color: '#1A1A1A' }}>
               Motivo (opcional)
             </label>
             <input
-              data-testid="chat-delete-reason"
+              data-testid="chat-mod-reason"
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               className="border-2 border-zine-burntOrange bg-zine-cream font-body px-2 py-1"
             />
             <div className="flex gap-2 justify-end">
-              <Button onClick={() => setConfirming(false)}>cancelar</Button>
+              <Button onClick={() => setConfirming(null)}>cancelar</Button>
               <Button
-                data-testid="chat-delete-confirm"
+                data-testid="chat-mod-confirm"
                 onClick={() => void handleConfirm()}
               >
-                apagar
+                {confirming === 'ban' ? 'banir' : 'apagar'}
               </Button>
             </div>
           </div>

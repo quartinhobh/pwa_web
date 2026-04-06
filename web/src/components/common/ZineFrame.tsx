@@ -10,25 +10,24 @@ export interface ZineFrameProps {
   children: React.ReactNode;
 }
 
+// Light → dark background mapping. Dark variants preserve hue but lower
+// luminance so the zine identity reads like "candlelit print".
 const bgClassMap: Record<ZineBg, string> = {
-  mint: 'bg-zine-mint',
-  periwinkle: 'bg-zine-periwinkle',
-  cream: 'bg-zine-cream',
-  burntYellow: 'bg-zine-burntYellow',
+  mint: 'bg-zine-mint dark:bg-zine-mint-dark',
+  periwinkle: 'bg-zine-periwinkle dark:bg-zine-periwinkle-dark',
+  cream: 'bg-zine-cream dark:bg-zine-surface-dark',
+  burntYellow: 'bg-zine-burntYellow dark:bg-zine-burntYellow-bright',
 };
 
+// Borders stay light (cream) in both modes — they're the "paper" outlines.
+// In dark mode they switch to a muted variant so they don't blow out.
 const borderClassMap: Record<ZineBg, string> = {
-  mint: 'border-zine-mint',
-  periwinkle: 'border-zine-periwinkle',
-  cream: 'border-zine-cream',
-  burntYellow: 'border-zine-burntYellow',
+  mint: 'border-zine-mint dark:border-zine-mint-dark',
+  periwinkle: 'border-zine-periwinkle dark:border-zine-periwinkle-dark',
+  cream: 'border-zine-cream dark:border-zine-cream/30',
+  burntYellow: 'border-zine-burntYellow dark:border-zine-burntYellow-bright',
 };
 
-/**
- * ZineFrame — core compositional primitive (Section 13.3).
- * Colored background + hand-drawn cream border via SVG feTurbulence
- * displacement filter. Supports frame-within-frame nesting.
- */
 export const ZineFrame: React.FC<ZineFrameProps> = ({
   bg = 'mint',
   borderColor = 'cream',
@@ -38,9 +37,6 @@ export const ZineFrame: React.FC<ZineFrameProps> = ({
 }) => {
   return (
     <>
-      {/* Inline SVG filter definition — feTurbulence + feDisplacementMap
-          gives the organic "giz/xerox" border wobble. Safe to mount more
-          than once; ids are scoped by browser dedup on matching defs. */}
       <svg
         aria-hidden="true"
         width="0"

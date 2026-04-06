@@ -6,6 +6,7 @@ import { Router, type Request, type Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/roleCheck';
 import { writeLimiter } from '../middleware/rateLimit';
+import { adminDb } from '../config/firebase';
 import {
   banUser,
   deleteMessage,
@@ -102,6 +103,31 @@ moderationRouter.get(
       res.status(200).json({ bans });
     } catch {
       res.status(500).json({ error: 'list_bans_failed' });
+    }
+  },
+);
+
+// GET /moderation/users/:id — lookup a user doc (admin/moderator).
+moderationRouter.get(
+  '/users/:id',
+  requireAuth,
+  requireRole('moderator', 'admin'),
+  async (req: Request, res: Response) => {
+    try {
+      const snap = await adminDb.collection('users').doc(req.params.id!).get();
+      if (!snap.exists) {
+        res.status(404).json({ error: 'user_not_found' });
+        return;
+      }
+      const data = snap.data() as Record<string, unknown>;
+      res.status(200).json({
+        userId: snap.id,
+        displayName: data.displayName ?? null,
+        email: data.email ?? null,
+        role: data.role ?? 'guest',
+      });
+    } catch {
+      res.status(500).json({ error: 'user_lookup_failed' });
     }
   },
 );

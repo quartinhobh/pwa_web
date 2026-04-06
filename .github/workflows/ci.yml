@@ -32,3 +32,81 @@ jobs:
 
       - name: Test ${{ matrix.workspace }}
         run: bun run --filter=${{ matrix.workspace }} test
+
+  web-build:
+    name: web production build
+    runs-on: ubuntu-latest
+    needs: lint-typecheck-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.1.20'
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build web
+        run: bun run --filter=web build
+
+  emulator-tests:
+    name: API tests against Firebase emulators
+    runs-on: ubuntu-latest
+    needs: lint-typecheck-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.1.20'
+
+      - name: Setup Java (Firestore emulator dependency)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install firebase-tools
+        run: bun add -g firebase-tools
+
+      - name: Start emulators in background
+        # Native firebase-tools in CI (no Docker). Firestore listens on 8080
+        # since CI has no competing Python service on that port.
+        run: |
+          mkdir -p .firebase-data
+          firebase emulators:start \
+            --only auth,firestore,database,storage \
+            --project=quartinho-dev &
+          echo $! > /tmp/emulator.pid
+
+      - name: Wait for emulator hub
+        run: |
+          for i in {1..60}; do
+            if curl -sf http://localhost:4400/ > /dev/null; then
+              echo "emulator hub ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "emulator did not come up in time"
+          exit 1
+
+      - name: Run emulator-gated API tests
+        env:
+          FIREBASE_PROJECT_ID: quartinho-dev
+          GCLOUD_PROJECT: quartinho-dev
+          FIRESTORE_EMULATOR_HOST: localhost:8080
+          FIREBASE_AUTH_EMULATOR_HOST: localhost:9099
+          FIREBASE_DATABASE_EMULATOR_HOST: localhost:9000
+          FIREBASE_STORAGE_EMULATOR_HOST: localhost:9199
+        run: bun run --filter=api test -- --no-file-parallelism
+
+      - name: Stop emulators
+        if: always()
+        run: |
+          if [ -f /tmp/emulator.pid ]; then
+            kill "$(cat /tmp/emulator.pid)" || true
+          fi

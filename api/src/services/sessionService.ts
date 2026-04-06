@@ -63,11 +63,16 @@ export async function linkSessionToUser(
     displayName ?? existingSession.guestName ?? 'user';
 
   if (!userSnap.exists) {
+    const initialAdminEmail = process.env.INITIAL_ADMIN_EMAIL;
+    const isInitialAdmin =
+      !!initialAdminEmail && !!email && email === initialAdminEmail;
+    const role: UserRole = isInitialAdmin ? 'admin' : 'user';
+
     const user: User = {
       id: uid,
       email: email ?? null,
       displayName: resolvedDisplayName,
-      role: 'user' satisfies UserRole,
+      role,
       linkedSessionId: sessionId,
       createdAt: now,
       updatedAt: now,

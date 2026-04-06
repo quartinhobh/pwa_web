@@ -9,6 +9,7 @@ const sampleEvent = {
   date: '2025-01-15',
   startTime: '20:00',
   endTime: '22:00',
+  location: null,
   status: 'live',
   extras: { text: '', links: [], images: [] },
   spotifyPlaylistUrl: null,

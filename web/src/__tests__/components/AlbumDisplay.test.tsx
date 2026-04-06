@@ -10,6 +10,7 @@ const baseEvent: Event = {
   date: '2025-01-15',
   startTime: '20:00',
   endTime: '22:00',
+  location: null,
   status: 'upcoming',
   extras: { text: '', links: [], images: [] },
   spotifyPlaylistUrl: null,

@@ -24,6 +24,7 @@ const event: Event = {
   date: '2024-05-01',
   startTime: '20:00',
   endTime: '22:00',
+  location: null,
   status: 'archived',
   extras: { text: '', links: [], images: [] },
   spotifyPlaylistUrl: null,

@@ -48,9 +48,9 @@ describe('ChatMessage', () => {
     expect(btn).toBeInTheDocument();
 
     await userEvent.click(btn);
-    const reasonInput = await screen.findByTestId('chat-delete-reason');
+    const reasonInput = await screen.findByTestId('chat-mod-reason');
     await userEvent.type(reasonInput, 'spam');
-    await userEvent.click(screen.getByTestId('chat-delete-confirm'));
+    await userEvent.click(screen.getByTestId('chat-mod-confirm'));
     expect(onDelete).toHaveBeenCalledWith('m1', 'spam');
   });
 

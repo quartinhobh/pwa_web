@@ -7,6 +7,7 @@ export interface ChatRoomProps {
   messages: Array<ChatMessageType & { id: string }>;
   canModerate?: boolean;
   onDeleteMessage?: (messageId: string, reason?: string) => Promise<void> | void;
+  onBanUser?: (userId: string, reason?: string) => Promise<void> | void;
 }
 
 /**
@@ -17,6 +18,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
   messages,
   canModerate = false,
   onDeleteMessage,
+  onBanUser,
 }) => {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -38,6 +40,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({
               message={m}
               canModerate={canModerate}
               onDelete={onDeleteMessage}
+              onBan={onBanUser}
             />
           ))
         )}

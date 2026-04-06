@@ -44,6 +44,7 @@ export interface Event {
   date: string; // ISO date
   startTime: string; // HH:mm
   endTime: string; // HH:mm
+  location: string | null; // venue / address
   status: EventStatus;
   extras: EventExtras;
   spotifyPlaylistUrl: string | null;
@@ -168,6 +169,7 @@ export interface EventCreatePayload {
   date: string;
   startTime: string;
   endTime: string;
+  location: string | null;
   extras: EventExtras;
   spotifyPlaylistUrl: string | null;
 }

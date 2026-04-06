@@ -5,9 +5,13 @@ vi.mock('firebase/auth', () => {
   return {
     getAuth: vi.fn(() => ({})),
     GoogleAuthProvider: vi.fn(),
+    OAuthProvider: vi.fn(() => ({ addScope: vi.fn() })),
     signInWithPopup: vi.fn(),
+    signInWithEmailAndPassword: vi.fn(),
+    createUserWithEmailAndPassword: vi.fn(),
     signOut: vi.fn(),
     connectAuthEmulator: vi.fn(),
+    onAuthStateChanged: vi.fn(() => () => {}),
   };
 });
 

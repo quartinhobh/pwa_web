@@ -12,7 +12,7 @@ export interface EventFormProps {
 }
 
 const inputClass =
-  'border-4 border-zine-burntYellow bg-zine-cream text-zine-burntOrange font-body p-2 focus:outline-none focus:border-zine-burntOrange';
+  'border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream font-body p-2 focus:outline-none focus:border-zine-burntOrange';
 
 /**
  * EventForm — admin create/edit form for events.
@@ -29,6 +29,7 @@ export const EventForm: React.FC<EventFormProps> = ({
   const [date, setDate] = useState(initial?.date ?? '');
   const [startTime, setStartTime] = useState(initial?.startTime ?? '');
   const [endTime, setEndTime] = useState(initial?.endTime ?? '');
+  const [location, setLocation] = useState(initial?.location ?? '');
   const [extrasText, setExtrasText] = useState(initial?.extras?.text ?? '');
   const [extrasLinks, setExtrasLinks] = useState(
     (initial?.extras?.links ?? []).map((l) => `${l.label}|${l.url}`).join('\n'),
@@ -69,6 +70,7 @@ export const EventForm: React.FC<EventFormProps> = ({
         date,
         startTime,
         endTime,
+        location: location || null,
         extras: { text: extrasText, links, images },
         spotifyPlaylistUrl: spotifyPlaylistUrl || null,
       };
@@ -144,6 +146,17 @@ export const EventForm: React.FC<EventFormProps> = ({
             aria-label="endTime"
             value={endTime}
             onChange={(e) => setEndTime(e.target.value)}
+            className={inputClass}
+          />
+        </label>
+
+        <label className="font-body text-zine-burntOrange flex flex-col gap-1">
+          <span>Local</span>
+          <input
+            aria-label="location"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="ex: Quartinho BH — Rua Exemplo, 123"
             className={inputClass}
           />
         </label>

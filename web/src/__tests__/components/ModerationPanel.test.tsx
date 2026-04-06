@@ -9,7 +9,15 @@ function queueFetch(responses: FetchCall[]): ReturnType<typeof vi.fn> {
   const queue = [...responses];
   const fn = vi.fn(async () => {
     const next = queue.shift();
-    if (!next) throw new Error('unexpected extra fetch');
+    // Exhausted queue returns a permissive default (handles user-profile
+    // lookups from the useUserNames helper).
+    if (!next) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ userId: 'unknown', displayName: null, email: null, role: 'guest' }),
+      } as unknown as Response;
+    }
     return {
       ok: next.ok ?? true,
       status: next.status ?? 200,
@@ -78,6 +86,7 @@ describe('ModerationPanel', () => {
 
   it('unban button triggers DELETE and refetches', async () => {
     const fn = queueFetch([
+      // 1. Initial fetchBans
       {
         body: {
           bans: [
@@ -91,21 +100,33 @@ describe('ModerationPanel', () => {
           ],
         },
       },
+      // 2. Initial fetchModerationLogs
       { body: { logs: [] } },
+      // 3. useUserNames profile lookup for u1
+      { body: { userId: 'u1', displayName: 'User One', email: null, role: 'user' } },
+      // 4. DELETE /moderation/ban/u1
       { body: { ok: true } },
+      // 5. Refetch bans
       { body: { bans: [] } },
+      // 6. Refetch logs
       { body: { logs: [] } },
     ]);
     render(<ModerationPanel idToken="tok" />);
     await waitFor(() =>
       expect(screen.getByTestId('ban-row-u1')).toBeInTheDocument(),
     );
-    await userEvent.click(screen.getByRole('button', { name: /unban/i }));
+    await userEvent.click(screen.getByRole('button', { name: /desbanir/i }));
     await waitFor(() =>
       expect(screen.getByText(/Nenhum banimento ativo/)).toBeInTheDocument(),
     );
-    const unbanCall = fn.mock.calls[2]!;
-    expect(unbanCall[0]).toContain('/moderation/ban/u1');
-    expect((unbanCall[1] as RequestInit).method).toBe('DELETE');
+    // Find the DELETE call regardless of index (user-profile fetches may
+    // interleave with the main flow).
+    const unbanCall = fn.mock.calls.find(
+      (c: unknown[]) =>
+        typeof c[0] === 'string' &&
+        c[0].includes('/moderation/ban/u1') &&
+        (c[1] as RequestInit)?.method === 'DELETE',
+    );
+    expect(unbanCall).toBeTruthy();
   });
 });

@@ -73,6 +73,7 @@ function parsePayload(body: unknown): EventCreatePayload | null {
     startTime: b.startTime,
     endTime: b.endTime,
     extras: b.extras as EventCreatePayload['extras'],
+    location: typeof b.location === 'string' ? b.location : null,
     spotifyPlaylistUrl:
       typeof b.spotifyPlaylistUrl === 'string' ? b.spotifyPlaylistUrl : null,
   };
