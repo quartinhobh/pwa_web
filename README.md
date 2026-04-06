@@ -12,8 +12,9 @@ Express + Firebase.
 
 - **web/** — React 18 + TypeScript + Vite + Tailwind, PWA via `vite-plugin-pwa`
   (Workbox). Router: `react-router-dom`. Estado: `zustand`.
-- **api/** — Express + Firebase Admin SDK (Auth + Firestore + RTDB + Storage).
-- **firebase/** — security rules (Firestore, RTDB, Storage).
+- **api/** — Express + Firebase Admin SDK (Auth + Firestore + RTDB).
+- **Cloudflare R2** — uploads de fotos (free tier, S3-compatible).
+- **firebase/** — security rules (Firestore, RTDB).
 - **Firebase Emulator Suite** via Docker Compose para dev/CI.
 - **Playwright** para E2E; **Vitest** para unit tests.
 
@@ -114,7 +115,7 @@ quartinho/
 │   │   ├── config/firebase.ts    # credential resolution (emulator | SA | env)
 │   │   ├── middleware/           # auth, rate-limit, role-check
 │   │   ├── routes/               # auth, events, votes, photos, moderation, lyrics
-│   │   ├── services/             # domain logic (eventService, voteService, ...)
+│   │   ├── services/             # domain logic (eventService, voteService, photoService → R2)
 │   │   └── __tests__/            # vitest — some gated on FIRESTORE_EMULATOR_HOST
 │   └── scripts/seed.ts      # dev-only emulator seeder
 ├── web/                     # React 18 + Vite PWA
