@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useVotes } from '@/hooks/useVotes';
+import { useApiCache } from '@/store/apiCache';
 import type { VoteTallies } from '@/types';
 
 const initialTallies: VoteTallies = {
@@ -24,6 +25,7 @@ function queueJson(responses: Array<{ ok?: boolean; body: unknown; status?: numb
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  useApiCache.getState().cache = {};
 });
 afterEach(() => {
   vi.restoreAllMocks();

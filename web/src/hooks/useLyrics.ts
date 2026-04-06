@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchLyrics } from '@/services/api';
+import { useApiCache } from '@/store/apiCache';
 
 export interface UseLyricsResult {
   lyrics: string | null;
@@ -8,26 +9,35 @@ export interface UseLyricsResult {
   error: string | null;
 }
 
-/**
- * useLyrics — loads lyrics for an (artist, title) pair via the api proxy.
- * Handles the "not found" state (lyrics = null) as a valid result, not an
- * error.
- */
+interface LyricsCacheData {
+  lyrics: string | null;
+  source: string | null;
+}
+
 export function useLyrics(
   artist: string | null,
   title: string | null,
 ): UseLyricsResult {
-  const [lyrics, setLyrics] = useState<string | null>(null);
-  const [source, setSource] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const cache = useApiCache();
+  const cacheKey = artist && title ? `lyrics:${artist}:${title}` : null;
+
+  const [data, setData] = useState<LyricsCacheData | null>(() => {
+    return cacheKey ? cache.get<LyricsCacheData>(cacheKey) ?? null : null;
+  });
+  const [loading, setLoading] = useState(!data && !!artist && !!title);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!artist || !title) {
-      setLyrics(null);
-      setSource(null);
+      setData(null);
       setLoading(false);
-      setError(null);
+      return;
+    }
+
+    const cached = cache.get<LyricsCacheData>(cacheKey!);
+    if (cached) {
+      setData(cached);
+      setLoading(false);
       return;
     }
 
@@ -39,15 +49,16 @@ export function useLyrics(
       try {
         const res = await fetchLyrics(artist, title);
         if (cancelled) return;
-        setLyrics(res.lyrics);
-        setSource(res.source);
+        const result = { lyrics: res.lyrics, source: res.source };
+        cache.set(cacheKey!, result);
+        if (!cancelled) {
+          setData(result);
+          setLoading(false);
+        }
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : 'unknown_error');
-        setLyrics(null);
-        setSource(null);
-      } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
     };
 
@@ -55,7 +66,16 @@ export function useLyrics(
     return () => {
       cancelled = true;
     };
-  }, [artist, title]);
+  }, [artist, title, cache, cacheKey]);
 
-  return { lyrics, source, loading, error };
+  if (!artist || !title) {
+    return { lyrics: null, source: null, loading: false, error: null };
+  }
+
+  return {
+    lyrics: data?.lyrics ?? null,
+    source: data?.source ?? null,
+    loading,
+    error,
+  };
 }

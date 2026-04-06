@@ -1,9 +1,6 @@
-// useVotes — P3-D.
-// Loads tallies + current user's vote for an event. Exposes an optimistic
-// submitVote that rolls back on failure.
-
 import { useCallback, useEffect, useState } from 'react';
 import { fetchTallies, fetchUserVote, postVote } from '@/services/api';
+import { useApiCache } from '@/store/apiCache';
 import type { UserVote, VoteBucket, VoteTallies } from '@/types';
 
 export interface UseVotesResult {
@@ -15,6 +12,11 @@ export interface UseVotesResult {
   ) => Promise<void>;
   loading: boolean;
   error: string | null;
+}
+
+interface VotesCacheData {
+  tallies: VoteTallies | null;
+  userVote: UserVote | null;
 }
 
 function cloneTallies(t: VoteTallies): VoteTallies {
@@ -66,27 +68,40 @@ function applyOptimistic(
   return next;
 }
 
+const VOTES_TTL = 30 * 1000; // 30 seconds
+
 export function useVotes(
   eventId: string | null,
   idToken: string | null,
   uid: string | null,
 ): UseVotesResult {
-  const [tallies, setTallies] = useState<VoteTallies | null>(null);
-  const [userVote, setUserVote] = useState<UserVote | null>(null);
-  const [loading, setLoading] = useState(false);
+  const cache = useApiCache();
+  const cacheKey = eventId ? `votes:${eventId}` : null;
+
+  const [data, setData] = useState<VotesCacheData | null>(() => {
+    return cacheKey ? cache.get<VotesCacheData>(cacheKey, VOTES_TTL) ?? null : null;
+  });
+  const [loading, setLoading] = useState(!data && !!eventId);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!eventId) {
-      setTallies(null);
-      setUserVote(null);
+      setData(null);
       setLoading(false);
-      setError(null);
       return;
     }
+
+    const cached = cache.get<VotesCacheData>(cacheKey!, VOTES_TTL);
+    if (cached) {
+      setData(cached);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setError(null);
+
     const run = async (): Promise<void> => {
       try {
         const [t, v] = await Promise.all([
@@ -94,20 +109,24 @@ export function useVotes(
           fetchUserVote(eventId, idToken),
         ]);
         if (cancelled) return;
-        setTallies(t);
-        setUserVote(v);
+        const result = { tallies: t, userVote: v };
+        cache.set(cacheKey!, result);
+        if (!cancelled) {
+          setData(result);
+          setLoading(false);
+        }
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : 'unknown_error');
-      } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
     };
+
     void run();
     return () => {
       cancelled = true;
     };
-  }, [eventId, idToken]);
+  }, [eventId, idToken, cache, cacheKey]);
 
   const submitVote = useCallback(
     async (favoriteTrackId: string, leastLikedTrackId: string): Promise<void> => {
@@ -117,21 +136,22 @@ export function useVotes(
       if (favoriteTrackId === leastLikedTrackId) {
         throw new Error('duplicate_track');
       }
-      const priorTallies = tallies;
-      const priorVote = userVote;
-      if (priorTallies && uid) {
+      const priorData = data;
+      if (priorData?.tallies && uid) {
         const optimistic = applyOptimistic(
-          priorTallies,
-          priorVote,
+          priorData.tallies,
+          priorData.userVote,
           uid,
           favoriteTrackId,
           leastLikedTrackId,
         );
-        setTallies(optimistic);
-        setUserVote({
-          favoriteTrackId,
-          leastLikedTrackId,
-          updatedAt: Date.now(),
+        setData({
+          tallies: optimistic,
+          userVote: {
+            favoriteTrackId,
+            leastLikedTrackId,
+            updatedAt: Date.now(),
+          },
         });
       }
       try {
@@ -141,22 +161,30 @@ export function useVotes(
           favoriteTrackId,
           leastLikedTrackId,
         );
-        setTallies(next);
-        setUserVote({
-          favoriteTrackId,
-          leastLikedTrackId,
-          updatedAt: next.updatedAt,
-        });
+        const result = {
+          tallies: next,
+          userVote: {
+            favoriteTrackId,
+            leastLikedTrackId,
+            updatedAt: next.updatedAt,
+          },
+        };
+        cache.set(cacheKey!, result);
+        setData(result);
       } catch (err) {
-        // Rollback
-        setTallies(priorTallies);
-        setUserVote(priorVote);
+        setData(priorData);
         setError(err instanceof Error ? err.message : 'vote_failed');
         throw err;
       }
     },
-    [eventId, idToken, uid, tallies, userVote],
+    [eventId, idToken, uid, data, cache, cacheKey],
   );
 
-  return { tallies, userVote, submitVote, loading, error };
+  return {
+    tallies: data?.tallies ?? null,
+    userVote: data?.userVote ?? null,
+    submitVote,
+    loading,
+    error,
+  };
 }

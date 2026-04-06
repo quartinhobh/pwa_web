@@ -5,6 +5,7 @@ import {
   fetchMusicBrainzAlbum,
   fetchMusicBrainzTracks,
 } from '@/services/api';
+import { useApiCache } from '@/store/apiCache';
 import type { Event, MusicBrainzRelease, MusicBrainzTrack } from '@/types';
 
 export interface UseEventResult {
@@ -15,23 +16,36 @@ export interface UseEventResult {
   error: string | null;
 }
 
-/**
- * useEvent — loads an event (by id, or current if id is null) and its
- * album + tracks.
- *
- * If the event has a stored `album` snapshot (populated at creation time),
- * we use that directly — zero MusicBrainz calls. Only falls back to the
- * MB proxy when the snapshot is missing (legacy events or failed import).
- */
+function buildEventCacheKey(eventId: string | null): string {
+  return eventId ? `event:${eventId}` : 'event:current';
+}
+
+interface CachedEventData {
+  event: Event | null;
+  album: MusicBrainzRelease | null;
+  tracks: MusicBrainzTrack[];
+}
+
 export function useEvent(eventId: string | null): UseEventResult {
-  const [event, setEvent] = useState<Event | null>(null);
-  const [album, setAlbum] = useState<MusicBrainzRelease | null>(null);
-  const [tracks, setTracks] = useState<MusicBrainzTrack[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cache = useApiCache();
+  const cacheKey = buildEventCacheKey(eventId);
+
+  const [data, setData] = useState<CachedEventData | null>(() => {
+    return cache.get<CachedEventData>(cacheKey) ?? null;
+  });
+  const [loading, setLoading] = useState(!data);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+
+    const cached = cache.get<CachedEventData>(cacheKey);
+    if (cached) {
+      setData(cached);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -41,40 +55,38 @@ export function useEvent(eventId: string | null): UseEventResult {
           ? await fetchEventById(eventId)
           : await fetchCurrentEvent();
         if (cancelled) return;
-        setEvent(ev);
 
-        if (!ev) {
-          setAlbum(null);
-          setTracks([]);
-          return;
-        }
+        let alb: MusicBrainzRelease | null = null;
+        let trks: MusicBrainzTrack[] = [];
 
-        // Prefer the stored snapshot — avoids MusicBrainz calls entirely.
-        if (ev.album) {
-          setAlbum({
+        if (ev?.album) {
+          alb = {
             id: ev.mbAlbumId,
             title: ev.album.albumTitle,
             artistCredit: ev.album.artistCredit,
             date: ev.date,
             tracks: ev.album.tracks,
-          });
-          setTracks(ev.album.tracks);
-          return;
+          };
+          trks = ev.album.tracks;
+        } else if (ev) {
+          const [albumData, tracksData] = await Promise.all([
+            fetchMusicBrainzAlbum(ev.mbAlbumId),
+            fetchMusicBrainzTracks(ev.mbAlbumId),
+          ]);
+          alb = albumData;
+          trks = tracksData.length > 0 ? tracksData : albumData.tracks;
         }
 
-        // Fallback: fetch from MusicBrainz proxy (legacy events without snapshot).
-        const [alb, trks] = await Promise.all([
-          fetchMusicBrainzAlbum(ev.mbAlbumId),
-          fetchMusicBrainzTracks(ev.mbAlbumId),
-        ]);
-        if (cancelled) return;
-        setAlbum(alb);
-        setTracks(trks.length > 0 ? trks : alb.tracks);
+        const result = { event: ev, album: alb, tracks: trks };
+        cache.set(cacheKey, result);
+        if (!cancelled) {
+          setData(result);
+          setLoading(false);
+        }
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : 'unknown_error');
-      } finally {
-        if (!cancelled) setLoading(false);
+        setLoading(false);
       }
     };
 
@@ -82,7 +94,17 @@ export function useEvent(eventId: string | null): UseEventResult {
     return () => {
       cancelled = true;
     };
-  }, [eventId]);
+  }, [eventId, cache, cacheKey]);
 
-  return { event, album, tracks, loading, error };
+  if (loading && !data) {
+    return { event: null, album: null, tracks: [], loading: true, error: null };
+  }
+
+  return {
+    event: data?.event ?? null,
+    album: data?.album ?? null,
+    tracks: data?.tracks ?? [],
+    loading,
+    error,
+  };
 }

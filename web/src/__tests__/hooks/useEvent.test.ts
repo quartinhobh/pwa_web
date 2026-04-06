@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useEvent } from '@/hooks/useEvent';
+import { useApiCache } from '@/store/apiCache';
 
 const sampleEvent = {
   id: 'e1',
@@ -47,6 +48,7 @@ function mockFetchByUrl(map: Record<string, unknown>): void {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  useApiCache.getState().cache = {};
 });
 
 afterEach(() => {

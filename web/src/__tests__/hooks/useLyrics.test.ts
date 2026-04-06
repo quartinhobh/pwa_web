@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useLyrics } from '@/hooks/useLyrics';
+import { useApiCache } from '@/store/apiCache';
 
 function mockFetchJson(body: unknown, ok = true, status = 200): void {
   globalThis.fetch = vi.fn(async () => ({
@@ -12,6 +13,7 @@ function mockFetchJson(body: unknown, ok = true, status = 200): void {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  useApiCache.getState().cache = {};
 });
 
 afterEach(() => {
