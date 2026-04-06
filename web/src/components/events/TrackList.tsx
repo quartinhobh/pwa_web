@@ -36,7 +36,6 @@ export const TrackList: React.FC<TrackListProps> = ({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [favorite, setFavorite] = useState<string | null>(userVote?.favoriteTrackId ?? null);
   const [least, setLeast] = useState<string | null>(userVote?.leastLikedTrackId ?? null);
-  const [editing, setEditing] = useState(!userVote);
   const [submitting, setSubmitting] = useState(false);
 
   const votingEnabled = canVote && !!onVote;
@@ -46,18 +45,16 @@ export const TrackList: React.FC<TrackListProps> = ({
     setSubmitting(true);
     try {
       await onVote(fav, lst);
-      setEditing(false);
     } catch {
-      // keep editing open on error
+      // silent
     } finally {
       setSubmitting(false);
     }
   }
 
   function toggleFavorite(trackId: string) {
-    if (!editing || submitting) return;
+    if (submitting) return;
     const next = favorite === trackId ? null : trackId;
-    // If this track was the least, clear least
     const nextLeast = least === trackId ? null : least;
     setFavorite(next);
     setLeast(nextLeast);
@@ -65,7 +62,7 @@ export const TrackList: React.FC<TrackListProps> = ({
   }
 
   function toggleLeast(trackId: string) {
-    if (!editing || submitting) return;
+    if (submitting) return;
     const next = least === trackId ? null : trackId;
     const nextFav = favorite === trackId ? null : favorite;
     setLeast(next);
@@ -75,22 +72,6 @@ export const TrackList: React.FC<TrackListProps> = ({
 
   return (
     <ZineFrame bg="cream" borderColor="burntYellow">
-      {/* Already voted banner */}
-      {votingEnabled && userVote && !editing && (
-        <div className="flex items-center justify-between mb-3 pb-2 border-b border-zine-burntYellow/30">
-          <span className="font-body text-sm text-zine-burntOrange dark:text-zine-cream">
-            ✓ voto registrado
-          </span>
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="font-body text-sm text-zine-burntYellow underline font-bold"
-          >
-            editar voto
-          </button>
-        </div>
-      )}
-
       <ol className="font-body space-y-1" aria-label="tracks">
         {tracks.map((t) => {
           const isOpen = expandedId === t.id;
@@ -125,12 +106,11 @@ export const TrackList: React.FC<TrackListProps> = ({
                     <button
                       type="button"
                       onClick={() => toggleFavorite(t.id)}
-                      disabled={!editing || submitting}
+                      disabled={submitting}
                       title="favorita"
                       className={[
                         'text-lg leading-none transition-transform',
                         isFav ? 'scale-125' : 'opacity-40 hover:opacity-80',
-                        !editing ? 'cursor-default' : '',
                       ].join(' ')}
                     >
                       {isFav ? '❤️' : '🤍'}
@@ -138,12 +118,11 @@ export const TrackList: React.FC<TrackListProps> = ({
                     <button
                       type="button"
                       onClick={() => toggleLeast(t.id)}
-                      disabled={!editing || submitting}
+                      disabled={submitting}
                       title="menos gostei"
                       className={[
                         'text-lg leading-none transition-transform',
                         isLeast ? 'scale-125' : 'opacity-40 hover:opacity-80',
-                        !editing ? 'cursor-default' : '',
                       ].join(' ')}
                     >
                       {isLeast ? '💀' : '☠️'}
