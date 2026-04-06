@@ -1,183 +1,303 @@
 # Deployment — Quartinho
 
-Target stack:
+## Pré-requisitos
 
-- **Frontend (web/)** → Firebase Hosting
-- **API (api/)** → Render (free Web Service)
-- **Firebase services** → Auth + Firestore + Realtime DB + Storage
+### Contas necessárias (todas gratuitas)
+
+| Plataforma | Pra quê | Criar conta em |
+|---|---|---|
+| **Firebase** (Google) | Auth, Firestore, RTDB, Storage, Hosting | https://console.firebase.google.com |
+| **Render** | API backend (Express) | https://render.com |
+| **GitHub** | Código + CI/CD + secrets | https://github.com |
+
+### Ferramentas locais
 
 ```bash
-  git tag v1.0.0 && git push --tags
+# macOS
+brew install bun gh
+
+# Login nas ferramentas
+gh auth login                      # GitHub CLI
+bunx firebase-tools login          # Firebase CLI (interativo, abre browser)
 ```
 
 ---
 
-## 1. Firebase project setup (one-time)
+## Passo 1 — Firebase (one-time)
 
-1. **Criar projeto**: https://console.firebase.google.com → **Add project**
+### 1.1 Criar projeto
+1. https://console.firebase.google.com → **Add project**
+2. Nome: `quartinho` (ou o que quiser)
+3. Desabilita Google Analytics (não precisa)
 
-2. **Criar bancos de dados** (cada um precisa ser criado manualmente no Console):
-   - **Firestore Database** → Create database → **Production mode** → região `southamerica-east1`
-   - **Realtime Database** → Create database → **Locked mode** → região mais próxima
-   - **Storage** → Get started → **Production mode** → mesma região
+### 1.2 Criar bancos de dados
+Cada um precisa ser criado **manualmente** no Console:
 
-3. **Ativar provedores de sign-in**: Authentication → Sign-in method → ative:
-   - **Anonymous**
-   - **Google**
-   - **Email/Password**
-   
-   Sem isso, o login falha com `auth/configuration-not-found`.
+| Serviço | Onde | Modo | Região |
+|---|---|---|---|
+| **Firestore** | Firestore Database → Create database | Production mode | `southamerica-east1` (SP) |
+| **Realtime Database** | Realtime Database → Create database | Locked mode | mais próxima |
+| **Storage** | Storage → Get started | Production mode | mesma região |
 
-4. **Service account key**: Project Settings → Service accounts →
-   Generate new private key. Salve o JSON — nunca commite.
+### 1.3 Ativar provedores de login
+Firebase Console → **Authentication** → **Sign-in method** → ative:
+- ✅ **Anonymous**
+- ✅ **Google** (configure o email de suporte)
+- ✅ **Email/Password**
 
-5. **Aplicar security rules** (substitui o `allow read, write: if false` padrão):
-   ```bash
-   source .github/secrets.env
-   bunx firebase-tools deploy --only firestore:rules,database:rules,storage:rules \
-       --project teste-qbh --token "$FIREBASE_TOKEN"
-   ```
+> Sem isso, o login falha com `auth/configuration-not-found`.
 
-6. **Registrar Web app**: Project Settings → General → Your apps → Add app (Web).
-   Copie o config object (apiKey, authDomain, projectId, etc.) — vai em `VITE_FIREBASE_CONFIG`.
+### 1.4 Service Account Key
+Firebase Console → **Project Settings** → **Service accounts** →
+**Generate new private key** → salva o JSON.
+
+Esse arquivo contém:
+- `project_id` → vai em `FIREBASE_PROJECT_ID`
+- `client_email` → vai em `FIREBASE_CLIENT_EMAIL`
+- `private_key` → vai em `FIREBASE_PRIVATE_KEY` (manter os `\n`)
+
+> **NUNCA commite esse arquivo.** Ele dá acesso total ao projeto.
+
+### 1.5 Registrar Web App
+Firebase Console → **Project Settings** → **General** → **Your apps** →
+**Add app** (ícone Web `</>`) → copie o config object:
+
+```json
+{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"...","databaseURL":"..."}
+```
+
+Esse JSON vai em `VITE_FIREBASE_CONFIG`.
+
+### 1.6 Gerar Firebase CI Token
+```bash
+bunx firebase-tools login:ci
+# Abre browser → loga → cola o token que aparece
+```
+
+O token vai em `FIREBASE_TOKEN` (GitHub secret + `.github/secrets.env`).
 
 ---
 
-## 2. Render — API service
+## Passo 2 — Render (API)
 
-### Setup (one-time)
-
-1. Render dashboard → **New Web Service** → connect GitHub repo
+### 2.1 Criar Web Service
+1. https://render.com → **New Web Service** → conecta o repo GitHub
 2. Configure:
-   - **Root Directory**: *(empty — repo root)*
-   - **Runtime**: Node
-   - **Build Command**: `bun install`
-   - **Start Command**: `bun run api/src/index.ts`
-   - **Instance Type**: Free
-   - **Health Check Path**: `/health`
-   - **Auto-Deploy**: Off (deploy via tags or manual)
-3. Environment variables — fill from `api/.env.production.example`:
-   - `NODE_ENV=production`
-   - `PORT=3001`
-   - `FIREBASE_PROJECT_ID`
-   - `FIREBASE_CLIENT_EMAIL`
-   - `FIREBASE_PRIVATE_KEY` (keep the `\n` literals)
-   - `FIREBASE_DATABASE_URL`
-   - `FIREBASE_STORAGE_BUCKET`
-   - `INITIAL_ADMIN_EMAIL` (first login with this email becomes admin;
-     remove after first successful login)
-   - `MUSICBRAINZ_USER_AGENT`
-   - `GENIUS_ACCESS_TOKEN` (optional)
-4. Deploy. API URL will be `https://<service>.onrender.com`
 
-### CI/CD via tags
+| Campo | Valor |
+|---|---|
+| Root Directory | *(vazio — raiz do repo)* |
+| Runtime | Node |
+| Build Command | `bun install` |
+| Start Command | `bun run api/src/index.ts` |
+| Instance Type | Free |
+| Health Check Path | `/health` |
+| Auto-Deploy | Off |
 
-`.github/workflows/deploy.yml` triggers on `v*` tags and calls the
-Render Deploy Hook to redeploy. Set `RENDER_DEPLOY_HOOK` as a GitHub
-secret (found in Render → Service → Settings → Deploy Hook).
+### 2.2 Environment Variables no Render
+Render dashboard → teu service → **Environment** → adiciona:
+
+| Variável | Valor | Onde encontrar |
+|---|---|---|
+| `NODE_ENV` | `production` | fixo |
+| `PORT` | `3001` | fixo |
+| `FIREBASE_PROJECT_ID` | `teste-qbh` | service account JSON → `project_id` |
+| `FIREBASE_CLIENT_EMAIL` | `firebase-adminsdk-...@teste-qbh.iam...` | service account JSON → `client_email` |
+| `FIREBASE_PRIVATE_KEY` | `-----BEGIN PRIVATE KEY-----\n...` | service account JSON → `private_key` (com `\n`) |
+| `FIREBASE_DATABASE_URL` | `https://teste-qbh-default-rtdb.firebaseio.com` | Firebase Console → RTDB → URL no topo |
+| `FIREBASE_STORAGE_BUCKET` | `teste-qbh.firebasestorage.app` | Firebase Console → Storage → URL |
+| `INITIAL_ADMIN_EMAIL` | `seu-email@gmail.com` | seu email Google (remover depois!) |
+| `MUSICBRAINZ_USER_AGENT` | `Quartinho/1.0 (email@dominio.com)` | qualquer email de contato |
+| `GENIUS_ACCESS_TOKEN` | *(opcional)* | https://genius.com/api-clients |
+
+### 2.3 Deploy Hook (pra CI/CD)
+Render → teu service → **Settings** → rola até **Deploy Hook** → copia a URL.
+Essa URL vai em `RENDER_DEPLOY_HOOK` (GitHub secret).
+
+### 2.4 Manual Deploy
+Render → teu service → **Manual Deploy** → Deploy latest commit.
+Espera ficar "Live". Testa: `curl https://<teu-service>.onrender.com/health`
+
+> **Nota**: Render free dorme após 15min sem requests. Primeiro acesso
+> pode demorar ~30s pra acordar.
 
 ---
 
-## 3. Firebase Hosting — web
+## Passo 3 — GitHub Secrets
 
-### Manual deploy from your machine
+### 3.1 Criar arquivo local
 
 ```bash
-# One-time
-bunx firebase-tools login
-
-# Build against production env
-cp web/.env.production.example web/.env.production
-$EDITOR web/.env.production     # paste VITE_FIREBASE_CONFIG + VITE_API_URL
-bun run --filter=web build
-
-# Deploy
-bunx firebase-tools deploy --only hosting --project <your-project-id>
+cp .github/secrets.env.example .github/secrets.env
 ```
 
-### GitHub Actions auto-deploy
+Preenche `.github/secrets.env`:
 
-The existing `.github/workflows/deploy.yml` builds and pushes to Firebase
-Hosting on every push to `main`. Configure the secrets below.
+```env
+RENDER_DEPLOY_HOOK=https://api.render.com/deploy/srv-xxx?key=yyy
+FIREBASE_PROJECT_ID=teste-qbh
+FIREBASE_TOKEN=1//0hxxxx (output do login:ci)
+VITE_API_URL=https://teu-service.onrender.com
+VITE_FIREBASE_CONFIG={"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"...","databaseURL":"..."}
+```
 
----
-
-## 4. GitHub Secrets required
-
-Mais rápido via CLI:
+### 3.2 Setar no GitHub
 
 ```bash
-brew install gh
-gh auth login
-cp .github/secrets.env.example .github/secrets.env
-$EDITOR .github/secrets.env   # preenche os valores
+brew install gh         # se não tiver
+gh auth login           # se não tiver logado
 gh secret set -f .github/secrets.env
 ```
 
-Ou manualmente em **Repo → Settings → Secrets and variables → Actions**.
-
-| Secret name                | Used by                | Source                                       |
-|----------------------------|------------------------|----------------------------------------------|
-| `RENDER_DEPLOY_HOOK`       | `deploy-api` job       | Render → Service → Settings → Deploy Hook     |
-| `FIREBASE_PROJECT_ID`      | `deploy-frontend`      | Firebase Console → Project Settings           |
-| `FIREBASE_TOKEN`           | `deploy-frontend`      | Run `bunx firebase-tools login:ci` locally    |
-| `VITE_FIREBASE_CONFIG`     | web build              | Firebase web app config as one-line JSON     |
-| `VITE_API_URL`             | web build              | Render service URL (e.g. `https://xxx.onrender.com`) |
+Ou manualmente: GitHub repo → Settings → Secrets and variables → Actions → New repository secret (um pra cada).
 
 ---
 
-## 5. First admin user (bootstrap)
+## Passo 4 — Deploy do Frontend
 
-O primeiro admin é configurado via env var no Render:
+### 4.1 Criar `web/.env.production`
 
-1. No Render dashboard → Environment Variables, sete:
-   ```
-   INITIAL_ADMIN_EMAIL=seu-email@gmail.com
-   ```
-2. Abra o app em produção (`teste-qbh.web.app`)
-3. Clique **"entrar"** no header → **"Entrar com Google"**
-4. Logue com o email que configurou acima
-5. O backend detecta automaticamente que seu email = `INITIAL_ADMIN_EMAIL`
-   e seta `role: admin` no Firestore
-6. O botão **"admin"** aparece no header — acesse `/admin`
-7. **IMPORTANTE**: volte ao Render e **remova** a var `INITIAL_ADMIN_EMAIL`.
-   Se não remover, qualquer pessoa que saiba o email pode virar admin.
+```bash
+cp web/.env.production.example web/.env.production
+```
 
-Para promover outros admins/moderadores depois: acesse `/admin#users` e
-altere o role pelo dropdown.
+Preenche:
+```env
+VITE_API_URL=https://teu-service.onrender.com
+VITE_FIREBASE_CONFIG={"apiKey":"...","projectId":"...","etc":"..."}
+```
 
----
+### 4.2 Aplicar Security Rules
 
-## 6. First-deployment checklist
+```bash
+source .github/secrets.env
+bunx firebase-tools deploy --only firestore:rules,database:rules,storage:rules \
+    --project teste-qbh --token "$FIREBASE_TOKEN"
+```
 
-- [ ] Firebase project created, services enabled
-- [ ] Security rules deployed (`firebase deploy --only firestore:rules,...`)
-- [ ] Service account JSON generated and stored locally (not in git)
-- [ ] Render service created, env vars set, `/health` returns 200
-- [ ] `INITIAL_ADMIN_EMAIL` set no Render (ver seção 5 acima)
-- [ ] Frontend deployed (`bun run --filter=web build && bunx firebase-tools deploy --only hosting`)
-- [ ] Abra o app, logue com Google, confirme que `/admin` funciona
-- [ ] Remova `INITIAL_ADMIN_EMAIL` do Render
-- [ ] PWA install tested on a real mobile device
+### 4.3 Build + Deploy
 
----
+```bash
+make deploy
+# ou manualmente:
+source .github/secrets.env
+bun run --filter=web build
+bunx firebase-tools deploy --only hosting --project teste-qbh --token "$FIREBASE_TOKEN"
+```
 
-## 7. Rollback
-
-- **Frontend** — `bunx firebase-tools hosting:clone <site>:live <site>:previous`
-  or use the Firebase Hosting dashboard's version history to re-publish a
-  previous release.
-- **API** — Render keeps deployment history per service; redeploy a
-  previous version from the Events tab in the dashboard.
+App fica em: `https://<project-id>.web.app`
 
 ---
 
-## 7. Monitoring
+## Passo 5 — Primeiro Admin
 
-Not wired yet. Recommended next steps once the MVP is live:
+### Opção A: via Makefile (recomendado)
 
-- **Frontend** — Firebase Performance Monitoring (already available on the
-  same project, just init the SDK).
-- **API** — Koyeb metrics + structured logs; consider Sentry for error
-  tracking.
-- **Alerting** — Firebase Crashlytics for the PWA (optional).
+```bash
+make admin EMAIL=seu-email@gmail.com
+```
+
+Isso edita diretamente o Firestore de produção. Se o user já logou,
+seta `role: admin`. Se nunca logou, cria um `role_invite` que é
+consumido no próximo login.
+
+Depois: abre o app → F12 → Console → `localStorage.clear()` →
+recarrega → loga com Google.
+
+### Opção B: via INITIAL_ADMIN_EMAIL
+
+1. Sete `INITIAL_ADMIN_EMAIL=seu-email@gmail.com` no Render (env vars)
+2. Faça Manual Deploy
+3. Delete seu user do Firestore (se já existir):
+   Firebase Console → Firestore → collection `users` → delete o doc
+4. Abra o app → logue com Google → backend cria doc com `role: admin`
+5. **REMOVA** `INITIAL_ADMIN_EMAIL` do Render
+
+### Opção C: manual no Firebase Console
+
+1. Firebase Console → Firestore → collection `users`
+2. Encontre o doc com seu email
+3. Edite o campo `role` de `user` pra `admin`
+4. No app: F12 → `localStorage.clear()` → recarrega
+
+---
+
+## Passo 6 — Reset de produção
+
+```bash
+make reset-prod
+```
+
+Isso limpa todas as collections do Firestore. Users do Auth precisam
+ser deletados manualmente no Firebase Console → Authentication → Users.
+
+No browser: F12 → Console → `localStorage.clear()`
+
+---
+
+## Passo 7 — Deploy automático (CI/CD)
+
+Deploy dispara quando cria uma tag `v*`:
+
+```bash
+git tag v1.0.0
+git push --tags
+```
+
+O workflow `.github/workflows/deploy.yml`:
+1. Chama o Render Deploy Hook (redeploy da API)
+2. Builda o frontend com as secrets
+3. Deploy pro Firebase Hosting
+
+---
+
+## Comandos úteis
+
+```bash
+make deploy          # Build web + deploy Firebase Hosting
+make deploy-rules    # Aplica security rules (Firestore/RTDB/Storage)
+make admin EMAIL=x   # Promove email a admin no Firestore de produção
+make reset-prod      # DESTRUTIVO: limpa Firestore de produção
+make up              # Dev local: sobe emulator + api + web (Docker)
+make seed            # Dev local: popula emulator com dados de teste
+make test-all        # Lint + typecheck + unit tests + emulator tests
+make e2e             # Playwright E2E (24 testes)
+```
+
+---
+
+## Checklist primeiro deploy
+
+- [ ] Conta Firebase criada
+- [ ] Projeto Firebase criado
+- [ ] Firestore / RTDB / Storage criados (manualmente no Console)
+- [ ] Auth providers ativados (Anonymous + Google + Email)
+- [ ] Service account key gerada e salva localmente
+- [ ] Web app registrada no Firebase (config JSON copiado)
+- [ ] Firebase CI token gerado (`bunx firebase-tools login:ci`)
+- [ ] Conta Render criada
+- [ ] Render Web Service criado com env vars
+- [ ] Render `/health` retorna 200
+- [ ] Deploy Hook copiado do Render
+- [ ] GitHub secrets setados (`gh secret set -f .github/secrets.env`)
+- [ ] `web/.env.production` preenchido
+- [ ] Security rules aplicadas (`make deploy-rules`)
+- [ ] Frontend deployed (`make deploy`)
+- [ ] Admin promovido (`make admin EMAIL=...`)
+- [ ] Logou no app e vê botão "admin" no header
+- [ ] Removeu `INITIAL_ADMIN_EMAIL` do Render
+- [ ] Testou no celular (PWA install)
+
+---
+
+## Troubleshooting
+
+| Problema | Causa | Fix |
+|---|---|---|
+| Login falha com `auth/configuration-not-found` | Providers não ativados | Firebase Console → Auth → Sign-in method |
+| API retorna 503 | Render free dormiu | Espera ~30s, reload |
+| CORS errors no browser | API crashando (error antes do CORS middleware) | Checa logs do Render |
+| `trust proxy` error nos logs | Falta `app.set('trust proxy', 1)` | Já fixado no código |
+| Firestore vazio após login | Service account sem permissão | Verifica `FIREBASE_PRIVATE_KEY` no Render |
+| Admin não aparece | Doc `users/:uid` com `role: user` | `make admin EMAIL=...` |
+| `bun: script not found` no Render | Start Command errado | Deve ser `bun run api/src/index.ts` |
