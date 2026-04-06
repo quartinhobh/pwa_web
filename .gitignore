@@ -14,6 +14,7 @@ build/
 .env.local
 .env.*.local
 .env.seed
+.env.production
 
 # Logs
 npm-debug.log*
@@ -48,3 +49,4 @@ web/dev-dist/
 private_key.json
 web/playwright-report/
 web/test-results/
+.env.production

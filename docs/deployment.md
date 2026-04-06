@@ -3,7 +3,7 @@
 Target stack:
 
 - **Frontend (web/)** → Firebase Hosting
-- **API (api/)** → Koyeb (Docker or buildpacks)
+- **API (api/)** → Render (free Web Service)
 - **Firebase services** → Auth + Firestore + Realtime DB + Storage
 
 ```bash
@@ -31,42 +31,38 @@ Target stack:
 
 ---
 
-## 2. Koyeb — API service
+## 2. Render — API service
 
-You need a Koyeb account and (optionally) a personal API token.
+### Setup (one-time)
 
-### Option A — manual deploy via Koyeb dashboard
-
-No `KOYEB_TOKEN` secret needed.
-
-1. Koyeb dashboard → **Create Service** → **GitHub**, connect this repo,
-   select the `api/` root.
-2. Build command: `bun install && bun run --filter=api build`
-3. Run command: `bun run --filter=api start`
-4. Environment variables — fill from `api/.env.production.example`:
+1. Render dashboard → **New Web Service** → connect GitHub repo
+2. Configure:
+   - **Root Directory**: *(empty — repo root)*
+   - **Runtime**: Node
+   - **Build Command**: `bun install`
+   - **Start Command**: `bun run api/src/index.ts`
+   - **Instance Type**: Free
+   - **Health Check Path**: `/health`
+   - **Auto-Deploy**: Off (deploy via tags or manual)
+3. Environment variables — fill from `api/.env.production.example`:
    - `NODE_ENV=production`
-   - `PORT=3001` (or whatever Koyeb assigns — Koyeb injects `$PORT`)
+   - `PORT=3001`
    - `FIREBASE_PROJECT_ID`
    - `FIREBASE_CLIENT_EMAIL`
-   - `FIREBASE_PRIVATE_KEY` (keep the `\n` literals — api/src/config/firebase.ts
-     unescapes them)
+   - `FIREBASE_PRIVATE_KEY` (keep the `\n` literals)
    - `FIREBASE_DATABASE_URL`
    - `FIREBASE_STORAGE_BUCKET`
-   - `INITIAL_ADMIN_EMAIL` (first user with this email becomes admin on
-     `/auth/link`; remove after first successful bootstrap)
+   - `INITIAL_ADMIN_EMAIL` (first login with this email becomes admin;
+     remove after first successful login)
    - `MUSICBRAINZ_USER_AGENT`
-   - `GENIUS_ACCESS_TOKEN` (if lyrics feature is enabled)
-5. Deploy. Copy the public URL — you'll need it as `VITE_API_URL` for the
-   frontend build.
+   - `GENIUS_ACCESS_TOKEN` (optional)
+4. Deploy. API URL will be `https://<service>.onrender.com`
 
-### Option B — GitHub Actions auto-deploy
+### CI/CD via tags
 
-Uses `.github/workflows/deploy.yml` which is already wired. Requires a
-**Koyeb API token**:
-
-1. Koyeb → Account Settings → API → **Create token**.
-2. GitHub repo → Settings → Secrets and variables → Actions → **New secret**
-   with the names listed below.
+`.github/workflows/deploy.yml` triggers on `v*` tags and calls the
+Render Deploy Hook to redeploy. Set `RENDER_DEPLOY_HOOK` as a GitHub
+secret (found in Render → Service → Settings → Deploy Hook).
 
 ---
 
@@ -100,7 +96,7 @@ Set these at **Repo → Settings → Secrets and variables → Actions**.
 
 | Secret name                | Used by                | Source                                       |
 |----------------------------|------------------------|----------------------------------------------|
-| `KOYEB_TOKEN`              | `deploy-api` job       | Koyeb → Account → API → Create token         |
+| `RENDER_DEPLOY_HOOK`       | `deploy-api` job       | Render → Service → Settings → Deploy Hook     |
 | `FIREBASE_PROJECT_ID`      | `deploy-api`, hosting  | Service account JSON → `project_id`          |
 | `FIREBASE_CLIENT_EMAIL`    | `deploy-api`           | Service account JSON → `client_email`        |
 | `FIREBASE_PRIVATE_KEY`     | `deploy-api`           | Service account JSON → `private_key` (keep `\n`) |
