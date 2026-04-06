@@ -81,7 +81,7 @@ export const UsersPanel: React.FC = () => {
   const filtered = filter === 'all' ? users : users.filter((u) => u.role === filter);
 
   const inputClass =
-    'font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream text-zine-burntOrange focus:outline-none focus:border-zine-burntOrange';
+    'font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream text-zine-burntOrange focus:outline-none focus:border-zine-burntOrange w-full';
 
   return (
     <>
@@ -90,7 +90,7 @@ export const UsersPanel: React.FC = () => {
         <h3 className="font-display text-xl text-zine-burntOrange mb-3">
           Adicionar admin/moderador por email
         </h3>
-        <form onSubmit={handleInvite} className="flex flex-wrap items-end gap-3">
+        <form onSubmit={handleInvite} className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
           <input
             type="email"
             placeholder="email@exemplo.com"

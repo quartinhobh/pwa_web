@@ -71,11 +71,14 @@ function PixQrCode({ config }: { config: PixConfig }) {
           gerando QR…
         </div>
       )}
-      <div className="text-center font-body text-sm text-zine-cream">
+      {
+        /* TODO pensar em talvez remover isso futuramente */
+        /* <div className="text-center font-body text-sm text-zine-cream">
         <p className="font-bold">{config.beneficiary}</p>
         <p>{config.city}</p>
         <p className="text-xs mt-1 opacity-70 break-all">{config.key}</p>
-      </div>
+        </div> */
+      }
     </div>
   );
 }

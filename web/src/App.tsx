@@ -60,7 +60,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen flex flex-col font-body text-zine-burntOrange">
+      <div className="min-h-screen flex flex-col font-body text-zine-burntOrange overflow-x-hidden">
         <Header />
         <main className="flex-1 mx-auto w-full max-w-[640px] px-4 py-6">
           <Suspense fallback={<PageFallback />}>

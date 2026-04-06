@@ -55,7 +55,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
       <div
         role="tablist"
         aria-label="admin-tabs"
-        className="flex flex-wrap gap-2"
+        className="flex flex-wrap gap-1.5 sm:gap-2 [&>button]:px-2.5 [&>button]:py-1.5 [&>button]:text-xs sm:[&>button]:px-5 sm:[&>button]:py-2 sm:[&>button]:text-base"
       >
         <Button
           role="tab"

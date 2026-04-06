@@ -45,6 +45,11 @@ body {
   color: #1A1A1A;            /* never pure black */
   font-family: 'Bitter', Georgia, serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;        /* kill horizontal scroll globally */
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
 /* ── Dark mode ────────────────────────────────────────────────────────── */

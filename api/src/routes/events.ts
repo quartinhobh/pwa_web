@@ -13,13 +13,28 @@ import {
   listEvents,
   updateEvent,
 } from '../services/eventService';
-import type { EventCreatePayload } from '../types';
+import type { Event, EventCreatePayload } from '../types';
 
 export const eventsRouter: Router = Router();
 
+// ── In-memory cache (TTL 60s, invalidated on writes) ─────────────
+const CACHE_TTL = 10 * 60_000; // 10 min — invalidated instantly on admin writes
+let listCache: { data: Event[]; at: number } | null = null;
+let currentCache: { data: Event | null; at: number } | null = null;
+
+function invalidateCache() {
+  listCache = null;
+  currentCache = null;
+}
+
 eventsRouter.get('/', async (_req: Request, res: Response) => {
   try {
+    if (listCache && Date.now() - listCache.at < CACHE_TTL) {
+      res.status(200).json({ events: listCache.data });
+      return;
+    }
     const events = await listEvents();
+    listCache = { data: events, at: Date.now() };
     res.status(200).json({ events });
   } catch {
     res.status(500).json({ error: 'list_failed' });
@@ -28,7 +43,16 @@ eventsRouter.get('/', async (_req: Request, res: Response) => {
 
 eventsRouter.get('/current', async (_req: Request, res: Response) => {
   try {
+    if (currentCache && Date.now() - currentCache.at < CACHE_TTL) {
+      if (!currentCache.data) {
+        res.status(404).json({ error: 'no_current_event' });
+        return;
+      }
+      res.status(200).json({ event: currentCache.data });
+      return;
+    }
     const event = await getCurrentEvent();
+    currentCache = { data: event, at: Date.now() };
     if (!event) {
       res.status(404).json({ error: 'no_current_event' });
       return;
@@ -93,6 +117,7 @@ eventsRouter.post(
     }
     try {
       const event = await createEvent(payload, req.user!.uid);
+      invalidateCache();
       res.status(201).json({ event });
     } catch {
       res.status(500).json({ error: 'create_failed' });
@@ -112,6 +137,7 @@ eventsRouter.put(
         res.status(404).json({ error: 'not_found' });
         return;
       }
+      invalidateCache();
       res.status(200).json({ event: updated });
     } catch {
       res.status(500).json({ error: 'update_failed' });
@@ -142,6 +168,7 @@ eventsRouter.put(
         res.status(404).json({ error: 'not_found' });
         return;
       }
+      invalidateCache();
       res.status(200).json({ event: updated });
     } catch {
       res.status(500).json({ error: 'spotify_update_failed' });
@@ -161,6 +188,7 @@ eventsRouter.delete(
         res.status(404).json({ error: 'not_found' });
         return;
       }
+      invalidateCache();
       res.status(204).send();
     } catch {
       res.status(500).json({ error: 'delete_failed' });
