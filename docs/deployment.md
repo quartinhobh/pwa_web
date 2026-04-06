@@ -15,17 +15,19 @@ Target stack:
 ## 1. Firebase project setup (one-time)
 
 1. Create the project: https://console.firebase.google.com → **Add project**.
-2. Enable services: **Authentication** (Anonymous + Google + Email),
-   **Firestore Database**, **Realtime Database**, **Storage**.
-3. Generate a service account key: **Project Settings → Service accounts →
+2. Enable services: **Authentication**, **Firestore Database**, **Realtime Database**, **Storage**.
+3. **Ativar provedores de sign-in**: Authentication → Sign-in method → ative
+   **Anonymous**, **Google** e **Email/Password**. Sem isso, o login falha com
+   `auth/configuration-not-found`.
+4. Generate a service account key: **Project Settings → Service accounts →
    Generate new private key**. Save the JSON somewhere safe — you'll paste
    fields from it into GitHub Secrets and Koyeb env vars. **Never commit it.**
-4. Apply security rules from this repo:
+5. Apply security rules from this repo:
    ```bash
    bunx firebase-tools deploy --only firestore:rules,database,storage:rules \
        --project <your-project-id>
    ```
-5. Register a **Web app** in the project settings and copy the config object
+6. Register a **Web app** in the project settings and copy the config object
    (apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId,
    databaseURL). You'll use it as `VITE_FIREBASE_CONFIG`.
 
@@ -131,8 +133,8 @@ O primeiro admin é configurado via env var no Render:
 7. **IMPORTANTE**: volte ao Render e **remova** a var `INITIAL_ADMIN_EMAIL`.
    Se não remover, qualquer pessoa que saiba o email pode virar admin.
 
-Para promover outros admins depois: use o Firebase Console → Firestore →
-`users/{uid}` → edite o campo `role` de `'user'` para `'admin'`.
+Para promover outros admins/moderadores depois: acesse `/admin#users` e
+altere o role pelo dropdown.
 
 ---
 

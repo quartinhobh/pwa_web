@@ -13,7 +13,7 @@ type Mode = 'pick' | 'email-login' | 'email-signup';
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   const {
     signInWithGoogle,
-    signInWithApple,
+
     signInWithEmail,
     signUpWithEmail,
   } = useAuth();
@@ -118,10 +118,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
         <Button onClick={() => void wrap(signInWithGoogle)} disabled={busy}>
           Entrar com Google
         </Button>
-        <Button onClick={() => void wrap(signInWithApple)} disabled={busy}>
-          Entrar com Apple
-        </Button>
-        <Button onClick={() => setMode('email-login')} disabled={busy}>
+<Button onClick={() => setMode('email-login')} disabled={busy}>
           Entrar com Email
         </Button>
         {error && (
