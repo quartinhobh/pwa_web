@@ -1,12 +1,7 @@
-// Photo service — P3-G.
-// Storage layout: event_photos/{eventId}/{category}/{photoId}.{ext}
-// Firestore layout: event_photos/{eventId}/{category}/{photoId}
-//
-// listPhotos queries both category sub-collections, merges, and sorts by
-// createdAt desc for the public archive view.
-
 import { randomUUID } from 'node:crypto';
-import { adminDb, adminStorage, STORAGE_BUCKET } from '../config/firebase';
+import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { adminDb } from '../config/firebase';
+import { createR2Client, getR2PublicUrl, R2_BUCKET } from '../config/r2';
 import type { Photo, PhotoCategory } from '../types';
 
 const EVENT_PHOTOS = 'event_photos';
@@ -40,20 +35,20 @@ export async function uploadPhoto(
 ): Promise<Photo> {
   const photoId = randomUUID();
   const ext = extFromMime(mimeType);
-  const objectPath = `event_photos/${eventId}/${category}/${photoId}.${ext}`;
+  const objectKey = `event_photos/${eventId}/${category}/${photoId}.${ext}`;
 
-  const bucket = adminStorage.bucket(STORAGE_BUCKET);
-  const file = bucket.file(objectPath);
-  await file.save(fileBuffer, {
-    contentType: mimeType,
-    resumable: false,
-    metadata: { metadata: { uploadedBy: userId, eventId, category } },
-  });
-  await file.makePublic().catch(() => {
-    // swallow — emulator or private bucket; URL still constructed below.
-  });
+  const client = createR2Client();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: objectKey,
+      Body: fileBuffer,
+      ContentType: mimeType,
+      Metadata: { uploadedBy: userId, eventId, category },
+    }),
+  );
 
-  const url = `https://storage.googleapis.com/${bucket.name}/${objectPath}`;
+  const url = getR2PublicUrl(objectKey);
   const now = Date.now();
   const photo: Photo = {
     id: photoId,
@@ -76,14 +71,18 @@ export async function deletePhoto(
   if (!snap.exists) return false;
   const data = snap.data() as Photo;
 
-  // Best-effort Storage cleanup — URL suffix is the object path.
   try {
-    const bucket = adminStorage.bucket(STORAGE_BUCKET);
-    const marker = `/${bucket.name}/`;
-    const idx = data.url.indexOf(marker);
-    if (idx >= 0) {
-      const objectPath = data.url.slice(idx + marker.length);
-      await bucket.file(objectPath).delete({ ignoreNotFound: true });
+    const bucketPrefix = `/${R2_BUCKET}/`;
+    const idx = data.url.indexOf(bucketPrefix);
+    const objectKey = idx >= 0 ? data.url.slice(idx + bucketPrefix.length) : null;
+    if (objectKey) {
+      const client = createR2Client();
+      await client.send(
+        new DeleteObjectCommand({
+          Bucket: R2_BUCKET,
+          Key: objectKey,
+        }),
+      );
     }
   } catch {
     // swallow — Firestore doc is the source of truth for the list view.

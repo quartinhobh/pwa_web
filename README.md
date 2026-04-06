@@ -14,7 +14,7 @@ Express + Firebase.
   (Workbox). Router: `react-router-dom`. Estado: `zustand`.
 - **api/** — Express + Firebase Admin SDK (Auth + Firestore + RTDB).
 - **Cloudflare R2** — uploads de fotos (free tier, S3-compatible).
-- **firebase/** — security rules (Firestore, RTDB, Storage).
+- **firebase/** — security rules (Firestore, RTDB).
 - **Firebase Emulator Suite** via Docker Compose para dev/CI.
 - **Playwright** para E2E; **Vitest** para unit tests.
 
