@@ -214,6 +214,7 @@ export interface Product {
   price: number; // centavos (R$ 25,00 = 2500)
   imageUrl: string | null;
   active: boolean;
+  sortOrder: number;
   createdAt: number;
   updatedAt: number;
 }
