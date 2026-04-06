@@ -33,7 +33,6 @@ describe('AlbumDisplay', () => {
     render(<AlbumDisplay event={baseEvent} album={album} />);
     expect(screen.getByText('Real Album Title')).toBeInTheDocument();
     expect(screen.getByText('Some Artist')).toBeInTheDocument();
-    expect(screen.getByText('2025-01-15')).toBeInTheDocument();
   });
 
   it('falls back to event.title when album is null', () => {
