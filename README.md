@@ -21,12 +21,33 @@ Identidade visual (Phase 4) definida em `.claude/ROADMAP.md` §13 — paleta
 `zine.*`, tipografia self-hosted (Alfa Slab One + Bitter), frame-within-frame
 via SVG `feTurbulence`.
 
-## Quickstart — dev local com emulator
+## Quickstart — dev local com Docker (recomendado)
 
-Pré-requisitos: Bun ≥ 1.1, Docker, Java (só se rodar emulator fora do
-container).
+Pré-requisitos: Bun ≥ 1.1, Docker.
 
 ```bash
+git clone https://github.com/quartinhobh/pwa_web quartinho && cd quartinho
+
+bun install
+
+# Sobe emulators + API + Web em background
+make up
+
+# Popula o emulator com admin + evento de teste
+cp .env.seed.example .env.seed
+$EDITOR .env.seed                 # coloca email/senha (min 12 chars)
+make seed
+
+# App em http://localhost:5173 · API em http://localhost:3001
+# Emulator UI em http://localhost:4000
+```
+
+## Quickstart — dev local nativo (sem Docker)
+
+Pré-requisitos: Bun ≥ 1.1, Java (só se rodar emulator fora do container).
+```bash
+git clone https://github.com/quartinhobh/pwa_web quartinho && cd quartinho
+
 bun install
 
 # 1. Sobe o Firebase Emulator Suite (docker-compose)
@@ -51,15 +72,24 @@ A rota só é montada quando `import.meta.env.DEV` é true.
 
 ## Comandos
 
+### Make (Docker)
+
+| Comando      | O que faz                                                    |
+|--------------|--------------------------------------------------------------|
+| `make up`    | Sobe emulators + API + Web (Docker, background)             |
+| `make down`  | Para todos os containers                                     |
+| `make seed`  | Popula emulator com admin + evento de teste                 |
+| `make logs`  | Tail logs de todos os containers                             |
+
+### Bun
+
 | Comando                                     | O que faz                                                    |
 |---------------------------------------------|--------------------------------------------------------------|
 | `bun run lint`                              | ESLint em `api` + `web`                                      |
 | `bun run typecheck`                         | `tsc --noEmit` em todos os workspaces                        |
 | `bun run test`                              | Vitest (unit) em `api` + `web`                               |
 | `bun run build`                             | Build de produção do web + tsc do api                        |
-| `bun run emulators:up` / `:down` / `:logs`  | Controla os emulators via docker-compose                     |
 | `bun run test:emulators`                    | Roda os testes de integração contra o emulator               |
-| `bun run seed`                              | Cria admin inicial + evento de teste (requer `.env.seed`)    |
 | `bun run --filter=web e2e:install`          | Baixa os navegadores Playwright                              |
 | `bun run --filter=web e2e`                  | Roda os testes E2E (sobe o vite dev server automaticamente)  |
 
@@ -78,7 +108,7 @@ A rota só é montada quando `import.meta.env.DEV` é true.
 ## Estrutura
 
 ```
-gustavo_quartinho/
+quartinho/
 ├── api/                     # Express + Firebase Admin
 │   ├── src/
 │   │   ├── config/firebase.ts    # credential resolution (emulator | SA | env)
