@@ -8,11 +8,11 @@ set -euo pipefail
 
 EMAIL="${1:?Uso: $0 <email>}"
 
-# Carrega env vars de produção
+# Carrega env vars de produção (grep only the vars we need to avoid shell parse errors)
 if [ -f api/.env.production ]; then
-  set -a
-  source api/.env.production
-  set +a
+  export FIREBASE_PROJECT_ID="$(grep '^FIREBASE_PROJECT_ID=' api/.env.production | cut -d= -f2-)"
+  export FIREBASE_CLIENT_EMAIL="$(grep '^FIREBASE_CLIENT_EMAIL=' api/.env.production | cut -d= -f2-)"
+  export FIREBASE_PRIVATE_KEY="$(grep '^FIREBASE_PRIVATE_KEY=' api/.env.production | cut -d= -f2- | tr -d '"')"
 fi
 
 echo "→ Promovendo $EMAIL a admin no projeto $FIREBASE_PROJECT_ID..."
