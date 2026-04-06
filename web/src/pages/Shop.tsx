@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { LoadingState } from '@/components/common/LoadingState';
 import ZineFrame from '@/components/common/ZineFrame';
-import { fetchProducts, fetchPixConfig } from '@/services/api';
-import type { Product, PixConfig } from '@/types';
+import { useShopData } from '@/hooks/useShopData';
+import type { PixConfig } from '@/types';
 
 function formatPrice(centavos: number): string {
   return `R$ ${(centavos / 100).toFixed(2).replace('.', ',')}`;
@@ -85,25 +85,13 @@ function PixQrCode({ config }: { config: PixConfig }) {
 }
 
 export const Shop: React.FC = () => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [pixConfig, setPixConfig] = useState<PixConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { products, pix, loading } = useShopData(null);
 
-  useEffect(() => {
-    void Promise.all([fetchProducts(), fetchPixConfig()])
-      .then(([prods, pix]) => {
-        setProducts(prods);
-        setPixConfig(pix);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
+  if (loading && products.length === 0) {
     return <LoadingState />;
   }
 
-  const hasPix = !!pixConfig?.key;
+  const hasPix = !!pix.key;
   if (products.length === 0 && !hasPix) {
     return (
       <main className="p-4">
@@ -163,7 +151,7 @@ export const Shop: React.FC = () => {
           <h3 className="font-display text-xl text-zine-cream text-center mb-3">
             pagar com PIX
           </h3>
-          <PixQrCode config={pixConfig} />
+          <PixQrCode config={pix} />
         </ZineFrame>
       )}
     </main>
