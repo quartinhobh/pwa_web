@@ -50,3 +50,4 @@ private_key.json
 web/playwright-report/
 web/test-results/
 .env.production
+.github/secrets.env
