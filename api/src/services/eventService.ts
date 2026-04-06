@@ -2,7 +2,8 @@
 // Owner: feature-builder. Pure domain; no HTTP concerns.
 
 import { adminDb } from '../config/firebase';
-import type { Event, EventCreatePayload, EventStatus } from '../types';
+import type { Event, EventAlbumSnapshot, EventCreatePayload, EventStatus } from '../types';
+import { fetchAlbum } from './musicbrainzService';
 
 const EVENTS = 'events';
 
@@ -37,6 +38,24 @@ export async function createEvent(
 ): Promise<Event> {
   const now = Date.now();
   const ref = adminDb.collection(EVENTS).doc();
+
+  // Snapshot MusicBrainz data at creation time so the app never needs to
+  // re-fetch it — avoids rate limits when 60 users hit the same event.
+  let album: EventAlbumSnapshot | null = null;
+  if (payload.mbAlbumId) {
+    try {
+      const mb = await fetchAlbum(payload.mbAlbumId);
+      album = {
+        albumTitle: mb.title,
+        artistCredit: mb.artistCredit,
+        coverUrl: `https://coverartarchive.org/release/${mb.id}/front-250`,
+        tracks: mb.tracks,
+      };
+    } catch {
+      // MB unreachable — album snapshot stays null, can be enriched later.
+    }
+  }
+
   const event: Event = {
     id: ref.id,
     mbAlbumId: payload.mbAlbumId,
@@ -46,6 +65,7 @@ export async function createEvent(
     endTime: payload.endTime,
     location: payload.location ?? null,
     status: 'upcoming' satisfies EventStatus,
+    album,
     extras: payload.extras,
     spotifyPlaylistUrl: payload.spotifyPlaylistUrl,
     createdBy,

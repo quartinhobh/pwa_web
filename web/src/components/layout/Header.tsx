@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useSessionStore } from '@/store/sessionStore';
 import LoginModal from '@/components/auth/LoginModal';
 
 const THEME_KEY = 'quartinho:theme';
@@ -15,6 +16,8 @@ function getInitialDark(): boolean {
 
 export const Header: React.FC = () => {
   const { user, isAuthenticated, signOut } = useAuth();
+  const role = useSessionStore((s) => s.role);
+  const isAdminOrMod = role === 'admin' || role === 'moderator';
   const [loginOpen, setLoginOpen] = useState(false);
   const [dark, setDark] = useState(getInitialDark);
 
@@ -34,7 +37,8 @@ export const Header: React.FC = () => {
     <>
       <header className="bg-zine-periwinkle dark:bg-zine-periwinkle-dark border-b-4 border-zine-cream dark:border-zine-cream/30">
         <div className="mx-auto max-w-[640px] px-4 py-3 flex items-center justify-between">
-          <Link to="/">
+          <Link to="/" className="flex items-center gap-2">
+            <img src="/logo.svg" alt="" className="h-9 w-9" />
             <h1 className="font-display text-3xl text-zine-cream tracking-wide">
               Quartinho
             </h1>
@@ -51,6 +55,14 @@ export const Header: React.FC = () => {
             </button>
             {isAuthenticated ? (
               <>
+                {isAdminOrMod && (
+                  <Link
+                    to="/admin"
+                    className="font-body font-bold text-sm text-zine-burntYellow border-2 border-zine-burntYellow px-2 py-1 hover:bg-zine-burntYellow hover:text-zine-cream"
+                  >
+                    admin
+                  </Link>
+                )}
                 <span className="font-body text-sm text-zine-cream truncate max-w-[120px]">
                   {user?.displayName ?? user?.email ?? ''}
                 </span>

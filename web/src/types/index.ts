@@ -38,6 +38,13 @@ export interface EventExtras {
   images: string[];
 }
 
+export interface EventAlbumSnapshot {
+  albumTitle: string;
+  artistCredit: string;
+  coverUrl: string | null;
+  tracks: MusicBrainzTrack[];
+}
+
 export interface Event {
   id: string;
   mbAlbumId: string;
@@ -47,6 +54,7 @@ export interface Event {
   endTime: string;
   location: string | null;
   status: EventStatus;
+  album: EventAlbumSnapshot | null;
   extras: EventExtras;
   spotifyPlaylistUrl: string | null;
   createdBy: string;

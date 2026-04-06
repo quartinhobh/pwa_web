@@ -169,6 +169,23 @@ export async function fetchEventById(id: string): Promise<Event | null> {
   return body.event;
 }
 
+export interface MbSearchResult {
+  id: string;
+  title: string;
+  artistCredit: string;
+  date: string;
+  coverUrl: string | null;
+}
+
+export async function searchMusicBrainz(query: string): Promise<MbSearchResult[]> {
+  const res = await fetch(
+    `${API_URL}/mb/search?q=${encodeURIComponent(query)}`,
+  );
+  if (!res.ok) throw new Error(`GET /mb/search failed: ${res.status}`);
+  const body = (await res.json()) as { results: MbSearchResult[] };
+  return body.results;
+}
+
 export async function fetchMusicBrainzAlbum(
   mbid: string,
 ): Promise<MusicBrainzRelease> {

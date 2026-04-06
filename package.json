@@ -17,7 +17,7 @@
     "emulators:down": "docker compose down",
     "emulators:logs": "docker compose logs -f firebase-emulators",
     "test:emulators": "FIREBASE_PROJECT_ID=quartinho-dev GCLOUD_PROJECT=quartinho-dev FIRESTORE_EMULATOR_HOST=localhost:8085 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_DATABASE_EMULATOR_HOST=localhost:9000 FIREBASE_STORAGE_EMULATOR_HOST=localhost:9199 bun run --filter=api test -- --no-file-parallelism",
-    "seed": "GCE_METADATA_HOST=0 FIREBASE_PROJECT_ID=quartinho-dev GCLOUD_PROJECT=quartinho-dev FIRESTORE_EMULATOR_HOST=localhost:8085 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_DATABASE_EMULATOR_HOST=localhost:9000 FIREBASE_STORAGE_EMULATOR_HOST=localhost:9199 bun --env-file=.env.seed api/scripts/seed.ts"
+    "seed": "METADATA_FLAVOR=none GCE_METADATA_HOST=0 FIREBASE_PROJECT_ID=quartinho-dev GCLOUD_PROJECT=quartinho-dev FIRESTORE_EMULATOR_HOST=localhost:8085 FIREBASE_AUTH_EMULATOR_HOST=localhost:9099 FIREBASE_DATABASE_EMULATOR_HOST=localhost:9000 FIREBASE_STORAGE_EMULATOR_HOST=localhost:9199 bun --env-file=.env.seed api/scripts/seed.ts"
   },
   "devDependencies": {
     "turbo": "^2.0.0",

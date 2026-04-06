@@ -17,7 +17,11 @@ export interface UseEventResult {
 
 /**
  * useEvent — loads an event (by id, or current if id is null) and its
- * MusicBrainz album + tracks via the api proxy.
+ * album + tracks.
+ *
+ * If the event has a stored `album` snapshot (populated at creation time),
+ * we use that directly — zero MusicBrainz calls. Only falls back to the
+ * MB proxy when the snapshot is missing (legacy events or failed import).
  */
 export function useEvent(eventId: string | null): UseEventResult {
   const [event, setEvent] = useState<Event | null>(null);
@@ -45,6 +49,20 @@ export function useEvent(eventId: string | null): UseEventResult {
           return;
         }
 
+        // Prefer the stored snapshot — avoids MusicBrainz calls entirely.
+        if (ev.album) {
+          setAlbum({
+            id: ev.mbAlbumId,
+            title: ev.album.albumTitle,
+            artistCredit: ev.album.artistCredit,
+            date: ev.date,
+            tracks: ev.album.tracks,
+          });
+          setTracks(ev.album.tracks);
+          return;
+        }
+
+        // Fallback: fetch from MusicBrainz proxy (legacy events without snapshot).
         const [alb, trks] = await Promise.all([
           fetchMusicBrainzAlbum(ev.mbAlbumId),
           fetchMusicBrainzTracks(ev.mbAlbumId),

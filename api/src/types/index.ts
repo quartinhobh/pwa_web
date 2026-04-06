@@ -37,6 +37,14 @@ export interface EventExtras {
   images: string[];
 }
 
+/** Snapshot of MusicBrainz data stored at event creation — never re-fetched. */
+export interface EventAlbumSnapshot {
+  albumTitle: string;
+  artistCredit: string;
+  coverUrl: string | null;
+  tracks: MusicBrainzTrack[];
+}
+
 export interface Event {
   id: string;
   mbAlbumId: string;
@@ -46,6 +54,7 @@ export interface Event {
   endTime: string; // HH:mm
   location: string | null; // venue / address
   status: EventStatus;
+  album: EventAlbumSnapshot | null; // populated on create, avoids MB re-fetch
   extras: EventExtras;
   spotifyPlaylistUrl: string | null;
   createdBy: string;

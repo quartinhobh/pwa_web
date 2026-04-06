@@ -6,6 +6,7 @@ import type { Event } from '@/types';
 vi.mock('@/services/api', () => ({
   createEvent: vi.fn(),
   updateEvent: vi.fn(),
+  searchMusicBrainz: vi.fn().mockResolvedValue([]),
 }));
 
 import { EventForm } from '@/components/admin/EventForm';
@@ -22,6 +23,7 @@ const baseEvent: Event = {
   startTime: '20:00',
   endTime: '22:00',
   location: null,
+  album: null,
   status: 'upcoming',
   extras: { text: 'notes', links: [], images: [] },
   spotifyPlaylistUrl: null,
@@ -37,17 +39,16 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('EventForm', () => {
-  it('renders all zine-styled fields in create mode', () => {
+  it('renders key fields in create mode', () => {
     render(<EventForm mode="create" idToken="tok" />);
-    expect(screen.getByLabelText('mbAlbumId')).toBeInTheDocument();
     expect(screen.getByLabelText('title')).toBeInTheDocument();
     expect(screen.getByLabelText('date')).toBeInTheDocument();
     expect(screen.getByLabelText('startTime')).toBeInTheDocument();
     expect(screen.getByLabelText('endTime')).toBeInTheDocument();
+    expect(screen.getByLabelText('location')).toBeInTheDocument();
     expect(screen.getByLabelText('extras-text')).toBeInTheDocument();
-    expect(screen.getByLabelText('extras-links')).toBeInTheDocument();
-    expect(screen.getByLabelText('extras-images')).toBeInTheDocument();
     expect(screen.getByLabelText('spotifyPlaylistUrl')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/OK Computer/i)).toBeInTheDocument();
   });
 
   it('submit in create mode calls createEvent with the payload', async () => {
@@ -55,14 +56,11 @@ describe('EventForm', () => {
     const onSaved = vi.fn();
     render(<EventForm mode="create" idToken="tok" onSaved={onSaved} />);
 
-    await userEvent.type(screen.getByLabelText('mbAlbumId'), 'mb-abc');
     await userEvent.type(screen.getByLabelText('title'), 'New Night');
-    // date/time inputs accept value directly; use fireEvent via userEvent.type on value
     await userEvent.click(screen.getByRole('button', { name: /criar/i }));
 
     await waitFor(() => expect(createMock).toHaveBeenCalled());
     const [payload, token] = createMock.mock.calls[0]!;
-    expect(payload.mbAlbumId).toBe('mb-abc');
     expect(payload.title).toBe('New Night');
     expect(token).toBe('tok');
     expect(onSaved).toHaveBeenCalled();
@@ -82,27 +80,5 @@ describe('EventForm', () => {
     expect(id).toBe('e1');
     expect(patch.title).toBe('Edited');
     expect(token).toBe('tok');
-  });
-
-  it('parses links and images multi-line fields', async () => {
-    createMock.mockResolvedValue(baseEvent);
-    render(<EventForm mode="create" idToken="tok" />);
-
-    await userEvent.type(
-      screen.getByLabelText('extras-links'),
-      'Bandcamp|https://b.com',
-    );
-    await userEvent.type(
-      screen.getByLabelText('extras-images'),
-      'https://img.example/a.jpg',
-    );
-    await userEvent.click(screen.getByRole('button', { name: /criar/i }));
-
-    await waitFor(() => expect(createMock).toHaveBeenCalled());
-    const [payload] = createMock.mock.calls[0]!;
-    expect(payload.extras.links).toEqual([
-      { label: 'Bandcamp', url: 'https://b.com' },
-    ]);
-    expect(payload.extras.images).toEqual(['https://img.example/a.jpg']);
   });
 });

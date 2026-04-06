@@ -11,6 +11,7 @@ const baseEvent: Event = {
   startTime: '20:00',
   endTime: '22:00',
   location: null,
+  album: null,
   status: 'upcoming',
   extras: { text: '', links: [], images: [] },
   spotifyPlaylistUrl: null,

@@ -10,6 +10,7 @@ const sampleEvent = {
   startTime: '20:00',
   endTime: '22:00',
   location: null,
+  album: null,
   status: 'live',
   extras: { text: '', links: [], images: [] },
   spotifyPlaylistUrl: null,

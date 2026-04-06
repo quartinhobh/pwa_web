@@ -13,7 +13,8 @@
 //   bun run seed
 
 import { adminAuth, adminDb } from '../src/config/firebase';
-import type { Event, User } from '../src/types';
+import type { Event, EventAlbumSnapshot, User } from '../src/types';
+import { fetchAlbum } from '../src/services/musicbrainzService';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -101,17 +102,33 @@ async function ensureSampleEvent(adminUid: string): Promise<void> {
   }
   const now = Date.now();
   const today = new Date().toISOString().slice(0, 10);
+  const mbid = '1834eae1-741b-3c03-9ca5-0df3decb43ea';
+
+  // Snapshot MB data so the app never re-fetches.
+  let album: EventAlbumSnapshot | null = null;
+  try {
+    const mb = await fetchAlbum(mbid);
+    album = {
+      albumTitle: mb.title,
+      artistCredit: mb.artistCredit,
+      coverUrl: `https://coverartarchive.org/release/${mb.id}/front-250`,
+      tracks: mb.tracks,
+    };
+    console.log(`[seed] MB snapshot: ${mb.title} (${mb.tracks.length} tracks)`);
+  } catch (err) {
+    console.log(`[seed] MB fetch failed (snapshot will be null): ${(err as Error).message}`);
+  }
+
   const event: Event = {
     id: SAMPLE_EVENT_ID,
-    // MusicBrainz *release* MBID for OK Computer (JP edition).
-    // NB: b1392450-... is the release-GROUP id — the api needs a release id.
-    mbAlbumId: '1834eae1-741b-3c03-9ca5-0df3decb43ea',
+    mbAlbumId: mbid,
     title: 'Sessão inaugural — OK Computer',
     date: today,
     startTime: '20:00',
     endTime: '22:00',
     location: 'Quartinho BH — Rua Exemplo, 123',
     status: 'live',
+    album,
     extras: {
       text: 'Primeiro quartinho. Traz cerveja.',
       links: [],

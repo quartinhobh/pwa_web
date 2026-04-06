@@ -22,7 +22,7 @@ export default defineConfig({
         icons: [
           // Primary: vector icon (infinite-resolution, ~3KB).
           {
-            src: 'icon.svg',
+            src: 'logo.svg',
             sizes: 'any',
             type: 'image/svg+xml',
             purpose: 'any',
