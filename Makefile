@@ -97,6 +97,21 @@ e2e-install: ## Download Playwright chromium browser
 e2e: ## Run Playwright E2E (auto-starts vite; requires emulator + api + seed)
 	bun run --filter=web e2e
 
+# ─── Production ────────────────────────────────────────────────────────
+
+deploy: ## Build web + deploy to Firebase Hosting
+	source .github/secrets.env && bun run --filter=web build && bunx firebase-tools deploy --only hosting --project teste-qbh --token "$$FIREBASE_TOKEN"
+
+deploy-rules: ## Deploy Firestore/RTDB/Storage security rules
+	source .github/secrets.env && bunx firebase-tools deploy --only firestore:rules,database:rules,storage:rules --project teste-qbh --token "$$FIREBASE_TOKEN"
+
+admin: ## Promote email to admin in production: make admin EMAIL=user@example.com
+	@test -n "$(EMAIL)" || (echo "Uso: make admin EMAIL=user@example.com"; exit 1)
+	./scripts/make-admin.sh "$(EMAIL)"
+
+reset-prod: ## DESTRUCTIVE: wipe all production data (Firestore + instructions for Auth)
+	./scripts/reset-prod.sh
+
 # ─── Build / clean ──────────────────────────────────────────────────────
 
 build: ## Production build of api + web
