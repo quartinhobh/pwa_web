@@ -22,19 +22,24 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
 }) => {
   const idToken = useIdToken();
   const [category, setCategory] = useState<PhotoCategory>('category1');
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
-    if (!file || !idToken) return;
+    if (files.length === 0 || !idToken) return;
     setBusy(true);
     setError(null);
     try {
-      const photo = await uploadPhoto(eventId, category, file, idToken);
-      onUploaded?.(photo);
-      setFile(null);
+      for (let i = 0; i < files.length; i++) {
+        setProgress(`${i + 1}/${files.length}`);
+        const photo = await uploadPhoto(eventId, category, files[i]!, idToken);
+        onUploaded?.(photo);
+      }
+      setFiles([]);
+      setProgress('');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -72,7 +77,8 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
             type="file"
             aria-label="photo-file"
             accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            multiple
+            onChange={(e) => setFiles(e.target.files ? Array.from(e.target.files) : [])}
             className="font-body text-zine-burntOrange"
           />
         </label>
@@ -83,8 +89,8 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
           </p>
         ) : null}
 
-        <Button type="submit" disabled={busy || !file || !idToken}>
-          {busy ? 'a enviar…' : 'enviar'}
+        <Button type="submit" disabled={busy || files.length === 0 || !idToken}>
+          {busy ? `a enviar ${progress}…` : files.length > 1 ? `enviar ${files.length} fotos` : 'enviar'}
         </Button>
       </form>
     </ZineFrame>
