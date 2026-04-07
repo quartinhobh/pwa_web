@@ -97,9 +97,17 @@ linktreeRouter.put(
       return;
     }
     try {
+      // Verify all IDs belong to linktree collection
+      const snap = await adminDb.collection(COLLECTION).get();
+      const validIds = new Set(snap.docs.map((d) => d.id));
+      if (ids.some((id) => !validIds.has(id))) {
+        res.status(400).json({ error: 'invalid link id in array' });
+        return;
+      }
       const batch = adminDb.batch();
+      const now = Date.now();
       ids.forEach((id, i) => {
-        batch.update(adminDb.collection(COLLECTION).doc(id), { sortOrder: i, updatedAt: Date.now() });
+        batch.update(adminDb.collection(COLLECTION).doc(id), { sortOrder: i, updatedAt: now });
       });
       await batch.commit();
       res.status(200).json({ ok: true });
@@ -157,7 +165,13 @@ linktreeRouter.delete(
   requireRole('admin'),
   async (req: Request, res: Response) => {
     try {
-      await adminDb.collection(COLLECTION).doc(req.params.id!).delete();
+      const ref = adminDb.collection(COLLECTION).doc(req.params.id!);
+      const snap = await ref.get();
+      if (!snap.exists) {
+        res.status(404).json({ error: 'link_not_found' });
+        return;
+      }
+      await ref.delete();
       res.status(204).send();
     } catch {
       res.status(500).json({ error: 'delete_link_failed' });

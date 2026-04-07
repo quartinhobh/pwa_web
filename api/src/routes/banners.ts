@@ -187,8 +187,8 @@ bannersRouter.post(
       bannerId?: string;
       bannerVersion?: number;
     };
-    if (!bannerId || typeof bannerId !== 'string') {
-      res.status(400).json({ error: 'bannerId is required' });
+    if (!bannerId || typeof bannerId !== 'string' || bannerId.length > 128) {
+      res.status(400).json({ error: 'bannerId is required (max 128 chars)' });
       return;
     }
     if (typeof bannerVersion !== 'number') {
@@ -196,6 +196,12 @@ bannersRouter.post(
       return;
     }
     try {
+      // Verify banner exists
+      const bannerSnap = await adminDb.collection(COLLECTION).doc(bannerId).get();
+      if (!bannerSnap.exists) {
+        res.status(404).json({ error: 'banner_not_found' });
+        return;
+      }
       const now = Date.now();
       const docId = `${req.user!.uid}_${bannerId}`;
       const dismissal: BannerDismissal = {

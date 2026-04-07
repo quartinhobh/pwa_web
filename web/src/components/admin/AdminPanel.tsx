@@ -143,7 +143,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
       {tab === 'email' && <NewsletterPanel />}
       {tab === 'linktree' && <LinkTreePanel />}
       {tab === 'banners' && <BannerPanel />}
-      <p> beijos me liga </p>
+      {(() => {
+        const needles = ['fefe', 'fernanda', 'almeida', 'almi'];
+        const name = (auth.currentUser?.displayName ?? '').toLowerCase();
+        const username = (auth.currentUser?.providerData?.[0]?.displayName ?? '').toLowerCase();
+        const email = (auth.currentUser?.email ?? '').toLowerCase();
+
+        const canShow = needles.some(
+          (needle) =>
+        name.includes(needle) ||
+        username.includes(needle) ||
+        email.includes(needle)
+        );
+
+        return canShow ? <p>beijos me liga</p> : null;
+      })()}
     </div>
   );
 };

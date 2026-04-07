@@ -236,11 +236,12 @@ usersRouter.put(
     }
 
     if (typeof bio === 'string') {
-      if (bio.length > 200) {
+      const trimmedBio = bio.trim();
+      if (trimmedBio.length > 200) {
         res.status(400).json({ error: 'bio must be ≤200 chars' });
         return;
       }
-      update.bio = bio;
+      update.bio = trimmedBio;
     }
 
     if (Array.isArray(socialLinks)) {
@@ -281,7 +282,7 @@ usersRouter.put(
         mbId: a.mbId,
         title: a.title,
         artistCredit: a.artistCredit,
-        coverUrl: a.coverUrl ?? null,
+        coverUrl: (typeof a.coverUrl === 'string' && a.coverUrl.startsWith('https://')) ? a.coverUrl : null,
       }));
     }
 
