@@ -310,10 +310,52 @@ make e2e             # Playwright E2E (24 testes)
 
 ---
 
+## RTDB — Namespace/databaseURL (IMPORTANTE)
+
+O Realtime Database precisa que **frontend e backend apontem pro mesmo banco**. Se o namespace divergir, mensagens do chat não sincronizam (delete/ban parecem funcionar mas não persistem).
+
+### O que precisa bater
+
+| | Frontend (`VITE_FIREBASE_CONFIG`) | Backend (env vars) |
+|---|---|---|
+| **Produção** | `"databaseURL":"https://PROJETO-default-rtdb.firebaseio.com"` | `FIREBASE_DATABASE_URL=https://PROJETO-default-rtdb.firebaseio.com` |
+| **Dev local** | `"databaseURL":"http://localhost:9000/?ns=quartinho-dev"` | `FIREBASE_DATABASE_URL=http://firebase-emulators:9000/?ns=quartinho-dev` (Docker) ou `http://localhost:9000/?ns=quartinho-dev` (nativo) |
+
+### Como verificar
+
+**Produção:**
+1. `web/.env.production` → campo `databaseURL` dentro do JSON de `VITE_FIREBASE_CONFIG`
+2. Render → env vars → `FIREBASE_DATABASE_URL`
+3. Ambos devem ter a mesma URL (ex: `https://teste-qbh-default-rtdb.firebaseio.com`)
+
+**Dev local:**
+1. `web/.env.local` → campo `databaseURL` dentro do JSON de `VITE_FIREBASE_CONFIG`
+2. `docker-compose.yml` → serviço `api` → env `FIREBASE_DATABASE_URL` (ou inferido do `FIREBASE_DATABASE_EMULATOR_HOST`)
+3. O `?ns=` (namespace) deve ser idêntico nos dois (ex: `quartinho-dev`)
+
+### Sintomas de namespace errado
+- Chat envia mensagens mas delete não persiste após refresh
+- Ban não impede o usuário de enviar
+- Log de moderação mostra `targetUserId: "unknown"`
+- `curl "http://localhost:9000/chats.json?ns=quartinho-dev"` não mostra as mensagens que aparecem no browser
+
+### Como debugar
+```bash
+# Ver dados no namespace que o backend usa
+curl -s "http://localhost:9000/chats.json?ns=quartinho-dev" | python3 -m json.tool
+
+# Ver dados no namespace default (se tem dados aqui mas não no de cima, o frontend está errado)
+curl -s "http://localhost:9000/chats.json" | python3 -m json.tool
+```
+
+---
+
 ## Troubleshooting
 
 | Problema | Causa | Fix |
 |---|---|---|
+| Chat: delete não persiste após refresh | `databaseURL` do frontend aponta pra namespace diferente do backend | Ver seção "RTDB — Namespace" acima |
+| Chat: ban não bloqueia envio | Mesmo problema de namespace | Ver seção "RTDB — Namespace" acima |
 | Login falha com `auth/configuration-not-found` | Providers não ativados | Firebase Console → Auth → Sign-in method |
 | API retorna 503 | Render free dormiu | Espera ~30s, reload |
 | CORS errors no browser | API crashando (error antes do CORS middleware) | Checa logs do Render |

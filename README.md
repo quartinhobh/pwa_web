@@ -70,6 +70,11 @@ VITE_USE_EMULATOR=true bun run --filter=web dev
 # MinIO Console em http://localhost:9003 (minioadmin/minioadmin)
 ```
 
+> **IMPORTANTE — RTDB namespace:** O `databaseURL` em `web/.env.local` deve ter
+> `?ns=quartinho-dev` (mesmo namespace que o backend usa). Se o chat parecer
+> funcionar mas delete/ban não persistem após refresh, o namespace está errado.
+> Ver [`docs/deployment.md`](docs/deployment.md) §"RTDB — Namespace".
+
 Dev-login para E2E ou para pular Google popup — a rota só é montada quando
 `import.meta.env.DEV` é true:
 
