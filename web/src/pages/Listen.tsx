@@ -48,9 +48,9 @@ export const Listen: React.FC = () => {
   // No current event — show upcoming/empty state + link to archive.
   if (!event) {
     return (
-      <main className="flex flex-col gap-6 p-4">
+      <main className="flex flex-col gap-4 p-4">
         <ZineFrame bg="mint">
-          <div className="text-center py-8">
+          <div className="text-center py-4">
             <h2 className="font-display text-2xl text-zine-cream mb-2">
               sem evento no momento
             </h2>

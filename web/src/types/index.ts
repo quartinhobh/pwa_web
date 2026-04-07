@@ -197,6 +197,19 @@ export interface Product {
   updatedAt: number;
 }
 
+// ── LinkTree ─────────────────────────────────────────────────────────
+
+export interface LinkTreeItem {
+  id: string;
+  title: string;
+  url: string;
+  emoji: string;
+  sortOrder: number;
+  active: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
 // ── P3-G Photos ────────────────────────────────────────────────────────
 
 export type PhotoCategory = 'category1' | 'category2';

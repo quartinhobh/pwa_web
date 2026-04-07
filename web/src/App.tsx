@@ -29,6 +29,7 @@ const Admin = lazy(() => import('@/pages/Admin'));
 const Shop = lazy(() => import('@/pages/Shop'));
 const Profile = lazy(() => import('@/pages/Profile'));
 const PublicProfile = lazy(() => import('@/pages/PublicProfile'));
+const Links = lazy(() => import('@/pages/Links'));
 const UserRedirect = lazy(() => import('@/pages/UserRedirect'));
 const DevLogin = lazy(() => import('@/pages/DevLogin'));
 
@@ -66,7 +67,7 @@ export default function App() {
     <BrowserRouter>
       <div className="min-h-screen flex flex-col font-body text-zine-burntOrange overflow-x-hidden">
         <Header />
-        <main className="flex-1 mx-auto w-full max-w-[640px] px-4 py-6">
+        <main className="flex-1 mx-auto w-full max-w-[640px] px-4 py-3">
           <Suspense fallback={<PageFallback />}>
             <Routes>
               <Route path="/" element={<Listen />} />
@@ -76,6 +77,7 @@ export default function App() {
               <Route path="/chat" element={<LiveChat />} />
               <Route path="/lojinha" element={<Shop />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/links" element={<Links />} />
               <Route path="/u/:username" element={<PublicProfile />} />
               <Route path="/user/:id" element={<UserRedirect />} />
               <Route path="/admin" element={<Admin idToken={idToken} />} />

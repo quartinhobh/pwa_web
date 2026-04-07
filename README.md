@@ -8,6 +8,22 @@ Clube de escuta coletiva — PWA retro-zine pra ouvir discos inteiros em grupo,
 conversar em tempo real e votar favoritos. Monorepo Bun/Turbo com React +
 Express + Firebase.
 
+
+## Features do Quartinho
+
+- Página de Lojinha - para ver coisas p/ comprar com PIX
+- Chat em tempo real — Conversa ao vivo via Firebase Realtime Database
+- Votação de favoritos — Sistema de votos para eleger músicas/discos favoritos
+- Galeria de fotos — Upload de fotos com placeholder borrado (blur)
+- Buscar letras — Integração com serviço de letras de músicas do album
+- Sistema de moderação — Banimento e exclusão de mensagens no chat
+- PWA offline — Funciona offline via Service Worker (Workbox)
+- Login social e Email— Autenticação com Google (Firebase Auth)
+- Painel admin — Interface para moderadores gerenciarem eventos e usuários
+- Arquivo/Eventos — Lista de eventos passados e detalhes por evento
+- ID social - página/perfil com foto + album favorito + links
+- LinkTree - Para divulgação de links//outras coisas que for de interesse dos admins.
+
 ## Stack
 
 - **web/** — React 18 + TypeScript + Vite + Tailwind, PWA via `vite-plugin-pwa`

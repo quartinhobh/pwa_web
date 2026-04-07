@@ -242,6 +242,19 @@ export interface Product {
   updatedAt: number;
 }
 
+// ── LinkTree ─────────────────────────────────────────────────────────
+
+export interface LinkTreeItem {
+  id: string;
+  title: string;
+  url: string;
+  emoji: string;
+  sortOrder: number;
+  active: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface ApiResponse<T> {
   data: T;
   error?: string;

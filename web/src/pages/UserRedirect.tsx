@@ -53,9 +53,9 @@ const UserRedirect: React.FC = () => {
 
   // No username — render inline profile
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <ZineFrame bg="cream">
-        <div className="flex flex-col items-center text-center space-y-4 py-4">
+        <div className="flex flex-col items-center text-center space-y-3 py-3">
           <UserAvatar src={profile.avatarUrl} name={profile.displayName} size="lg" />
           <h2 className="font-display text-2xl text-zine-burntOrange dark:text-zine-burntOrange-bright">
             {profile.displayName}

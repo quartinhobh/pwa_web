@@ -261,7 +261,7 @@ export const Profile: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-2xl text-zine-burntOrange dark:text-zine-burntOrange-bright">
           Meu perfil
@@ -277,7 +277,7 @@ export const Profile: React.FC = () => {
       </div>
 
       <ZineFrame bg="cream">
-        <div className="space-y-5">
+        <div className="space-y-3">
           {/* Avatar */}
           <div className="flex items-center gap-4">
             <UserAvatar src={avatarPreview} name={displayName || 'U'} size="lg" />

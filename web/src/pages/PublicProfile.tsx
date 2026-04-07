@@ -50,9 +50,9 @@ export const PublicProfile: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <ZineFrame bg="cream">
-        <div className="flex flex-col items-center text-center space-y-4 py-4">
+        <div className="flex flex-col items-center text-center space-y-3 py-3">
           <UserAvatar src={profile.avatarUrl} name={profile.displayName} size="lg" />
 
           <div>

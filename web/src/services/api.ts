@@ -11,6 +11,7 @@ import type {
   PixConfig,
   Product,
   FavoriteAlbum,
+  LinkTreeItem,
   SocialLink,
   User,
   UserRole,
@@ -805,4 +806,68 @@ export async function updateUserNewsletter(
     body: JSON.stringify({ optIn }),
   });
   if (!res.ok) throw new Error(`PUT /email/users/newsletter failed: ${res.status}`);
+}
+
+// ── LinkTree ──────────────────────────────────────────────────────────
+
+export async function fetchLinkTree(): Promise<LinkTreeItem[]> {
+  const res = await fetch(`${API_URL}/linktree`);
+  if (!res.ok) throw new Error(`GET /linktree failed: ${res.status}`);
+  const body = (await res.json()) as { links: LinkTreeItem[] };
+  return body.links;
+}
+
+export async function fetchAllLinks(idToken: string): Promise<LinkTreeItem[]> {
+  const res = await fetch(`${API_URL}/linktree/all`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) throw new Error(`GET /linktree/all failed: ${res.status}`);
+  const body = (await res.json()) as { links: LinkTreeItem[] };
+  return body.links;
+}
+
+export async function createLink(
+  data: { title: string; url: string; emoji?: string },
+  idToken: string,
+): Promise<LinkTreeItem> {
+  const res = await fetch(`${API_URL}/linktree`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`POST /linktree failed: ${res.status}`);
+  const body = (await res.json()) as { link: LinkTreeItem };
+  return body.link;
+}
+
+export async function updateLink(
+  id: string,
+  data: { title?: string; url?: string; emoji?: string; active?: boolean },
+  idToken: string,
+): Promise<LinkTreeItem> {
+  const res = await fetch(`${API_URL}/linktree/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`PUT /linktree/${id} failed: ${res.status}`);
+  const body = (await res.json()) as { link: LinkTreeItem };
+  return body.link;
+}
+
+export async function deleteLink(id: string, idToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/linktree/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) throw new Error(`DELETE /linktree/${id} failed: ${res.status}`);
+}
+
+export async function reorderLinks(ids: string[], idToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/linktree/reorder`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) throw new Error(`PUT /linktree/reorder failed: ${res.status}`);
 }

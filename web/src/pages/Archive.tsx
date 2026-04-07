@@ -37,7 +37,7 @@ export const Archive: React.FC<ArchiveProps> = ({ onOpenEvent }) => {
 
   return (
     <ZineFrame bg="mint">
-      <h1 className="font-display text-3xl text-zine-cream mb-4">Arquivo</h1>
+      <h1 className="font-display text-3xl text-zine-cream mb-2">Arquivo</h1>
       {loading && <LoadingState />}
       {error && (
         <p role="alert" className="font-body text-zine-cream">
