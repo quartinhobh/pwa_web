@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useSessionStore } from '@/store/sessionStore';
 import LoginModal from '@/components/auth/LoginModal';
+import UserAvatar from '@/components/common/UserAvatar';
 
 const THEME_KEY = 'quartinho:theme';
 
@@ -64,9 +65,16 @@ export const Header: React.FC = () => {
             </Link>
             {isAuthenticated ? (
               <>
-                <span className="font-body text-sm text-zine-cream truncate max-w-[80px] sm:max-w-[120px]">
-                  {user?.displayName ?? user?.email ?? ''}
-                </span>
+                <Link to="/profile" className="flex items-center gap-1.5 hover:opacity-80">
+                  <UserAvatar
+                    src={useSessionStore.getState().avatarUrl}
+                    name={user?.displayName ?? user?.email ?? 'U'}
+                    size="sm"
+                  />
+                  <span className="font-body text-sm text-zine-cream truncate max-w-[80px] sm:max-w-[120px]">
+                    {user?.displayName ?? user?.email ?? ''}
+                  </span>
+                </Link>
                 {isAdminOrMod && (
                   <Link
                     to="/admin"

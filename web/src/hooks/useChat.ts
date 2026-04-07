@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ref,
   onChildAdded,
+  onChildChanged,
   off,
   push,
   serverTimestamp,
@@ -48,6 +49,18 @@ export function useChat(eventId: string): UseChatResult {
     };
 
     onChildAdded(messagesRef, handler);
+
+    // Listen for changes (e.g. isDeleted set to true by moderator)
+    const changeHandler = (snap: { key: string | null; val: () => unknown }) => {
+      const raw = snap.val() as ChatMessage | null;
+      if (!raw) return;
+      const id = snap.key ?? '';
+      if (raw.isDeleted) {
+        setMessages((prev) => prev.filter((m) => m.id !== id));
+      }
+    };
+    onChildChanged(messagesRef, changeHandler);
+
     // First snapshot may never fire if empty — flip loading on next tick.
     const t = setTimeout(() => setLoading(false), 0);
 

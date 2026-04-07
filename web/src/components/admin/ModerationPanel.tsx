@@ -4,7 +4,7 @@ import { LoadingState } from '@/components/common/LoadingState';
 import Button from '@/components/common/Button';
 import { useModeration } from '@/hooks/useModeration';
 import { useIdToken } from '@/hooks/useIdToken';
-import { fetchUserProfile } from '@/services/api';
+import { fetchModerationUserProfile } from '@/services/api';
 
 export interface ModerationPanelProps {
   idToken?: string | null;
@@ -21,7 +21,7 @@ function useUserNames(idToken: string | null, userIds: string[]) {
         .filter((id) => !(id in names))
         .map(async (id) => {
           try {
-            const profile = await fetchUserProfile(id, idToken);
+            const profile = await fetchModerationUserProfile(id, idToken);
             return [id, profile.displayName ?? id] as const;
           } catch {
             return [id, id] as const;

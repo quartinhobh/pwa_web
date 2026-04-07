@@ -6,7 +6,9 @@ export interface SessionUser {
   userId: string;
   email: string | null;
   displayName: string;
+  username?: string | null;
   role: UserRole;
+  avatarUrl?: string | null;
 }
 
 export interface SessionState {
@@ -16,6 +18,8 @@ export interface SessionState {
   role: UserRole;
   email: string | null;
   displayName: string | null;
+  username: string | null;
+  avatarUrl: string | null;
   setSession: (s: { sessionId: string; guestName: string }) => void;
   setFirebaseUid: (uid: string | null) => void;
   setRole: (role: UserRole) => void;
@@ -32,6 +36,8 @@ export const useSessionStore = create<SessionState>()(
       role: 'guest',
       email: null,
       displayName: null,
+      username: null,
+      avatarUrl: null,
       setSession: ({ sessionId, guestName }) => set({ sessionId, guestName }),
       setFirebaseUid: (firebaseUid) => set({ firebaseUid }),
       setRole: (role) => set({ role }),
@@ -41,6 +47,8 @@ export const useSessionStore = create<SessionState>()(
           role: user.role,
           email: user.email,
           displayName: user.displayName,
+          username: user.username ?? null,
+          avatarUrl: user.avatarUrl ?? null,
         }),
       clear: () =>
         set({
@@ -50,6 +58,8 @@ export const useSessionStore = create<SessionState>()(
           role: 'guest',
           email: null,
           displayName: null,
+          username: null,
+          avatarUrl: null,
         }),
     }),
     {
@@ -62,6 +72,8 @@ export const useSessionStore = create<SessionState>()(
         role: s.role,
         email: s.email,
         displayName: s.displayName,
+        username: s.username,
+        avatarUrl: s.avatarUrl,
       }),
     },
   ),

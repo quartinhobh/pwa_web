@@ -22,6 +22,7 @@ vi.mock('firebase/database', () => ({
       state.offCalled = true;
     };
   }),
+  onChildChanged: vi.fn(),
   off: vi.fn(() => {
     state.offCalled = true;
   }),

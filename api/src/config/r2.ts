@@ -6,7 +6,21 @@ export const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID ?? 'minioadmin';
 export const R2_SECRET_ACCESS_KEY =
   process.env.R2_SECRET_ACCESS_KEY ?? 'minioadmin';
 
+const isLocal = !R2_ACCOUNT_ID;
+const MINIO_ENDPOINT = process.env.MINIO_ENDPOINT ?? 'http://localhost:9002';
+
 export function createR2Client(): S3Client {
+  if (isLocal) {
+    return new S3Client({
+      region: 'us-east-1',
+      endpoint: MINIO_ENDPOINT,
+      forcePathStyle: true,
+      credentials: {
+        accessKeyId: R2_ACCESS_KEY_ID,
+        secretAccessKey: R2_SECRET_ACCESS_KEY,
+      },
+    });
+  }
   return new S3Client({
     region: 'auto',
     endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -17,6 +31,11 @@ export function createR2Client(): S3Client {
   });
 }
 
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL ?? MINIO_ENDPOINT;
+
 export function getR2PublicUrl(key: string): string {
+  if (isLocal) {
+    return `${R2_PUBLIC_URL}/${R2_BUCKET}/${key}`;
+  }
   return `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET}/${key}`;
 }

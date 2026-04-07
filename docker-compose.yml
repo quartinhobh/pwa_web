@@ -48,6 +48,9 @@ services:
       FIREBASE_DATABASE_URL: http://firebase-emulators:9000/?ns=quartinho-dev
       FIREBASE_STORAGE_BUCKET: quartinho-dev.appspot.com
       MUSICBRAINZ_USER_AGENT: Quartinho/1.0 (dev@localhost)
+      # MinIO (S3 local) — API connects via Docker DNS, public URLs via host port
+      MINIO_ENDPOINT: http://minio:9000
+      R2_PUBLIC_URL: http://localhost:9002
     volumes:
       - .:/app
       - node_modules:/app/node_modules
@@ -56,6 +59,8 @@ services:
     depends_on:
       firebase-emulators:
         condition: service_started
+      minio-setup:
+        condition: service_completed_successfully
 
   # ── Web (Vite + React) ────────────────────────────────────────────────
   web:
@@ -78,5 +83,31 @@ services:
     depends_on:
       - api
 
+  # ── MinIO (S3-compatible local storage) ─────────────────────────────
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9002:9000"
+      - "9003:9001"
+    volumes:
+      - minio-data:/data
+
+  minio-setup:
+    image: minio/mc
+    depends_on:
+      - minio
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 minioadmin minioadmin 2>/dev/null; do sleep 1; done;
+      mc mb --ignore-existing local/qbh;
+      mc anonymous set download local/qbh;
+      "
+
 volumes:
   node_modules:
+  minio-data:

@@ -13,7 +13,8 @@ Express + Firebase.
 - **web/** — React 18 + TypeScript + Vite + Tailwind, PWA via `vite-plugin-pwa`
   (Workbox). Router: `react-router-dom`. Estado: `zustand`.
 - **api/** — Express + Firebase Admin SDK (Auth + Firestore + RTDB).
-- **Cloudflare R2** — uploads de fotos (free tier, S3-compatible).
+- **Cloudflare R2** — uploads de fotos (free tier, S3-compatible). Em dev local,
+  **MinIO** substitui o R2 automaticamente (via Docker Compose).
 - **firebase/** — security rules (Firestore, RTDB).
 - **Firebase Emulator Suite** via Docker Compose para dev/CI.
 - **Playwright** para E2E; **Vitest** para unit tests.
@@ -31,7 +32,7 @@ git clone https://github.com/quartinhobh/pwa_web quartinho && cd quartinho
 
 bun install
 
-# Sobe emulators + API + Web em background
+# Sobe emulators + API + Web + MinIO em background
 make up
 
 # Popula o emulator com admin + evento de teste
@@ -51,8 +52,9 @@ git clone https://github.com/quartinhobh/pwa_web quartinho && cd quartinho
 
 bun install
 
-# 1. Sobe o Firebase Emulator Suite (docker-compose)
+# 1. Sobe o Firebase Emulator Suite + MinIO (storage local)
 bun run emulators:up
+docker compose up -d minio minio-setup   # S3-compatible local p/ uploads
 
 # 2. Popula o emulator com admin + evento de teste
 cp .env.seed.example .env.seed
@@ -65,11 +67,19 @@ VITE_USE_EMULATOR=true bun run --filter=web dev
 
 # App em http://localhost:5173 · API em http://localhost:3001
 # Emulator UI em http://localhost:4000
+# MinIO Console em http://localhost:9003 (minioadmin/minioadmin)
 ```
 
-Dev-login para E2E ou para pular Google popup: visite
-`http://localhost:5173/__dev-login?email=<seu>&password=<senha>&next=/admin`.
-A rota só é montada quando `import.meta.env.DEV` é true.
+Dev-login para E2E ou para pular Google popup — a rota só é montada quando
+`import.meta.env.DEV` é true:
+
+```bash
+# Login como admin e ir pra página de admin
+http://localhost:5173/__dev-login?email=admin@quartinho.local&password=quartinho-dev-local-2026&next=/admin
+
+# Login como admin e ir direto pro chat (debug)
+http://localhost:5173/__dev-login?email=admin@quartinho.local&password=quartinho-dev-local-2026&next=/chat
+```
 
 ## Comandos
 
@@ -133,7 +143,7 @@ quartinho/
 ├── firebase/                # security rules (Firestore/RTDB/Storage)
 ├── docs/                    # api-spec, emulators, deployment
 ├── .claude/ROADMAP.md       # full product spec (do not blindly trust for current state)
-└── docker-compose.yml       # Firebase Emulator Suite
+└── docker-compose.yml       # Firebase Emulator Suite + MinIO (S3 local)
 ```
 
 ## Deploy

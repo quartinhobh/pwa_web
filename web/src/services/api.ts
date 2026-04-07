@@ -10,6 +10,8 @@ import type {
   PhotoCategory,
   PixConfig,
   Product,
+  FavoriteAlbum,
+  SocialLink,
   User,
   UserRole,
   UserVote,
@@ -22,7 +24,12 @@ export interface CurrentUserResponse {
   userId: string;
   email: string | null;
   displayName: string;
+  username: string | null;
   role: UserRole;
+  avatarUrl: string | null;
+  bio: string | null;
+  socialLinks: SocialLink[];
+  favoriteAlbums: FavoriteAlbum[];
 }
 
 export async function fetchCurrentUser(
@@ -33,6 +40,70 @@ export async function fetchCurrentUser(
   });
   if (!res.ok) throw new Error(`GET /auth/me failed: ${res.status}`);
   return (await res.json()) as CurrentUserResponse;
+}
+
+// ── User Profile ─────────────────────────────────────────────────────
+
+export interface UserProfile {
+  id: string;
+  displayName: string;
+  username: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  socialLinks: SocialLink[];
+  favoriteAlbums: FavoriteAlbum[];
+  role: UserRole;
+}
+
+export async function fetchUserProfile(userId: string): Promise<UserProfile> {
+  const res = await fetch(`${API_URL}/users/${encodeURIComponent(userId)}/profile`);
+  if (!res.ok) throw new Error(`GET /users/${userId}/profile failed: ${res.status}`);
+  return (await res.json()) as UserProfile;
+}
+
+export async function fetchProfileByUsername(username: string): Promise<UserProfile> {
+  const res = await fetch(`${API_URL}/users/username/${encodeURIComponent(username)}`);
+  if (!res.ok) throw new Error(`GET /users/username/${username} failed: ${res.status}`);
+  return (await res.json()) as UserProfile;
+}
+
+export async function updateMyProfile(
+  data: { displayName?: string; bio?: string; socialLinks?: SocialLink[]; username?: string | null; favoriteAlbums?: FavoriteAlbum[] },
+  idToken: string,
+): Promise<void> {
+  const res = await fetch(`${API_URL}/users/me/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: 'unknown' }));
+    const error = (body as { error?: string }).error ?? `status ${res.status}`;
+    throw new Error(`profile_update_failed: ${error}`);
+  }
+}
+
+export async function uploadAvatar(
+  file: File,
+  idToken: string,
+): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_URL}/users/me/avatar`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${idToken}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: 'unknown' }));
+    const detail = (body as { error?: string }).error ?? `status ${res.status}`;
+    throw new Error(`avatar_upload_failed: ${detail}`);
+  }
+  const body = (await res.json()) as { avatarUrl: string };
+  return body.avatarUrl;
 }
 
 export interface EventCreatePayload {
@@ -317,7 +388,7 @@ export async function fetchBans(idToken: string): Promise<Ban[]> {
   return body.bans;
 }
 
-export async function fetchUserProfile(
+export async function fetchModerationUserProfile(
   userId: string,
   idToken: string,
 ): Promise<{ userId: string; displayName: string | null; email: string | null; role: string }> {

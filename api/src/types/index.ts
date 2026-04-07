@@ -3,12 +3,31 @@
 
 export type UserRole = 'guest' | 'user' | 'moderator' | 'admin';
 
+export type SocialPlatform = 'instagram' | 'spotify' | 'twitter' | 'lastfm' | 'letterboxd';
+
+export interface SocialLink {
+  platform: SocialPlatform;
+  url: string;
+}
+
+export interface FavoriteAlbum {
+  mbId: string;
+  title: string;
+  artistCredit: string;
+  coverUrl: string | null;
+}
+
 export interface User {
   id: string;
   email: string | null;
   displayName: string;
+  username: string | null;
   role: UserRole;
   linkedSessionId: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  socialLinks: SocialLink[];
+  favoriteAlbums: FavoriteAlbum[];
   newsletterOptIn?: boolean;
   groups?: string[];
   createdAt: number;

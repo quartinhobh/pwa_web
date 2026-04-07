@@ -13,7 +13,7 @@ export interface LiveChatProps {
 
 export const LiveChat: React.FC<LiveChatProps> = ({ eventId: eventIdProp }) => {
   const params = useParams<{ eventId?: string }>();
-  const eventId = eventIdProp ?? params.eventId ?? '';
+  const eventId = eventIdProp ?? params.eventId ?? 'debug-chat';
   const { messages, sendMessage } = useChat(eventId);
   const role = useSessionStore((s) => s.role);
   const canModerate = role === 'admin' || role === 'moderator';
@@ -56,7 +56,13 @@ export const LiveChat: React.FC<LiveChatProps> = ({ eventId: eventIdProp }) => {
             : undefined
         }
       />
-      <ChatInput onSend={sendMessage} />
+      {role === 'guest' ? (
+        <p className="font-body text-sm text-zine-burntOrange/60 text-center py-2">
+          Faça login para participar do chat.
+        </p>
+      ) : (
+        <ChatInput onSend={sendMessage} />
+      )}
     </main>
   );
 };

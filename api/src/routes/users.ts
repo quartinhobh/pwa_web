@@ -1,9 +1,20 @@
 import { Router, type Request, type Response } from 'express';
+import multer from 'multer';
+import sharp from 'sharp';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/roleCheck';
+import { writeLimiter } from '../middleware/rateLimit';
 import { adminDb } from '../config/firebase';
-import type { User, UserRole } from '../types';
+import { createR2Client, getR2PublicUrl, R2_BUCKET } from '../config/r2';
+import type { FavoriteAlbum, SocialLink, SocialPlatform, User, UserRole } from '../types';
 import { sendEmail, buildRoleInviteEmail, buildRolePromotionEmail } from '../services/emailService';
+
+const ALLOWED_MIMES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2 MB
+const avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_AVATAR_SIZE } });
+
+const VALID_PLATFORMS: readonly SocialPlatform[] = ['instagram', 'spotify', 'twitter', 'lastfm', 'letterboxd'];
 
 export const usersRouter: Router = Router();
 
@@ -118,6 +129,225 @@ usersRouter.delete(
       res.status(204).send();
     } catch {
       res.status(500).json({ error: 'delete_invite_failed' });
+    }
+  },
+);
+
+// ── User Profile ─────────────────────────────────────────────────────
+
+/** GET /users/:id/profile — public profile */
+usersRouter.get('/:id/profile', async (req: Request, res: Response) => {
+  try {
+    const snap = await adminDb.collection('users').doc(req.params.id!).get();
+    if (!snap.exists) {
+      res.status(404).json({ error: 'user_not_found' });
+      return;
+    }
+    const u = snap.data() as User;
+    res.status(200).json({
+      id: u.id,
+      displayName: u.displayName,
+      username: u.username ?? null,
+      avatarUrl: u.avatarUrl ?? null,
+      bio: u.bio ?? null,
+      socialLinks: u.socialLinks ?? [],
+      favoriteAlbums: u.favoriteAlbums ?? [],
+      role: u.role,
+    });
+  } catch {
+    res.status(500).json({ error: 'profile_fetch_failed' });
+  }
+});
+
+/** GET /users/username/:username — public profile by username */
+usersRouter.get('/username/:username', async (req: Request, res: Response) => {
+  try {
+    const snap = await adminDb.collection('users')
+      .where('username', '==', req.params.username!.toLowerCase())
+      .limit(1)
+      .get();
+    if (snap.empty) {
+      res.status(404).json({ error: 'user_not_found' });
+      return;
+    }
+    const u = snap.docs[0]!.data() as User;
+    res.status(200).json({
+      id: u.id,
+      displayName: u.displayName,
+      username: u.username ?? null,
+      avatarUrl: u.avatarUrl ?? null,
+      bio: u.bio ?? null,
+      socialLinks: u.socialLinks ?? [],
+      favoriteAlbums: u.favoriteAlbums ?? [],
+      role: u.role,
+    });
+  } catch {
+    res.status(500).json({ error: 'profile_fetch_failed' });
+  }
+});
+
+/** PUT /users/me/profile — update own displayName, bio, socialLinks, username */
+usersRouter.put(
+  '/me/profile',
+  writeLimiter,
+  requireAuth,
+  async (req: Request, res: Response) => {
+    if (!req.user) {
+      res.status(401).json({ error: 'unauthenticated' });
+      return;
+    }
+    const { displayName, bio, socialLinks, username, favoriteAlbums } = req.body as {
+      displayName?: string;
+      bio?: string;
+      socialLinks?: SocialLink[];
+      username?: string | null;
+      favoriteAlbums?: FavoriteAlbum[];
+    };
+
+    const update: Record<string, unknown> = { updatedAt: Date.now() };
+
+    if (typeof displayName === 'string') {
+      const trimmed = displayName.trim();
+      if (trimmed.length < 1 || trimmed.length > 50) {
+        res.status(400).json({ error: 'displayName must be 1-50 chars' });
+        return;
+      }
+      update.displayName = trimmed;
+    }
+
+    // Username validation
+    if (username !== undefined) {
+      if (username === null || username === '') {
+        update.username = null;
+      } else {
+        const trimmedUsername = username.trim().toLowerCase();
+        if (!/^[a-z0-9_-]{3,20}$/.test(trimmedUsername)) {
+          res.status(400).json({ error: 'username_invalid', detail: 'Username deve ter 3-20 caracteres (letras minúsculas, números, _ ou -)' });
+          return;
+        }
+        const existing = await adminDb.collection('users')
+          .where('username', '==', trimmedUsername)
+          .limit(1)
+          .get();
+        if (!existing.empty && existing.docs[0]!.id !== req.user!.uid) {
+          res.status(409).json({ error: 'username_taken', detail: 'Esse username já está em uso' });
+          return;
+        }
+        update.username = trimmedUsername;
+      }
+    }
+
+    if (typeof bio === 'string') {
+      if (bio.length > 200) {
+        res.status(400).json({ error: 'bio must be ≤200 chars' });
+        return;
+      }
+      update.bio = bio;
+    }
+
+    if (Array.isArray(socialLinks)) {
+      for (const link of socialLinks) {
+        if (!VALID_PLATFORMS.includes(link.platform)) {
+          res.status(400).json({ error: `invalid platform: ${link.platform}` });
+          return;
+        }
+        if (typeof link.url !== 'string' || link.url.length > 300) {
+          res.status(400).json({ error: 'invalid social link url' });
+          return;
+        }
+      }
+      update.socialLinks = socialLinks;
+    }
+
+    if (Array.isArray(favoriteAlbums)) {
+      if (favoriteAlbums.length > 4) {
+        res.status(400).json({ error: 'favoriteAlbums max 4' });
+        return;
+      }
+      const seen = new Set<string>();
+      for (const album of favoriteAlbums) {
+        if (!album.mbId || typeof album.mbId !== 'string' ||
+            !album.title || typeof album.title !== 'string' ||
+            !album.artistCredit || typeof album.artistCredit !== 'string') {
+          res.status(400).json({ error: 'invalid favorite album entry' });
+          return;
+        }
+        if (seen.has(album.mbId)) {
+          res.status(400).json({ error: 'duplicate favorite album' });
+          return;
+        }
+        seen.add(album.mbId);
+      }
+      update.favoriteAlbums = favoriteAlbums.map((a) => ({
+        mbId: a.mbId,
+        title: a.title,
+        artistCredit: a.artistCredit,
+        coverUrl: a.coverUrl ?? null,
+      }));
+    }
+
+    try {
+      await adminDb.collection('users').doc(req.user.uid).set(update, { merge: true });
+      res.status(200).json({ ok: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'unknown';
+      console.error('[profile] update failed:', msg);
+      res.status(500).json({ error: 'profile_update_failed', detail: msg });
+    }
+  },
+);
+
+/** PUT /users/me/avatar — upload avatar image to R2 */
+usersRouter.put(
+  '/me/avatar',
+  writeLimiter,
+  requireAuth,
+  avatarUpload.single('file'),
+  async (req: Request, res: Response) => {
+    if (!req.user) {
+      res.status(401).json({ error: 'unauthenticated' });
+      return;
+    }
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'file_required' });
+      return;
+    }
+    if (!ALLOWED_MIMES.has(file.mimetype)) {
+      res.status(400).json({ error: 'invalid_mime' });
+      return;
+    }
+
+    try {
+      // Resize to 256x256, output JPEG for universal browser support
+      const resized = await sharp(file.buffer)
+        .resize(256, 256, { fit: 'cover' })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+
+      const objectKey = `avatars/${req.user.uid}.jpg`;
+
+      const client = createR2Client();
+      await client.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET,
+          Key: objectKey,
+          Body: resized,
+          ContentType: 'image/jpeg',
+          Metadata: { uploadedBy: req.user.uid },
+        }),
+      );
+      const avatarUrl = getR2PublicUrl(objectKey);
+      // Use set+merge so it works even if user doc doesn't exist yet
+      await adminDb.collection('users').doc(req.user.uid).set(
+        { avatarUrl, updatedAt: Date.now() },
+        { merge: true },
+      );
+      res.status(200).json({ avatarUrl });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'unknown';
+      console.error('[avatar] upload failed:', msg);
+      res.status(500).json({ error: 'avatar_upload_failed', detail: msg });
     }
   },
 );

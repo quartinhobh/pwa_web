@@ -82,6 +82,11 @@ authRouter.get(
             email?: string | null;
             displayName?: string;
             role?: UserRole;
+            username?: string | null;
+            avatarUrl?: string | null;
+            bio?: string | null;
+            socialLinks?: { platform: string; url: string }[];
+            favoriteAlbums?: { mbId: string; title: string; artistCredit: string; coverUrl: string | null }[];
           })
         : undefined;
       res.status(200).json({
@@ -91,6 +96,11 @@ authRouter.get(
           data?.displayName ??
           ((req.user.name as string | undefined) ?? 'Guest'),
         role: (data?.role ?? 'guest') as UserRole,
+        username: data?.username ?? null,
+        avatarUrl: data?.avatarUrl ?? null,
+        bio: data?.bio ?? null,
+        socialLinks: data?.socialLinks ?? [],
+        favoriteAlbums: data?.favoriteAlbums ?? [],
       });
     } catch {
       res.status(500).json({ error: 'me_failed' });

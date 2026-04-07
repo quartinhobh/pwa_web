@@ -82,8 +82,13 @@ export async function linkSessionToUser(
       id: uid,
       email: email ?? null,
       displayName: resolvedDisplayName,
+      username: null,
       role,
       linkedSessionId: sessionId,
+      avatarUrl: null,
+      bio: null,
+      socialLinks: [],
+      favoriteAlbums: [],
       createdAt: now,
       updatedAt: now,
     };

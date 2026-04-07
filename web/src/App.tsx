@@ -27,6 +27,8 @@ const Admin = lazy(() => import('@/pages/Admin'));
 // component bails out to Navigate when import.meta.env.DEV is false, and the
 // tree-shaker drops the whole chunk in production builds that set DEV=false.
 const Shop = lazy(() => import('@/pages/Shop'));
+const Profile = lazy(() => import('@/pages/Profile'));
+const PublicProfile = lazy(() => import('@/pages/PublicProfile'));
 const DevLogin = lazy(() => import('@/pages/DevLogin'));
 
 /** Reads :eventId from the route and forwards to EventDetail. */
@@ -70,7 +72,10 @@ export default function App() {
               <Route path="/archive" element={<ArchiveRoute />} />
               <Route path="/event/:eventId" element={<EventDetailRoute />} />
               <Route path="/chat/:eventId" element={<LiveChat />} />
+              <Route path="/chat" element={<LiveChat />} />
               <Route path="/lojinha" element={<Shop />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/u/:username" element={<PublicProfile />} />
               <Route path="/admin" element={<Admin idToken={idToken} />} />
               {import.meta.env.DEV && (
                 <Route path="/__dev-login" element={<DevLogin />} />

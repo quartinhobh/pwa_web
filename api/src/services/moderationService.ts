@@ -67,6 +67,8 @@ export async function banUser(
     expiresAt: null,
   };
   await adminDb.collection(BANS).doc(userId).set(ban);
+  // Mirror ban to RTDB so security rules can check /bans/{uid}
+  await adminRtdb.ref(`bans/${userId}`).set(true);
   await writeLog({
     action: 'ban_user',
     targetUserId: userId,
@@ -83,6 +85,8 @@ export async function unbanUser(
   performedBy: string,
 ): Promise<void> {
   await adminDb.collection(BANS).doc(userId).delete();
+  // Remove from RTDB mirror
+  await adminRtdb.ref(`bans/${userId}`).remove();
   await writeLog({
     action: 'unban_user',
     targetUserId: userId,

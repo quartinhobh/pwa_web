@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import Button from '@/components/common/Button';
 import Modal from '@/components/common/Modal';
+import UserAvatar from '@/components/common/UserAvatar';
+import ProfilePopover from '@/components/chat/ProfilePopover';
 import type { ChatMessage as ChatMessageType } from '@/types';
 
 export interface ChatMessageProps {
@@ -38,8 +40,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 }) => {
   const [confirming, setConfirming] = useState<'delete' | 'ban' | null>(null);
   const [reason, setReason] = useState('');
+  const [popover, setPopover] = useState<DOMRect | null>(null);
   const showDelete = canModerate && !!onDelete && !!message.id && !message.isDeleted;
   const showBan = canModerate && !!onBan && !!message.uid && !message.isDeleted;
+
+  const handleNameClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    setPopover((prev) => (prev ? null : e.currentTarget.getBoundingClientRect()));
+  }, []);
 
   const handleConfirm = async (): Promise<void> => {
     const trimmed = reason.trim() || undefined;
@@ -54,10 +61,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   return (
     <div className="border-b border-zine-cream/40 py-2 px-1 flex flex-col gap-1">
-      <div className="flex items-baseline gap-2">
-        <span className="font-display text-zine-burntYellow text-sm">
+      <div className="flex items-center gap-2">
+        <UserAvatar src={null} name={message.displayName} size="sm" />
+        <button
+          type="button"
+          onClick={handleNameClick}
+          className="font-display text-zine-burntYellow text-sm hover:underline cursor-pointer bg-transparent border-none p-0"
+        >
           {message.displayName}
-        </span>
+        </button>
         <span
           data-testid="chat-message-time"
           className="font-body text-xs text-zine-burntOrange/70"
@@ -96,6 +108,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           message.text
         )}
       </p>
+      {popover && (
+        <ProfilePopover
+          uid={message.uid}
+          displayName={message.displayName}
+          anchorRect={popover}
+          onClose={() => setPopover(null)}
+        />
+      )}
       {confirming && (
         <Modal
           isOpen={!!confirming}
