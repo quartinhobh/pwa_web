@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
+import { LoadingState } from '@/components/common/LoadingState';
 import { useIdToken } from '@/hooks/useIdToken';
 import {
   fetchAllBanners,
@@ -118,9 +119,7 @@ export const BannerPanel: React.FC = () => {
     catch { setBanners(prev); }
   };
 
-  if (loading) {
-    return <p className="font-body text-sm text-zine-burntOrange/60 animate-pulse">Carregando...</p>;
-  }
+  if (loading) return <LoadingState />;
 
   return (
     <div className="space-y-4">

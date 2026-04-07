@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
+import { LoadingState } from '@/components/common/LoadingState';
 import { useIdToken } from '@/hooks/useIdToken';
 import {
   fetchAllLinks,
@@ -106,9 +107,7 @@ export const LinkTreePanel: React.FC = () => {
     void moveItem(fromIdx, target);
   };
 
-  if (loading) {
-    return <p className="font-body text-sm text-zine-burntOrange/60 animate-pulse">Carregando...</p>;
-  }
+  if (loading) return <LoadingState />;
 
   const dropZoneClass = (active: boolean) =>
     `rounded border-2 border-dashed transition-all ${active ? 'h-8 border-zine-burntOrange bg-zine-burntOrange/10' : 'h-2 border-transparent'}`;

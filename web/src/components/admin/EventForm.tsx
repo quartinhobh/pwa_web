@@ -4,6 +4,7 @@ import Button from '@/components/common/Button';
 import { auth } from '@/services/firebase';
 import { createEvent, updateEvent, searchMusicBrainz, type MbSearchResult } from '@/services/api';
 import { useIdToken } from '@/hooks/useIdToken';
+import HelperBox from '@/components/admin/HelperBox';
 import type { Event } from '@/types';
 
 export interface EventFormProps {
@@ -111,6 +112,7 @@ export const EventForm: React.FC<EventFormProps> = ({
         <h3 className="font-display text-xl text-zine-burntOrange">
           {mode === 'create' ? 'Novo evento' : 'Editar evento'}
         </h3>
+        <HelperBox>Busque um álbum no MusicBrainz para associar ao evento. Preencha título, data, horários e local. O campo "Notas" é para informações extras. A playlist do Spotify aparece na página do evento.</HelperBox>
 
         {/* Album search */}
         <div className="flex flex-col gap-1">

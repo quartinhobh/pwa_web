@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
+import { LoadingState } from '@/components/common/LoadingState';
 import { useIdToken } from '@/hooks/useIdToken';
 import {
   fetchContactGroups,
@@ -312,6 +313,7 @@ const GroupsManager: React.FC<{ idToken: string | null }> = ({ idToken }) => {
 
   return (
     <div className="flex flex-col gap-4">
+      <HelperBox>Grupos permitem segmentar os envios de email. Crie grupos (ex: "VIPs", "Imprensa") e adicione membros. Na hora de enviar a newsletter, escolha incluir ou excluir grupos específicos.</HelperBox>
       {/* Criar grupo */}
       <ZineFrame bg="cream">
         <h3 className="font-display text-xl text-zine-burntOrange mb-3">Grupos de contato</h3>
@@ -426,7 +428,7 @@ const GroupMembers: React.FC<{ groupId: string; idToken: string | null }> = ({ g
     }
   }
 
-  if (loading) return <p className="font-body text-xs text-zine-burntOrange/50 mt-2 ml-5">Carregando...</p>;
+  if (loading) return <LoadingState />;
 
   const memberIds = new Set(members.map((m) => m.id));
 
@@ -652,16 +654,23 @@ const EmailConfigPanel: React.FC<{ idToken: string | null }> = ({ idToken }) => 
   const [autoEventEmail, setAutoEventEmail] = useState(true);
   const [unsubscribed, setUnsubscribed] = useState<UnsubscribedUser[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
     if (!idToken) return;
-    const [config, unsubs] = await Promise.all([
-      fetchEmailConfig(idToken),
-      fetchUnsubscribed(idToken),
-    ]);
-    setAutoEventEmail(config.autoEventEmail);
-    setUnsubscribed(unsubs);
-    setLoading(false);
+    try {
+      const [config, unsubs] = await Promise.all([
+        fetchEmailConfig(idToken),
+        fetchUnsubscribed(idToken),
+      ]);
+      setAutoEventEmail(config.autoEventEmail);
+      setUnsubscribed(unsubs);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao carregar configurações');
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -682,10 +691,12 @@ const EmailConfigPanel: React.FC<{ idToken: string | null }> = ({ idToken }) => 
     await refresh();
   }
 
-  if (loading) return <p className="font-body text-zine-burntOrange/70">Carregando...</p>;
+  if (loading) return <LoadingState />;
+  if (error) return <p className="font-body text-red-600">Erro: {error}</p>;
 
   return (
     <>
+      <HelperBox>Aqui você configura o envio automático de emails e vê quem se desinscreveu da newsletter. Usuários desinscritos não recebem mais emails, mas você pode reinscrevê-los manualmente.</HelperBox>
       <ZineFrame bg="cream">
         <h3 className="font-display text-xl text-zine-burntOrange mb-3">Configurações</h3>
         <label className="flex items-center gap-3 font-body text-zine-burntOrange cursor-pointer">

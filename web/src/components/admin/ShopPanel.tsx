@@ -120,7 +120,7 @@ export const ShopPanel: React.FC<ShopPanelProps> = ({ mode = 'all' }) => {
 
   return (
     <div className="flex flex-col gap-4">
-      {showPix && <HelperBox>Configure os dados de PIX para recebimento de pagamentos.</HelperBox>}
+      {showPix && <HelperBox>Configure os dados de PIX para recebimento de pagamentos. <br /> Vai gerar QRCODE na lojinha.</HelperBox>}
       {showProducts && <HelperBox>Adicione, edite e remova produtos da lojinha. Arraste para reordenar.</HelperBox>}
       {/* PIX Config */}
       {showPix && <ZineFrame bg="cream">
