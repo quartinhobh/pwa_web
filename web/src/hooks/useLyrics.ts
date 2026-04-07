@@ -18,11 +18,10 @@ export function useLyrics(
   artist: string | null,
   title: string | null,
 ): UseLyricsResult {
-  const cache = useApiCache();
   const cacheKey = artist && title ? `lyrics:${artist}:${title}` : null;
 
   const [data, setData] = useState<LyricsCacheData | null>(() => {
-    return cacheKey ? cache.get<LyricsCacheData>(cacheKey) ?? null : null;
+    return cacheKey ? useApiCache.getState().get<LyricsCacheData>(cacheKey) ?? null : null;
   });
   const [loading, setLoading] = useState(!data && !!artist && !!title);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +33,7 @@ export function useLyrics(
       return;
     }
 
-    const cached = cache.get<LyricsCacheData>(cacheKey!);
+    const cached = useApiCache.getState().get<LyricsCacheData>(cacheKey!);
     if (cached) {
       setData(cached);
       setLoading(false);
@@ -50,7 +49,7 @@ export function useLyrics(
         const res = await fetchLyrics(artist, title);
         if (cancelled) return;
         const result = { lyrics: res.lyrics, source: res.source };
-        cache.set(cacheKey!, result);
+        useApiCache.getState().set(cacheKey!, result);
         if (!cancelled) {
           setData(result);
           setLoading(false);
@@ -66,7 +65,7 @@ export function useLyrics(
     return () => {
       cancelled = true;
     };
-  }, [artist, title, cache, cacheKey]);
+  }, [artist, title, cacheKey]);
 
   if (!artist || !title) {
     return { lyrics: null, source: null, loading: false, error: null };

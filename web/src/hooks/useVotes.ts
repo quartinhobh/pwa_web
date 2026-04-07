@@ -87,11 +87,10 @@ export function useVotes(
   idToken: string | null,
   uid: string | null,
 ): UseVotesResult {
-  const cache = useApiCache();
   const offlineQueue = useOfflineQueue();
   const cacheKey = eventId ? `votes:${eventId}` : null;
 
-  const cached = cacheKey ? cache.get<VotesCacheData>(cacheKey, VOTES_TTL) : null;
+  const cached = cacheKey ? useApiCache.getState().get<VotesCacheData>(cacheKey, VOTES_TTL) : null;
   const [data, setData] = useState<VotesCacheData | null>(cached ?? null);
   const [loading, setLoading] = useState(!cached && !!eventId);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +108,7 @@ export function useVotes(
       try {
         const result = await fetchVotesData(eventId, idToken);
         if (cancelled) return;
-        cache.set(cacheKey, result);
+        useApiCache.getState().set(cacheKey, result);
         setData(result);
         setLoading(false);
       } catch (err) {
@@ -123,7 +122,7 @@ export function useVotes(
     return () => {
       cancelled = true;
     };
-  }, [eventId, idToken, cache, cacheKey]);
+  }, [eventId, idToken, cacheKey]);
 
   const submitVote = useCallback(
     async (favoriteTrackId: string, leastLikedTrackId: string): Promise<void> => {
@@ -166,7 +165,7 @@ export function useVotes(
             updatedAt: next.updatedAt,
           },
         };
-        cache.set(cacheKey!, result);
+        useApiCache.getState().set(cacheKey!, result);
         setData(result);
       } catch (err) {
         const isNetworkError =
@@ -184,7 +183,7 @@ export function useVotes(
               : null,
             userVote: { favoriteTrackId, leastLikedTrackId, updatedAt: Date.now() },
           };
-          cache.set(cacheKey!, optimisticData);
+          useApiCache.getState().set(cacheKey!, optimisticData);
         } else {
           // Erro real do servidor — reverter
           setData(priorData);
@@ -193,7 +192,7 @@ export function useVotes(
         }
       }
     },
-    [eventId, idToken, uid, data, cache, cacheKey, offlineQueue],
+    [eventId, idToken, uid, data, cacheKey, offlineQueue],
   );
 
   return {

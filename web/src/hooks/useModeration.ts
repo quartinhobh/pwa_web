@@ -48,10 +48,9 @@ async function fetchModerationData(
 }
 
 export function useModeration(idToken: string | null): UseModerationResult {
-  const cache = useApiCache();
   const cacheKey = 'moderation:bans';
 
-  const cached = cache.get<ModerationCacheData>(cacheKey, MODERATION_TTL);
+  const cached = useApiCache.getState().get<ModerationCacheData>(cacheKey, MODERATION_TTL);
   const [data, setData] = useState<ModerationCacheData | null>(cached ?? null);
   const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +68,7 @@ export function useModeration(idToken: string | null): UseModerationResult {
       try {
         const result = await fetchModerationData(idToken);
         if (cancelled) return;
-        cache.set(cacheKey, result);
+        useApiCache.getState().set(cacheKey, result);
         setData(result);
         setLoading(false);
       } catch (err) {
@@ -83,23 +82,23 @@ export function useModeration(idToken: string | null): UseModerationResult {
     return () => {
       cancelled = true;
     };
-  }, [idToken, cache, cacheKey]);
+  }, [idToken, cacheKey]);
 
   const refetch = useCallback(async () => {
     if (!idToken) return;
-    cache.invalidate(cacheKey);
+    useApiCache.getState().invalidate(cacheKey);
     setLoading(true);
     setError(null);
     try {
       const result = await fetchModerationData(idToken);
-      cache.set(cacheKey, result);
+      useApiCache.getState().set(cacheKey, result);
       setData(result);
       setLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'moderation_fetch_failed');
       setLoading(false);
     }
-  }, [idToken, cache, cacheKey]);
+  }, [idToken, cacheKey]);
 
   const deleteMessage = useCallback(
     async (eventId: string, messageId: string, reason?: string) => {

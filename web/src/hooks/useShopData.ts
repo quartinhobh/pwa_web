@@ -36,10 +36,9 @@ async function fetchShopData(token: string | null): Promise<ShopCacheData> {
 const DEFAULT_DATA: ShopCacheData = { products: [], pix: { key: '', beneficiary: '', city: '' } };
 
 export function useShopData(token: string | null): UseShopDataResult {
-  const cache = useApiCache();
   const cacheKey = 'shop:data';
 
-  const cached = cache.get<ShopCacheData>(cacheKey, SHOP_TTL);
+  const cached = useApiCache.getState().get<ShopCacheData>(cacheKey, SHOP_TTL);
   const [data, setData] = useState<ShopCacheData>(cached ?? DEFAULT_DATA);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -51,7 +50,7 @@ export function useShopData(token: string | null): UseShopDataResult {
       try {
         const result = await fetchShopData(token);
         if (!cancelled) {
-          cache.set(cacheKey, result);
+          useApiCache.getState().set(cacheKey, result);
           setData(result);
         }
       } catch {
@@ -63,20 +62,20 @@ export function useShopData(token: string | null): UseShopDataResult {
 
     void run();
     return () => { cancelled = true; };
-  }, [token, cache, cacheKey]);
+  }, [token, cacheKey]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
       const result = await fetchShopData(token);
-      cache.set(cacheKey, result);
+      useApiCache.getState().set(cacheKey, result);
       setData(result);
     } catch {
       // keep current data on error
     } finally {
       setRefreshing(false);
     }
-  }, [token, cache, cacheKey]);
+  }, [token, cacheKey]);
 
   return {
     products: data.products,

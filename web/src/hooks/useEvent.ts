@@ -56,10 +56,9 @@ async function fetchEventData(
 }
 
 export function useEvent(eventId: string | null): UseEventResult {
-  const cache = useApiCache();
   const cacheKey = buildEventCacheKey(eventId);
 
-  const cached = cache.get<CachedEventData>(cacheKey);
+  const cached = useApiCache.getState().get<CachedEventData>(cacheKey);
   const [data, setData] = useState<CachedEventData | null>(cached ?? null);
   const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +70,7 @@ export function useEvent(eventId: string | null): UseEventResult {
       try {
         const result = await fetchEventData(eventId);
         if (cancelled) return;
-        cache.set(cacheKey, result);
+        useApiCache.getState().set(cacheKey, result);
         setData(result);
         setLoading(false);
       } catch (err) {
@@ -85,7 +84,7 @@ export function useEvent(eventId: string | null): UseEventResult {
     return () => {
       cancelled = true;
     };
-  }, [eventId, cache, cacheKey]);
+  }, [eventId, cacheKey]);
 
   return {
     event: data?.event ?? null,
