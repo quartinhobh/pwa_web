@@ -95,7 +95,8 @@ export const useSessionStore = create<SessionState>()(
     }),
     {
       name: 'quartinho:session',
-      storage: expiringStorage as PersistStorage<SessionState>,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      storage: expiringStorage as any,
       // Only persist identity fields, not actions.
       partialize: (s) => ({
         sessionId: s.sessionId,

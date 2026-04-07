@@ -8,6 +8,7 @@ import ShopPanel from '@/components/admin/ShopPanel';
 import UsersPanel from '@/components/admin/UsersPanel';
 import NewsletterPanel from '@/components/admin/NewsletterPanel';
 import LinkTreePanel from '@/components/admin/LinkTreePanel';
+import BannerPanel from '@/components/admin/BannerPanel';
 import { useIdToken } from '@/hooks/useIdToken';
 import { auth } from '@/services/firebase';
 import {
@@ -28,7 +29,7 @@ export interface AdminPanelProps {
   idToken?: string | null;
 }
 
-type Tab = 'events' | 'photos' | 'moderation' | 'lojinha' | 'pix' | 'users' | 'email' | 'linktree';
+type Tab = 'events' | 'photos' | 'moderation' | 'lojinha' | 'pix' | 'users' | 'email' | 'linktree' | 'banners';
 
 /**
  * AdminPanel — three-tab admin dashboard:
@@ -39,7 +40,7 @@ type Tab = 'events' | 'photos' | 'moderation' | 'lojinha' | 'pix' | 'users' | 'e
  */
 function getHashTab(): Tab {
   const hash = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
-  const valid: Tab[] = ['events', 'photos', 'moderation', 'lojinha', 'pix', 'users', 'email', 'linktree'];
+  const valid: Tab[] = ['events', 'photos', 'moderation', 'lojinha', 'pix', 'users', 'email', 'linktree', 'banners'];
   return valid.includes(hash as Tab) ? (hash as Tab) : 'events';
 }
 
@@ -123,6 +124,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
         >
           Links
         </Button>
+        <Button
+          role="tab"
+          aria-selected={tab === 'banners'}
+          onClick={() => setTab('banners')}
+          className={tab === 'banners' ? 'ring-4 ring-zine-burntOrange' : ''}
+        >
+          Banners
+        </Button>
       </div>
 
       {tab === 'events' && <EventsTab idToken={idToken} />}
@@ -133,6 +142,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = () => {
       {tab === 'users' && <UsersPanel />}
       {tab === 'email' && <NewsletterPanel />}
       {tab === 'linktree' && <LinkTreePanel />}
+      {tab === 'banners' && <BannerPanel />}
     </div>
   );
 };

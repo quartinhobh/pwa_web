@@ -1,5 +1,7 @@
 import type {
   Ban,
+  Banner,
+  BannerRoute,
   Event,
   EventExtras,
   EventStatus,
@@ -870,4 +872,107 @@ export async function reorderLinks(ids: string[], idToken: string): Promise<void
     body: JSON.stringify({ ids }),
   });
   if (!res.ok) throw new Error(`PUT /linktree/reorder failed: ${res.status}`);
+}
+
+// ── Banners ──────────────────────────────────────────────────────────
+
+export async function uploadBannerImage(file: File, idToken: string): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_URL}/banners/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${idToken}` },
+    body: form,
+  });
+  if (!res.ok) throw new Error(`POST /banners/upload failed: ${res.status}`);
+  const body = (await res.json()) as { imageUrl: string };
+  return body.imageUrl;
+}
+
+export async function fetchActiveBanner(): Promise<Banner | null> {
+  const res = await fetch(`${API_URL}/banners/active`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`GET /banners/active failed: ${res.status}`);
+  const body = (await res.json()) as { banner: Banner };
+  return body.banner;
+}
+
+export async function fetchAllBanners(idToken: string): Promise<Banner[]> {
+  const res = await fetch(`${API_URL}/banners/all`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) throw new Error(`GET /banners/all failed: ${res.status}`);
+  const body = (await res.json()) as { banners: Banner[] };
+  return body.banners;
+}
+
+export async function createBanner(
+  data: { imageUrl: string; altText: string; link?: string; routes?: BannerRoute[]; autoDismissSeconds?: number | null },
+  idToken: string,
+): Promise<Banner> {
+  const res = await fetch(`${API_URL}/banners`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`POST /banners failed: ${res.status}`);
+  const body = (await res.json()) as { banner: Banner };
+  return body.banner;
+}
+
+export async function updateBanner(
+  id: string,
+  data: { imageUrl?: string; altText?: string; link?: string | null; routes?: BannerRoute[]; autoDismissSeconds?: number | null },
+  idToken: string,
+): Promise<Banner> {
+  const res = await fetch(`${API_URL}/banners/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`PUT /banners/${id} failed: ${res.status}`);
+  const body = (await res.json()) as { banner: Banner };
+  return body.banner;
+}
+
+export async function activateBanner(id: string, idToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/banners/${encodeURIComponent(id)}/activate`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) throw new Error(`PUT /banners/${id}/activate failed: ${res.status}`);
+}
+
+export async function deactivateBanner(id: string, idToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/banners/${encodeURIComponent(id)}/deactivate`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) throw new Error(`PUT /banners/${id}/deactivate failed: ${res.status}`);
+}
+
+export async function deleteBanner(id: string, idToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/banners/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) throw new Error(`DELETE /banners/${id} failed: ${res.status}`);
+}
+
+export async function dismissBannerServer(bannerId: string, bannerVersion: number, idToken: string): Promise<void> {
+  const res = await fetch(`${API_URL}/banners/dismiss`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify({ bannerId, bannerVersion }),
+  });
+  if (!res.ok) throw new Error(`POST /banners/dismiss failed: ${res.status}`);
+}
+
+export async function checkBannerDismissal(bannerId: string, version: number, idToken: string): Promise<boolean> {
+  const res = await fetch(`${API_URL}/banners/dismissal?bannerId=${encodeURIComponent(bannerId)}&version=${version}`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) return false;
+  const body = (await res.json()) as { dismissed: boolean };
+  return body.dismissed;
 }

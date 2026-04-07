@@ -3,7 +3,6 @@ import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import {
   getDatabase,
-  connectDatabaseEmulator,
   type Database,
 } from 'firebase/database';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';

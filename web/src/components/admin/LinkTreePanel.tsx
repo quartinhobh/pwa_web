@@ -99,11 +99,10 @@ export const LinkTreePanel: React.FC = () => {
     e.preventDefault();
     const fromIdx = dragIdx.current;
     if (fromIdx === null) { setDropTarget(null); return; }
-    const insertAt = position === 'first' ? 0 : links.length - 1;
-    const adjusted = position === 'first'
+    const target = position === 'first'
       ? 0
       : (fromIdx < links.length ? links.length - 1 : links.length);
-    void moveItem(fromIdx, adjusted);
+    void moveItem(fromIdx, target);
   };
 
   if (loading) {

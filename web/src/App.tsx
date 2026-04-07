@@ -32,6 +32,7 @@ const PublicProfile = lazy(() => import('@/pages/PublicProfile'));
 const Links = lazy(() => import('@/pages/Links'));
 const UserRedirect = lazy(() => import('@/pages/UserRedirect'));
 const DevLogin = lazy(() => import('@/pages/DevLogin'));
+const BannerDisplay = lazy(() => import('@/components/layout/BannerDisplay'));
 
 /** Reads :eventId from the route and forwards to EventDetail. */
 function EventDetailRoute() {
@@ -67,6 +68,7 @@ export default function App() {
     <BrowserRouter>
       <div className="min-h-screen flex flex-col font-body text-zine-burntOrange overflow-x-hidden">
         <Header />
+        <Suspense fallback={null}><BannerDisplay /></Suspense>
         <main className="flex-1 mx-auto w-full max-w-[640px] px-4 py-3">
           <Suspense fallback={<PageFallback />}>
             <Routes>

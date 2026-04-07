@@ -197,6 +197,23 @@ export interface Product {
   updatedAt: number;
 }
 
+// ── Banners ──────────────────────────────────────────────────────────
+
+export type BannerRoute = 'home' | 'profile' | 'lojinha' | 'chat';
+
+export interface Banner {
+  id: string;
+  imageUrl: string;
+  link: string | null;
+  altText: string;
+  isActive: boolean;
+  routes: BannerRoute[];
+  autoDismissSeconds: number | null;
+  version: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 // ── LinkTree ─────────────────────────────────────────────────────────
 
 export interface LinkTreeItem {
