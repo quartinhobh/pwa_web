@@ -2,10 +2,20 @@
 // Auth/validation tests run unconditionally.
 // Firestore/Storage-backed tests gated on FIRESTORE_EMULATOR_HOST.
 
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { adminAuth, adminDb } from '../config/firebase';
 import app from '../index';
+
+// Mock R2/S3 — no real object storage in CI.
+vi.mock('../config/r2', () => ({
+  R2_BUCKET: 'test-bucket',
+  R2_ACCOUNT_ID: 'test-account',
+  createR2Client: () => ({
+    send: vi.fn().mockResolvedValue({}),
+  }),
+  getR2PublicUrl: (key: string) => `https://test-cdn.example.com/${key}`,
+}));
 
 const EMULATOR = !!process.env.FIRESTORE_EMULATOR_HOST;
 const PROJECT_ID = process.env.GCLOUD_PROJECT ?? 'quartinho-emulator';

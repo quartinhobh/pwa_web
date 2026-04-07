@@ -157,12 +157,14 @@ describe.skipIf(!EMULATOR)('POST /auth/link', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 400 when sessionId is missing', async () => {
+  it('auto-creates guest session when sessionId is missing', async () => {
     const res = await request(app)
       .post('/auth/link')
       .set('Authorization', `Bearer ${idToken}`)
       .send({});
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+    expect(res.body.sessionId).toBeDefined();
+    expect(res.body.userId).toBeDefined();
   });
 });
 
