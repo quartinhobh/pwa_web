@@ -23,6 +23,7 @@ Express + Firebase.
 - Arquivo/Eventos — Lista de eventos passados e detalhes por evento
 - ID social - página/perfil com foto + album favorito + links
 - LinkTree - Para divulgação de links//outras coisas que for de interesse dos admins.
+- Banner - Promoção/publis/divulgações temporizadas.
 
 ## Stack
 
