@@ -4,15 +4,22 @@ import { InstallPrompt } from '@/components/common/InstallPrompt';
 
 const DISMISS_KEY = 'quartinho:install-dismissed';
 
-function createBeforeInstallPromptEvent() {
-  const event = new Event('beforeinstallprompt', { cancelable: true });
+interface BeforeInstallPromptEvent extends Event {
+  platforms: string[];
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+  prompt: () => Promise<void>;
+  _resolveChoice: (value: { outcome: 'accepted' | 'dismissed' }) => void;
+}
+
+function createBeforeInstallPromptEvent(): BeforeInstallPromptEvent {
+  const event = new Event('beforeinstallprompt', { cancelable: true }) as BeforeInstallPromptEvent;
   const userChoicePromise = new Promise<{ outcome: 'accepted' | 'dismissed' }>((resolve) => {
-    (event as any)._resolveChoice = resolve;
+    event._resolveChoice = resolve;
   });
-  (event as any).prompt = vi.fn().mockResolvedValue(undefined);
-  (event as any).userChoice = userChoicePromise;
-  (event as any).platforms = ['web'];
-  return event as any;
+  event.prompt = vi.fn().mockResolvedValue(undefined);
+  event.userChoice = userChoicePromise;
+  event.platforms = ['web'];
+  return event;
 }
 
 describe('InstallPrompt', () => {
