@@ -3,6 +3,7 @@ import type {
   Ban,
   Banner,
   BannerRoute,
+  EmailTemplate,
   Event,
   EventExtras,
   EventStatus,
@@ -811,6 +812,32 @@ export async function updateUserNewsletter(
     body: JSON.stringify({ optIn }),
   });
   if (!res.ok) throw new Error(`PUT /email/users/newsletter failed: ${res.status}`);
+}
+
+// ── Email Templates ───────────────────────────────────────────────────
+
+export async function fetchEmailTemplates(idToken: string): Promise<EmailTemplate[]> {
+  const res = await fetch(`${API_URL}/email/templates`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) throw new Error(`GET /email/templates failed: ${res.status}`);
+  const body = (await res.json()) as { templates: EmailTemplate[] };
+  return body.templates;
+}
+
+export async function updateEmailTemplate(
+  key: string,
+  data: { enabled?: boolean; subject?: string; body?: string },
+  idToken: string,
+): Promise<EmailTemplate> {
+  const res = await fetch(`${API_URL}/email/templates/${encodeURIComponent(key)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`PUT /email/templates/${key} failed: ${res.status}`);
+  const body = (await res.json()) as { template: EmailTemplate };
+  return body.template;
 }
 
 // ── LinkTree ──────────────────────────────────────────────────────────

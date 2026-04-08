@@ -2,6 +2,17 @@
 // Owner: architect. No shared package yet — duplicated intentionally until Turborepo
 // shared package is introduced in a later phase.
 
+export type EmailTemplateKey = 'confirmation' | 'waitlist' | 'promotion' | 'reminder' | 'venue_reveal' | 'rejected';
+
+export interface EmailTemplate {
+  key: EmailTemplateKey;
+  enabled: boolean;
+  subject: string;
+  body: string;
+  updatedAt: number;
+  updatedBy: string;
+}
+
 export type UserRole = 'guest' | 'user' | 'moderator' | 'admin';
 
 export type SocialPlatform = 'instagram' | 'spotify' | 'twitter' | 'lastfm' | 'letterboxd';

@@ -1,0 +1,375 @@
+import React, { useEffect, useRef, useState } from 'react';
+import ZineFrame from '@/components/common/ZineFrame';
+import Button from '@/components/common/Button';
+import { LoadingState } from '@/components/common/LoadingState';
+import HelperBox from '@/components/admin/HelperBox';
+import { fetchEmailTemplates, updateEmailTemplate } from '@/services/api';
+import type { EmailTemplate, EmailTemplateKey } from '@/types';
+
+// ─── Static metadata ─────────────────────────────────────────────────
+
+const TEMPLATE_NAMES: Record<EmailTemplateKey, string> = {
+  confirmation: 'Confirmação de presença',
+  waitlist: 'Entrada na fila de espera',
+  promotion: 'Saiu da fila — confirmado!',
+  reminder: 'Lembrete (dia anterior)',
+  venue_reveal: 'Revelação do endereço',
+  rejected: 'Inscrição recusada',
+};
+
+const TEMPLATE_DESCRIPTIONS: Record<EmailTemplateKey, string> = {
+  confirmation: 'Enviado quando alguém confirma presença',
+  waitlist: 'Enviado quando entra na fila de espera',
+  promotion: 'Enviado quando sai da fila e entra',
+  reminder: 'Enviado 24h antes do evento',
+  venue_reveal: 'Enviado 3 dias antes com o endereço',
+  rejected: 'Enviado quando admin recusa alguém',
+};
+
+// Variables available per template
+const BASE_VARS = ['{nome}', '{evento}', '{data}', '{horario}'];
+const EXTRA_VARS: Partial<Record<EmailTemplateKey, string[]>> = {
+  reminder: ['{local}'],
+  venue_reveal: ['{local}'],
+};
+
+// Sample data for live preview
+const SAMPLE: Record<string, string> = {
+  nome: 'Maria',
+  evento: 'Quartinho #12',
+  data: '15/05/2026',
+  horario: '19h',
+  local: 'Rua Exemplo, 123',
+};
+
+function interpolate(str: string): string {
+  return str.replace(/\{(\w+)\}/g, (_, v: string) => SAMPLE[v] ?? `{${v}}`);
+}
+
+// ─── Toggle pill ──────────────────────────────────────────────────────
+
+const Toggle: React.FC<{
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}> = ({ checked, onChange, disabled }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    disabled={disabled}
+    onClick={() => onChange(!checked)}
+    className={[
+      'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 transition-colors',
+      checked
+        ? 'bg-zine-burntOrange border-zine-burntOrange'
+        : 'bg-zine-cream/50 border-zine-burntOrange/40',
+      disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+    ].join(' ')}
+  >
+    <span
+      className={[
+        'inline-block h-4 w-4 rounded-full bg-white shadow transition-transform',
+        checked ? 'translate-x-5' : 'translate-x-1',
+      ].join(' ')}
+    />
+  </button>
+);
+
+// ─── Editor view ──────────────────────────────────────────────────────
+
+const TemplateEditor: React.FC<{
+  template: EmailTemplate;
+  onBack: () => void;
+  onSaved: (t: EmailTemplate) => void;
+  idToken: string | null;
+}> = ({ template, onBack, onSaved, idToken }) => {
+  const [subject, setSubject] = useState(template.subject);
+  const [body, setBody] = useState(template.body);
+  const [saving, setSaving] = useState(false);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+  const isDirty = subject !== template.subject || body !== template.body;
+
+  const vars = [...BASE_VARS, ...(EXTRA_VARS[template.key] ?? [])];
+
+  function handleBack() {
+    if (isDirty && !confirm('Há alterações não salvas. Sair mesmo assim?')) return;
+    onBack();
+  }
+
+  function insertVar(v: string) {
+    const el = bodyRef.current;
+    if (!el) {
+      setBody((b) => b + v);
+      return;
+    }
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const next = body.slice(0, start) + v + body.slice(end);
+    setBody(next);
+    // Restore cursor after state update
+    requestAnimationFrame(() => {
+      el.selectionStart = start + v.length;
+      el.selectionEnd = start + v.length;
+      el.focus();
+    });
+  }
+
+  async function handleSave() {
+    if (!idToken) return;
+    setSaving(true);
+    try {
+      const updated = await updateEmailTemplate(template.key, { subject, body }, idToken);
+      onSaved(updated);
+    } catch (err) {
+      alert(`Erro ao salvar: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRestore() {
+    if (!confirm('Restaurar o texto padrão? Isso apagará suas edições atuais neste template.')) return;
+    if (!idToken) return;
+    setSaving(true);
+    try {
+      // Fetch defaults by sending empty strings won't work — instead we PUT with
+      // the hardcoded defaults re-applied. We signal restore by sending a DELETE-like
+      // flag; since the backend doesn't support it directly, we restore by setting
+      // subject/body to the canonical defaults displayed below.
+      // For now: save current values as empty to trigger server default fallback.
+      // Actually: the spec says "se apagar tudo, emails voltam ao padrão". We can
+      // achieve restore by deleting the doc or using a reset endpoint. Since we
+      // don't have that, we keep the original template's default and just reset local state.
+      // Best approach: send the template key defaults (we replicate them here).
+      const DEFAULTS: Record<EmailTemplateKey, { subject: string; body: string }> = {
+        confirmation: {
+          subject: 'tá confirmado! 🎶 {evento}',
+          body: 'Oi {nome}!\n\nSua presença em {evento} ({data}, {horario}) está confirmada.\n\nNos vemos lá!',
+        },
+        waitlist: {
+          subject: 'tá na fila — {evento}',
+          body: 'Oi {nome}!\n\nO {evento} ({data}) lotou, mas você está na fila de espera. Se abrir vaga, você recebe outro email.',
+        },
+        promotion: {
+          subject: 'abriu vaga! 🎉 {evento}',
+          body: 'Oi {nome}!\n\nAbriu uma vaga no {evento} ({data}, {horario}) e você saiu da fila! Sua presença está confirmada.',
+        },
+        reminder: {
+          subject: 'amanhã tem! {evento}',
+          body: 'Oi {nome}!\n\nLembrete: amanhã tem {evento}!\n\nHorário: {horario}\nLocal: {local}\n\nNos vemos lá!',
+        },
+        venue_reveal: {
+          subject: 'o endereço é... 📍 {evento}',
+          body: 'Oi {nome}!\n\nO local do {evento} ({data}) foi revelado:\n\n{local}\n\nAnota aí!',
+        },
+        rejected: {
+          subject: 'dessa vez não rolou — {evento}',
+          body: 'Oi {nome}!\n\nInfelizmente sua presença no {evento} ({data}) não foi aprovada dessa vez. Mas fique ligado nos próximos eventos!',
+        },
+      };
+      const def = DEFAULTS[template.key];
+      const updated = await updateEmailTemplate(template.key, def, idToken);
+      setSubject(updated.subject);
+      setBody(updated.body);
+      onSaved(updated);
+    } catch (err) {
+      alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inputClass =
+    'font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange w-full';
+
+  return (
+    <div className="flex flex-col gap-4">
+      <button
+        type="button"
+        onClick={handleBack}
+        className="font-body text-sm text-zine-burntOrange/70 underline text-left"
+      >
+        ← voltar
+      </button>
+
+      <ZineFrame bg="cream">
+        <h3 className="font-display text-xl text-zine-burntOrange mb-1">
+          {TEMPLATE_NAMES[template.key]}
+        </h3>
+        <p className="font-body text-xs text-zine-burntOrange/60 mb-3">
+          {TEMPLATE_DESCRIPTIONS[template.key]}
+        </p>
+
+        <HelperBox>
+          Edite o assunto e o corpo do email. Use as variáveis entre chaves para inserir dados do evento. Clique numa variável pra copiar no campo de texto.
+        </HelperBox>
+
+        {/* Variable chips */}
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {vars.map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => insertVar(v)}
+              className="bg-zine-periwinkle/20 border border-zine-periwinkle text-zine-periwinkle px-2 py-0.5 text-xs cursor-pointer rounded font-body hover:bg-zine-periwinkle/40 transition-colors"
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div>
+            <label className="font-body text-xs text-zine-burntOrange/70 block mb-1">Assunto</label>
+            <input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="font-body text-xs text-zine-burntOrange/70 block mb-1">Corpo do email</label>
+            <textarea
+              ref={bodyRef}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={8}
+              className={inputClass}
+            />
+          </div>
+        </div>
+
+        {/* Live preview */}
+        <div className="mt-4">
+          <p className="font-body text-xs text-zine-burntOrange/60 mb-1">Preview (dados de exemplo)</p>
+          <div className="bg-zine-mint/10 border-2 border-zine-mint/30 p-3 rounded">
+            <p className="font-body text-xs text-zine-burntOrange/50 mb-1">
+              <strong>Assunto:</strong> {interpolate(subject)}
+            </p>
+            <pre className="font-body text-sm text-zine-burntOrange whitespace-pre-wrap">
+              {interpolate(body)}
+            </pre>
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-4 flex-wrap">
+          <Button onClick={() => void handleSave()} disabled={saving || !isDirty}>
+            {saving ? 'Salvando...' : 'Salvar'}
+          </Button>
+          <button
+            type="button"
+            onClick={() => void handleRestore()}
+            disabled={saving}
+            className="font-body text-sm text-zine-burntOrange/60 underline"
+          >
+            Restaurar padrão
+          </button>
+        </div>
+      </ZineFrame>
+    </div>
+  );
+};
+
+// ─── List view ────────────────────────────────────────────────────────
+
+const TemplateList: React.FC<{
+  templates: EmailTemplate[];
+  onEdit: (t: EmailTemplate) => void;
+  onToggle: (t: EmailTemplate, enabled: boolean) => void;
+  toggling: string | null;
+}> = ({ templates, onEdit, onToggle, toggling }) => (
+  <div className="flex flex-col gap-3">
+    <HelperBox>
+      Esses emails são enviados automaticamente quando alguém confirma presença, entra na fila, etc. Você pode ligar/desligar cada um e editar o texto. Não se preocupe: se apagar tudo, os emails voltam pro texto padrão.
+    </HelperBox>
+    {templates.map((t) => (
+      <ZineFrame key={t.key} bg="cream">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="font-display text-zine-burntOrange font-bold text-base">
+              {TEMPLATE_NAMES[t.key]}
+            </p>
+            <p className="font-body text-xs text-zine-burntOrange/60 mt-0.5">
+              {TEMPLATE_DESCRIPTIONS[t.key]}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <Toggle
+              checked={t.enabled}
+              onChange={(v) => onToggle(t, v)}
+              disabled={toggling === t.key}
+            />
+            <button
+              type="button"
+              onClick={() => onEdit(t)}
+              className="font-body text-sm text-zine-burntOrange/70 underline"
+            >
+              editar
+            </button>
+          </div>
+        </div>
+      </ZineFrame>
+    ))}
+  </div>
+);
+
+// ─── Main panel ───────────────────────────────────────────────────────
+
+export const EmailTemplatesPanel: React.FC<{ idToken: string | null }> = ({ idToken }) => {
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<EmailTemplate | null>(null);
+  const [toggling, setToggling] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!idToken) return;
+    void fetchEmailTemplates(idToken).then((t) => {
+      setTemplates(t);
+      setLoading(false);
+    });
+  }, [idToken]);
+
+  async function handleToggle(t: EmailTemplate, enabled: boolean) {
+    if (!idToken) return;
+    setToggling(t.key);
+    try {
+      const updated = await updateEmailTemplate(t.key, { enabled }, idToken);
+      setTemplates((prev) => prev.map((x) => (x.key === t.key ? updated : x)));
+    } catch (err) {
+      alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setToggling(null);
+    }
+  }
+
+  function handleSaved(updated: EmailTemplate) {
+    setTemplates((prev) => prev.map((x) => (x.key === updated.key ? updated : x)));
+    setEditing(updated);
+  }
+
+  if (loading) return <LoadingState />;
+
+  if (editing) {
+    return (
+      <TemplateEditor
+        template={editing}
+        onBack={() => setEditing(null)}
+        onSaved={handleSaved}
+        idToken={idToken}
+      />
+    );
+  }
+
+  return (
+    <TemplateList
+      templates={templates}
+      onEdit={setEditing}
+      onToggle={(t, v) => void handleToggle(t, v)}
+      toggling={toggling}
+    />
+  );
+};
+
+export default EmailTemplatesPanel;

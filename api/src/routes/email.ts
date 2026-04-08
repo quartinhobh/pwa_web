@@ -2,6 +2,8 @@ import { Router, type Request, type Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/roleCheck';
 import { sendEmail, sendBulk, wrapTemplate, getLimitsInfo, verifyUnsubscribeToken, DAILY_SEND_LIMIT, MONTHLY_SEND_LIMIT, MAX_GROUP_SIZE } from '../services/emailService';
+import { getAllTemplates, updateTemplate } from '../services/emailTemplateService';
+import type { EmailTemplateKey } from '../types';
 import { adminDb } from '../config/firebase';
 
 export const emailRouter: Router = Router();
@@ -500,6 +502,48 @@ emailRouter.post(
     } catch (err) {
       console.error('[email/resubscribe]', err);
       res.status(500).json({ error: 'resubscribe_failed' });
+    }
+  },
+);
+
+// ── Email Templates ──────────────────────────────────────────────────
+
+/** GET /email/templates — list all 6 RSVP email templates */
+emailRouter.get(
+  '/templates',
+  requireAuth,
+  requireRole('admin'),
+  async (_req: Request, res: Response) => {
+    try {
+      const templates = await getAllTemplates();
+      res.json({ templates });
+    } catch (err) {
+      console.error('[email/templates GET]', err);
+      res.status(500).json({ error: 'list_templates_failed' });
+    }
+  },
+);
+
+/** PUT /email/templates/:key — update a RSVP email template */
+emailRouter.put(
+  '/templates/:key',
+  requireAuth,
+  requireRole('admin'),
+  async (req: Request, res: Response) => {
+    const key = req.params.key as EmailTemplateKey;
+    const validKeys: EmailTemplateKey[] = ['confirmation', 'waitlist', 'promotion', 'reminder', 'venue_reveal', 'rejected'];
+    if (!validKeys.includes(key)) {
+      res.status(400).json({ error: 'invalid_key' });
+      return;
+    }
+    const { enabled, subject, body } = req.body as { enabled?: boolean; subject?: string; body?: string };
+    const adminUid = req.user?.uid ?? 'unknown';
+    try {
+      const updated = await updateTemplate(key, { enabled, subject, body }, adminUid);
+      res.json({ template: updated });
+    } catch (err) {
+      console.error('[email/templates PUT]', err);
+      res.status(500).json({ error: 'update_template_failed' });
     }
   },
 );
