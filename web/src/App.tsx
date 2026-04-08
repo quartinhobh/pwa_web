@@ -13,6 +13,7 @@ import { auth } from '@/services/firebase';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import InstallPrompt from '@/components/common/InstallPrompt';
+import UpdatePrompt from '@/components/common/UpdatePrompt';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 
 // P7-S1 — lazy-load pages so the initial bundle ships only the shell
@@ -92,6 +93,7 @@ export default function App() {
         </main>
         <Footer />
         <InstallPrompt />
+        <UpdatePrompt />
       </div>
     </BrowserRouter>
   );

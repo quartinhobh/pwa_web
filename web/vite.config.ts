@@ -5,10 +5,13 @@ import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.ico', 'robots.txt', 'offline.html', 'fonts/*.woff2'],
       manifest: {
         name: 'Quartinho - Clube de Escuta',
