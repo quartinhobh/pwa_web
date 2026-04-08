@@ -38,6 +38,7 @@ export const AlbumDisplay: React.FC<AlbumDisplayProps> = ({
               src={coverUrl}
               alt={album?.title ?? event.title}
               onLoad={() => setLoaded(true)}
+              loading="lazy"
               className={`w-full h-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
             />
           </div>

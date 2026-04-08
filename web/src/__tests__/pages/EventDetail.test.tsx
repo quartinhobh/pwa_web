@@ -104,6 +104,6 @@ describe('EventDetail page', () => {
       new Promise(() => {}),
     );
     render(<EventDetail eventId="e1" />);
-    expect(screen.getByText(/carregando/i)).toBeInTheDocument();
+    expect(screen.getByTestId('loading-skeleton')).toBeInTheDocument();
   });
 });
