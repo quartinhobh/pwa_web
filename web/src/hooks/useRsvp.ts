@@ -71,22 +71,6 @@ export function useRsvp(
       if (!eventId || !idToken) throw new Error('not_authenticated');
 
       const prior = data;
-      // Optimistic: increment count
-      if (prior?.summary) {
-        setData({
-          summary: {
-            ...prior.summary,
-            confirmedCount: prior.summary.confirmedCount + 1,
-          },
-          userEntry: {
-            status: 'confirmed',
-            plusOne: !!opts?.plusOne,
-            plusOneName: opts?.plusOneName ?? null,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          },
-        });
-      }
 
       try {
         const { entry } = await apiSubmit(eventId, idToken, opts);

@@ -3,7 +3,7 @@ import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
 import HelperBox from '@/components/admin/HelperBox';
-import { fetchEmailTemplates, updateEmailTemplate } from '@/services/api';
+import { fetchEmailTemplates, updateEmailTemplate, restoreEmailTemplate } from '@/services/api';
 import type { EmailTemplate, EmailTemplateKey } from '@/types';
 
 // ─── Static metadata ─────────────────────────────────────────────────
@@ -134,46 +134,10 @@ const TemplateEditor: React.FC<{
     if (!idToken) return;
     setSaving(true);
     try {
-      // Fetch defaults by sending empty strings won't work — instead we PUT with
-      // the hardcoded defaults re-applied. We signal restore by sending a DELETE-like
-      // flag; since the backend doesn't support it directly, we restore by setting
-      // subject/body to the canonical defaults displayed below.
-      // For now: save current values as empty to trigger server default fallback.
-      // Actually: the spec says "se apagar tudo, emails voltam ao padrão". We can
-      // achieve restore by deleting the doc or using a reset endpoint. Since we
-      // don't have that, we keep the original template's default and just reset local state.
-      // Best approach: send the template key defaults (we replicate them here).
-      const DEFAULTS: Record<EmailTemplateKey, { subject: string; body: string }> = {
-        confirmation: {
-          subject: 'tá confirmado! 🎶 {evento}',
-          body: 'Oi {nome}!\n\nSua presença em {evento} ({data}, {horario}) está confirmada.\n\nNos vemos lá!',
-        },
-        waitlist: {
-          subject: 'tá na fila — {evento}',
-          body: 'Oi {nome}!\n\nO {evento} ({data}) lotou, mas você está na fila de espera. Se abrir vaga, você recebe outro email.',
-        },
-        promotion: {
-          subject: 'abriu vaga! 🎉 {evento}',
-          body: 'Oi {nome}!\n\nAbriu uma vaga no {evento} ({data}, {horario}) e você saiu da fila! Sua presença está confirmada.',
-        },
-        reminder: {
-          subject: 'amanhã tem! {evento}',
-          body: 'Oi {nome}!\n\nLembrete: amanhã tem {evento}!\n\nHorário: {horario}\nLocal: {local}\n\nNos vemos lá!',
-        },
-        venue_reveal: {
-          subject: 'o endereço é... 📍 {evento}',
-          body: 'Oi {nome}!\n\nO local do {evento} ({data}) foi revelado:\n\n{local}\n\nAnota aí!',
-        },
-        rejected: {
-          subject: 'dessa vez não rolou — {evento}',
-          body: 'Oi {nome}!\n\nInfelizmente sua presença no {evento} ({data}) não foi aprovada dessa vez. Mas fique ligado nos próximos eventos!',
-        },
-      };
-      const def = DEFAULTS[template.key];
-      const updated = await updateEmailTemplate(template.key, def, idToken);
-      setSubject(updated.subject);
-      setBody(updated.body);
-      onSaved(updated);
+      const restored = await restoreEmailTemplate(template.key, idToken);
+      setSubject(restored.subject);
+      setBody(restored.body);
+      onSaved(restored);
     } catch (err) {
       alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -320,15 +284,21 @@ const TemplateList: React.FC<{
 export const EmailTemplatesPanel: React.FC<{ idToken: string | null }> = ({ idToken }) => {
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<EmailTemplate | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
 
   useEffect(() => {
     if (!idToken) return;
-    void fetchEmailTemplates(idToken).then((t) => {
-      setTemplates(t);
-      setLoading(false);
-    });
+    void fetchEmailTemplates(idToken)
+      .then((t) => {
+        setTemplates(t);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Erro ao carregar templates');
+        setLoading(false);
+      });
   }, [idToken]);
 
   async function handleToggle(t: EmailTemplate, enabled: boolean) {
@@ -350,6 +320,7 @@ export const EmailTemplatesPanel: React.FC<{ idToken: string | null }> = ({ idTo
   }
 
   if (loading) return <LoadingState />;
+  if (error) return <p className="font-body text-zine-burntOrange p-4">{error}</p>;
 
   if (editing) {
     return (

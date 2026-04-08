@@ -548,6 +548,31 @@ emailRouter.put(
   },
 );
 
+/** DELETE /email/templates/:key — restore template to defaults (deletes Firestore override) */
+emailRouter.delete(
+  '/templates/:key',
+  requireAuth,
+  requireRole('admin'),
+  async (req: Request, res: Response) => {
+    const key = req.params.key as EmailTemplateKey;
+    const validKeys: EmailTemplateKey[] = ['confirmation', 'waitlist', 'promotion', 'reminder', 'venue_reveal', 'rejected'];
+    if (!validKeys.includes(key)) {
+      res.status(400).json({ error: 'invalid_key' });
+      return;
+    }
+    try {
+      await adminDb.collection('emailTemplates').doc(key).delete();
+      const { getAllTemplates: getAll } = await import('../services/emailTemplateService');
+      const templates = await getAll();
+      const restored = templates.find((t) => t.key === key);
+      res.json({ template: restored });
+    } catch (err) {
+      console.error('[email/templates DELETE]', err);
+      res.status(500).json({ error: 'restore_template_failed' });
+    }
+  },
+);
+
 /** GET /email/campaigns — list sent campaigns */
 emailRouter.get(
   '/campaigns',

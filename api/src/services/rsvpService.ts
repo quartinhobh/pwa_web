@@ -245,12 +245,19 @@ export async function updatePlusOne(
       }
     }
 
+    const hadPlusOne = entry.plusOne;
     entry.plusOne = plusOne;
     entry.plusOneName = plusOne ? (plusOneName?.trim() || null) : null;
     entry.updatedAt = Date.now();
     doc.entries[userId] = entry;
-    doc.updatedAt = Date.now();
 
+    // Adjust confirmedCount when +1 changes on a confirmed entry
+    if (entry.status === 'confirmed') {
+      if (plusOne && !hadPlusOne) doc.confirmedCount += 1;
+      if (!plusOne && hadPlusOne) doc.confirmedCount = Math.max(0, doc.confirmedCount - 1);
+    }
+
+    doc.updatedAt = Date.now();
     tx.set(rsvpRef, doc);
     return entry;
   });
@@ -275,24 +282,22 @@ export async function approveOrReject(
     const entry = doc.entries[targetUserId];
     if (!entry) throw new Error('entry_not_found');
 
-    const wasPending = entry.status === 'pending_approval';
+    // Only allow transitions from pending_approval or waitlisted
+    if (entry.status !== 'pending_approval' && entry.status !== 'waitlisted') {
+      throw new Error('invalid_transition');
+    }
+
     const wasWaitlisted = entry.status === 'waitlisted';
 
     entry.status = newStatus;
     entry.updatedAt = Date.now();
     doc.entries[targetUserId] = entry;
 
-    if (newStatus === 'confirmed' && !wasPending && !wasWaitlisted) {
-      // no counter change needed if already confirmed
-    } else if (newStatus === 'confirmed') {
+    if (newStatus === 'confirmed') {
       doc.confirmedCount += 1;
       if (wasWaitlisted) doc.waitlistCount = Math.max(0, doc.waitlistCount - 1);
     } else if (newStatus === 'rejected') {
-      if (wasPending) {
-        // no counter change, pending isn't counted
-      } else if (wasWaitlisted) {
-        doc.waitlistCount = Math.max(0, doc.waitlistCount - 1);
-      }
+      if (wasWaitlisted) doc.waitlistCount = Math.max(0, doc.waitlistCount - 1);
     }
 
     doc.updatedAt = Date.now();

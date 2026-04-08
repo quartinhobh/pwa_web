@@ -840,6 +840,19 @@ export async function updateEmailTemplate(
   return body.template;
 }
 
+export async function restoreEmailTemplate(
+  key: string,
+  idToken: string,
+): Promise<EmailTemplate> {
+  const res = await fetch(`${API_URL}/email/templates/${encodeURIComponent(key)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!res.ok) throw new Error(`DELETE /email/templates/${key} failed: ${res.status}`);
+  const body = (await res.json()) as { template: EmailTemplate };
+  return body.template;
+}
+
 // ── LinkTree ──────────────────────────────────────────────────────────
 
 export async function fetchLinkTree(): Promise<LinkTreeItem[]> {
