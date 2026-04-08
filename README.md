@@ -8,7 +8,6 @@ Clube de escuta coletiva — PWA retro-zine pra ouvir discos inteiros em grupo,
 conversar em tempo real e votar favoritos. Monorepo Bun/Turbo com React +
 Express + Firebase.
 
-
 ## Features do Quartinho
 
 - Página de Lojinha - para ver coisas p/ comprar com PIX
@@ -24,6 +23,9 @@ Express + Firebase.
 - ID social - página/perfil com foto + album favorito + links
 - LinkTree - Para divulgação de links//outras coisas que for de interesse dos admins.
 - Banner - Promoção/publis/divulgações temporizadas.
+- RSVP - Confirmação ativavel/desativel customizavel p/ eventos futuros.
+- Email Sociais + Templates - Facilitar trocas e envios de e-mails
+- Modo de Ajuda p/ Administradores - caixas que explica os paines de admin ( desativavel p/ diminuir feiura de UI)
 
 ## Stack
 
