@@ -934,9 +934,11 @@ export async function uploadBannerImage(file: File, idToken: string): Promise<st
 
 export async function fetchActiveBanner(): Promise<Banner | null> {
   const res = await fetch(`${API_URL}/banners/active`);
+  // Backwards-compat: older API revisions returned 404 when no active banner.
+  // Current API returns 200 with `{ banner: null }`. Handle both during rollout.
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`GET /banners/active failed: ${res.status}`);
-  const body = (await res.json()) as { banner: Banner };
+  const body = (await res.json()) as { banner: Banner | null };
   return body.banner;
 }
 

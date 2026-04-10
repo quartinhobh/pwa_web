@@ -17,7 +17,9 @@ const bannerUpload = multer({ storage: multer.memoryStorage(), limits: { fileSiz
 
 export const bannersRouter: Router = Router();
 
-/** GET /banners/active — public, returns the single active banner or 404 */
+/** GET /banners/active — public. Returns `{ banner: Banner | null }`.
+ *  "No active banner" is a normal state, not an error: returning 200 with
+ *  null keeps the browser console clean (404 looks like a broken request). */
 bannersRouter.get('/active', async (_req: Request, res: Response) => {
   try {
     const snap = await adminDb.collection(COLLECTION)
@@ -25,12 +27,13 @@ bannersRouter.get('/active', async (_req: Request, res: Response) => {
       .limit(1)
       .get();
     if (snap.empty) {
-      res.status(404).json({ error: 'no_active_banner' });
+      res.status(200).json({ banner: null });
       return;
     }
     const banner = snap.docs[0]!.data() as Banner;
     res.status(200).json({ banner });
-  } catch {
+  } catch (err) {
+    console.error('[GET /banners/active]', err);
     res.status(500).json({ error: 'get_active_banner_failed' });
   }
 });
