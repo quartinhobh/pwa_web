@@ -25,10 +25,13 @@ usersRouter.get(
   requireRole('admin'),
   async (_req: Request, res: Response) => {
     try {
-      const snap = await adminDb.collection('users').orderBy('createdAt', 'desc').get();
-      const users = snap.docs.map((d) => d.data() as User);
+      const snap = await adminDb.collection('users').get();
+      const users = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as User) }))
+        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
       res.status(200).json({ users });
-    } catch {
+    } catch (err) {
+      console.error('[GET /users]', err);
       res.status(500).json({ error: 'list_users_failed' });
     }
   },
