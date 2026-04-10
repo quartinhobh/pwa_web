@@ -47,6 +47,7 @@ firebase-debug.log
 web/dev-dist/
 
 private_key.json
+preflight_private_key.json
 web/playwright-report/
 web/test-results/
 .env.production
