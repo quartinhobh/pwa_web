@@ -44,7 +44,8 @@ eventsRouter.get('/', async (req: Request, res: Response) => {
     const status = req.query.status as string | undefined;
     const filtered = status ? events.filter((e) => e.status === status) : events;
     res.status(200).json({ events: filtered });
-  } catch {
+  } catch (err) {
+    console.error('[GET /events]', err);
     res.status(500).json({ error: 'list_failed' });
   }
 });
