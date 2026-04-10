@@ -27,3 +27,52 @@
     transition: none;
   }
 }
+
+/* Sticker layer — spawn bounce + fall-off.
+   The resting transform uses `--sticker-rot` set inline on each sticker, so
+   rotation is preserved across both keyframe states and the static base. */
+.sticker {
+  transform: translate(-50%, -50%) rotate(var(--sticker-rot, 0deg));
+  will-change: transform, opacity;
+}
+
+@keyframes sticker-spawn-kf {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--sticker-rot, 0deg)) scale(0.3);
+  }
+  55% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--sticker-rot, 0deg)) scale(1.18);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--sticker-rot, 0deg)) scale(1);
+  }
+}
+
+@keyframes sticker-fall-kf {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--sticker-rot, 0deg));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 120vh) rotate(calc(var(--sticker-rot, 0deg) + 540deg));
+  }
+}
+
+.sticker-spawn {
+  animation: sticker-spawn-kf 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.sticker-fall {
+  animation: sticker-fall-kf 1200ms cubic-bezier(0.55, 0.08, 0.68, 0.53) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sticker-spawn,
+  .sticker-fall {
+    animation: none;
+  }
+}
