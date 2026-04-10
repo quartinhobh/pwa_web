@@ -27,7 +27,10 @@ usersRouter.get(
     try {
       const snap = await adminDb.collection('users').get();
       const users = snap.docs
-        .map((d) => ({ id: d.id, ...(d.data() as User) }))
+        .map((d) => {
+          const data = d.data() as Partial<User>;
+          return { ...data, id: data.id ?? d.id } as User;
+        })
         .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
       res.status(200).json({ users });
     } catch (err) {
