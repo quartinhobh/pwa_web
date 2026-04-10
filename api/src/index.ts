@@ -46,9 +46,9 @@ app.use('/email', emailRouter);
 app.use('/linktree', linktreeRouter);
 app.use('/banners', bannersRouter);
 
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'preflight') {
   app.listen(PORT, () => {
-     
+
     console.log(`[api] listening on :${PORT}`);
   });
 }

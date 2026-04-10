@@ -28,6 +28,30 @@ function buildApp(): App {
   const existing = getApps()[0];
   if (existing) return existing;
 
+  // Preflight: real Firebase Admin pointed at the dedicated quartinho-preflight
+  // project. Used by api/scripts/preflight.ts to exercise public routes against
+  // real Firestore (which validates composite indexes, unlike the emulator).
+  if (process.env.NODE_ENV === 'preflight') {
+    const saJson = process.env.PREFLIGHT_FIREBASE_SERVICE_ACCOUNT;
+    if (!saJson) {
+      throw new Error(
+        'PREFLIGHT_FIREBASE_SERVICE_ACCOUNT env var required when NODE_ENV=preflight',
+      );
+    }
+    const sa = JSON.parse(saJson) as {
+      project_id: string;
+      client_email: string;
+      private_key: string;
+    };
+    return initializeApp({
+      credential: cert({
+        projectId: sa.project_id,
+        clientEmail: sa.client_email,
+        privateKey: sa.private_key,
+      }),
+    });
+  }
+
   const emulating =
     !!process.env.FIREBASE_AUTH_EMULATOR_HOST ||
     !!process.env.FIRESTORE_EMULATOR_HOST ||

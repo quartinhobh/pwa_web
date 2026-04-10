@@ -5,7 +5,36 @@ on:
     tags: ['v*']
 
 jobs:
+  preflight:
+    name: Preflight (real Firestore index check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.1.20'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Write preflight service account
+        run: echo '${{ secrets.PREFLIGHT_FIREBASE_SERVICE_ACCOUNT }}' > /tmp/preflight-sa.json
+
+      - name: Deploy committed indexes to preflight project
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/preflight-sa.json
+        run: bunx firebase-tools deploy --only firestore:indexes --project ${{ vars.PREFLIGHT_FIREBASE_PROJECT_ID }} --non-interactive
+
+      - name: Run preflight against real Firestore
+        env:
+          NODE_ENV: preflight
+          PREFLIGHT_FIREBASE_SERVICE_ACCOUNT: ${{ secrets.PREFLIGHT_FIREBASE_SERVICE_ACCOUNT }}
+        run: cd api && bun run preflight
+
   deploy-api:
+    needs: preflight
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Render deploy
@@ -33,53 +62,3 @@ jobs:
 
       - name: Deploy to Firebase (hosting + firestore rules + firestore indexes)
         run: bunx firebase-tools deploy --only hosting,firestore:rules,firestore:indexes --project ${{ secrets.FIREBASE_PROJECT_ID }} --token "${{ secrets.FIREBASE_TOKEN }}"
-
-  smoke:
-    name: Post-deploy smoke tests
-    needs: [deploy-api, deploy-frontend]
-    runs-on: ubuntu-latest
-    env:
-      API_BASE_URL: https://pwa-web-njxj.onrender.com
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.1.20'
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Wait for Render deploy to be live
-        run: |
-          for i in {1..60}; do
-            if curl -sf "$API_BASE_URL/health" >/dev/null; then
-              echo "API is live after ${i} attempts"
-              exit 0
-            fi
-            echo "waiting for $API_BASE_URL/health ($i/60)..."
-            sleep 10
-          done
-          echo "API did not come up in time"
-          exit 1
-
-      - name: Discover routes and generate smoke file
-        working-directory: ${{ github.workspace }}
-        run: |
-          (cd api && NODE_ENV=test bun run scripts/list-routes.ts) > routes-smoke.json
-          cat routes-smoke.json
-          node scripts/generate-smoke-hurl.mjs < routes-smoke.json > smoke-auto.hurl
-          cat smoke-auto.hurl scripts/smoke-extras.hurl > smoke-all.hurl
-          echo "--- final smoke file ---"
-          cat smoke-all.hurl
-
-      - name: Install hurl
-        run: |
-          HURL_VERSION=6.0.0
-          curl -sSLO "https://github.com/Orange-OpenSource/hurl/releases/download/${HURL_VERSION}/hurl_${HURL_VERSION}_amd64.deb"
-          sudo dpkg -i "hurl_${HURL_VERSION}_amd64.deb"
-          hurl --version
-
-      - name: Run smoke tests against production
-        run: hurl --variable base_url=$API_BASE_URL --test smoke-all.hurl

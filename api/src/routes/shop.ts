@@ -20,7 +20,8 @@ shopRouter.get('/products', async (_req: Request, res: Response) => {
   try {
     const products = await listProducts(true);
     res.status(200).json({ products });
-  } catch {
+  } catch (err) {
+    console.error('[GET /shop/products]', err);
     res.status(500).json({ error: 'list_products_failed' });
   }
 });
@@ -29,7 +30,8 @@ shopRouter.get('/pix', async (_req: Request, res: Response) => {
   try {
     const config = await getPixConfig();
     res.status(200).json({ config });
-  } catch {
+  } catch (err) {
+    console.error('[GET /shop/pix]', err);
     res.status(500).json({ error: 'get_pix_failed' });
   }
 });

@@ -120,9 +120,6 @@ jobs:
           FIREBASE_STORAGE_EMULATOR_HOST: localhost:9199
         run: bun run --filter=api test -- --no-file-parallelism
 
-      - name: Check firestore indexes coverage
-        run: bunx firestore-index-gen --projectId quartinho-dev --check --config firebase.json
-
       - name: Stop emulators
         if: always()
         run: |

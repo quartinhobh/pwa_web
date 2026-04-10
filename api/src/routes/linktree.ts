@@ -18,7 +18,8 @@ linktreeRouter.get('/', async (_req: Request, res: Response) => {
       .get();
     const links = snap.docs.map((d) => d.data() as LinkTreeItem);
     res.status(200).json({ links });
-  } catch {
+  } catch (err) {
+    console.error('[GET /linktree]', err);
     res.status(500).json({ error: 'list_links_failed' });
   }
 });
