@@ -25,7 +25,7 @@ jobs:
       - name: Deploy committed indexes to preflight project
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/preflight-sa.json
-        run: bunx firebase-tools deploy --only firestore:indexes --project ${{ vars.PREFLIGHT_FIREBASE_PROJECT_ID }} --non-interactive
+        run: bunx firebase-tools deploy --only firestore:indexes --project ${{ secrets.PREFLIGHT_FIREBASE_PROJECT_ID }} --non-interactive
 
       - name: Run preflight against real Firestore
         env:
