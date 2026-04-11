@@ -37,5 +37,13 @@ export function getR2PublicUrl(key: string): string {
   if (isLocal) {
     return `${R2_PUBLIC_URL}/${R2_BUCKET}/${key}`;
   }
+  // In production, R2_PUBLIC_URL MUST be set to either the bucket's public
+  // r2.dev URL (e.g. https://pub-<hash>.r2.dev) or a custom domain. The S3
+  // API endpoint (<account>.r2.cloudflarestorage.com) always requires SigV4
+  // auth and will return "InvalidArgument / Authorization" for plain <img>
+  // requests, so we never use it for public asset URLs.
+  if (process.env.R2_PUBLIC_URL) {
+    return `${process.env.R2_PUBLIC_URL.replace(/\/$/, '')}/${key}`;
+  }
   return `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET}/${key}`;
 }

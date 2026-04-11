@@ -61,8 +61,12 @@ export default defineConfig({
             },
           },
           {
-            // R2 / MinIO storage (avatars, banner images).
-            urlPattern: /r2\.cloudflarestorage\.com|localhost:9002/,
+            // R2 / MinIO storage (avatars, banner images). Matches:
+            //   - pub-<hash>.r2.dev         (production public URL)
+            //   - r2.cloudflarestorage.com  (legacy, pre-fix — kept until
+            //                                migration rewrites stored URLs)
+            //   - localhost:9002            (local MinIO dev)
+            urlPattern: /r2\.dev|r2\.cloudflarestorage\.com|localhost:9002/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'quartinho-r2',
