@@ -135,13 +135,20 @@ export interface MbSearchResult {
 export async function searchReleases(
   query: string,
   limit = 10,
+  year = '',
 ): Promise<MbSearchResult[]> {
-  const cacheKey = `search:${query.toLowerCase().trim()}:${limit}`;
+  const cacheKey = `search:${query.toLowerCase().trim()}:${year || 'no year'}:${limit}`;
   const cached = cacheGet(cacheKey) as MbSearchResult[] | undefined;
   if (cached) return cached;
 
+  // Build query with optional year filter.
+  let mbQuery = query;
+  if (year && /^\d{4}$/.test(year)) {
+    mbQuery = `${query} AND date:${year}`;
+  }
+
   const json = (await mbFetch(
-    `/release?query=${encodeURIComponent(query)}&limit=${limit}&fmt=json`,
+    `/release?query=${encodeURIComponent(mbQuery)}&limit=${limit}&fmt=json`,
   )) as { releases?: MbReleaseJson[] };
   const results = (json.releases ?? []).map((r) => ({
     id: r.id,

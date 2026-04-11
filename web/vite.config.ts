@@ -45,17 +45,25 @@ export default defineConfig({
       workbox: {
         // Precache shell + self-hosted fonts.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // SPA fallback: when offline and navigation fails, serve offline.html.
-        navigateFallback: '/offline.html',
+        // SPA navigation fallback: all client-side routes (/u/:username,
+        // /event/:id, etc.) are served the precached index.html shell. React
+        // Router then renders the right view. Deep links work offline as long
+        // as the shell + JS bundles are precached.
+        navigateFallback: '/index.html',
+        // Don't hijack API calls that happen to be navigations (none today,
+        // but keeps us safe if anything ever hits /api/* as a document).
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
-            // API reads — network first, fall back to cache when offline.
+            // API reads — network first, fall back to cache when offline or
+            // when the backend is slow (Cloud Run cold starts can take 10-15s,
+            // so a 5s timeout was aborting legitimate requests and surfacing
+            // as fake "offline" errors to users).
             urlPattern: /\/(auth|events|users|votes|moderation|photos|shop|linktree|banners|mb|lyrics)\b/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'quartinho-api',
-              networkTimeoutSeconds: 5,
+              networkTimeoutSeconds: 15,
               expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
               cacheableResponse: { statuses: [0, 200] },
             },

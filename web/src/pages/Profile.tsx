@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { updatePassword, type User as FirebaseUser } from 'firebase/auth';
 import { useAuth } from '@/hooks/useAuth';
 import { useSessionStore } from '@/store/sessionStore';
-import { fetchCurrentUser, updateMyProfile, uploadAvatar, searchMusicBrainz, type MbSearchResult } from '@/services/api';
+import { fetchCurrentUser, updateMyProfile, uploadAvatar, type MbSearchResult } from '@/services/api';
+import { useMusicBrainzSearch } from '@/hooks/useMusicBrainzSearch';
+import MbResultsList from '@/components/common/MbResultsList';
 import type { FavoriteAlbum, SocialLink, SocialPlatform } from '@/types';
 import { ZineFrame } from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
@@ -39,9 +41,13 @@ export const Profile: React.FC = () => {
   // Favorite albums
   const [favoriteAlbums, setFavoriteAlbums] = useState<FavoriteAlbum[]>([]);
   const [albumPickerSlot, setAlbumPickerSlot] = useState<number | null>(null);
-  const [albumQuery, setAlbumQuery] = useState('');
-  const [albumResults, setAlbumResults] = useState<MbSearchResult[]>([]);
-  const [albumSearching, setAlbumSearching] = useState(false);
+  const {
+    query: albumQuery,
+    setQuery: setAlbumQuery,
+    results: albumResults,
+    searching: albumSearching,
+    reset: resetAlbumSearch,
+  } = useMusicBrainzSearch();
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   // Password change — separate flow
@@ -90,18 +96,6 @@ export const Profile: React.FC = () => {
     setAvatarPreview(URL.createObjectURL(file));
   };
 
-  // Album search debounce
-  useEffect(() => {
-    if (albumQuery.length < 2) { setAlbumResults([]); return; }
-    setAlbumSearching(true);
-    const timer = setTimeout(() => {
-      searchMusicBrainz(albumQuery)
-        .then(setAlbumResults)
-        .catch(() => setAlbumResults([]))
-        .finally(() => setAlbumSearching(false));
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [albumQuery]);
 
   const handleAlbumSelect = (result: MbSearchResult) => {
     if (albumPickerSlot === null) return;
@@ -121,8 +115,7 @@ export const Profile: React.FC = () => {
       return next;
     });
     setAlbumPickerSlot(null);
-    setAlbumQuery('');
-    setAlbumResults([]);
+    resetAlbumSearch();
   };
 
   const handleAlbumRemove = (idx: number) => {
@@ -421,7 +414,7 @@ export const Profile: React.FC = () => {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => { setAlbumPickerSlot(idx); setAlbumQuery(''); setAlbumResults([]); }}
+                        onClick={() => { setAlbumPickerSlot(idx); resetAlbumSearch(); }}
                         className="w-full h-full rounded-md border-2 border-dashed border-zine-burntYellow/40 flex items-center justify-center hover:border-zine-burntOrange/60 transition-colors"
                       >
                         <span className="text-2xl text-zine-burntOrange/30">+</span>
@@ -446,7 +439,7 @@ export const Profile: React.FC = () => {
                   />
                   <button
                     type="button"
-                    onClick={() => { setAlbumPickerSlot(null); setAlbumQuery(''); setAlbumResults([]); }}
+                    onClick={() => { setAlbumPickerSlot(null); resetAlbumSearch(); }}
                     className="font-body text-sm text-zine-burntOrange/60 underline hover:text-zine-burntOrange"
                   >
                     Cancelar
@@ -456,32 +449,13 @@ export const Profile: React.FC = () => {
                   Dica: tente buscar no formato "album - artista" para ser mais especifico. <br />
                   E tenha um tiquinho de paciencia, a busca pode levar uns segundinhos.
                 </p>
-                {albumSearching && (
-                  <p className="font-body text-xs text-zine-burntOrange/60 animate-pulse">Buscando...</p>
-                )}
-                {albumResults.length > 0 && (
-                  <ul className="border-2 border-zine-burntYellow/30 rounded max-h-48 overflow-y-auto divide-y divide-zine-burntYellow/20">
-                    {albumResults
-                      .filter((r) => !favoriteAlbums.some((a) => a.mbId === r.id))
-                      .map((r) => (
-                        <li key={r.id}>
-                          <button
-                            type="button"
-                            onClick={() => handleAlbumSelect(r)}
-                            className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-zine-burntYellow/10 text-left"
-                          >
-                            {r.coverUrl && (
-                              <img src={r.coverUrl} alt="" loading="lazy" className="w-8 h-8 rounded object-cover shrink-0" />
-                            )}
-                            <div className="min-w-0">
-                              <p className="font-body text-sm truncate">{r.title}</p>
-                              <p className="font-body text-xs text-zine-burntOrange/60 truncate">{r.artistCredit}</p>
-                            </div>
-                          </button>
-                        </li>
-                      ))}
-                  </ul>
-                )}
+                <MbResultsList
+                  variant="compact"
+                  searching={albumSearching}
+                  searchingLabel="Buscando..."
+                  results={albumResults.filter((r) => !favoriteAlbums.some((a) => a.mbId === r.id))}
+                  onSelect={handleAlbumSelect}
+                />
               </div>
             )}
           </fieldset>

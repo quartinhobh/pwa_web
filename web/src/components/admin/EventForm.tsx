@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
 import { auth } from '@/services/firebase';
-import { createEvent, updateEvent, searchMusicBrainz, type MbSearchResult } from '@/services/api';
+import { createEvent, updateEvent, type MbSearchResult } from '@/services/api';
 import { useIdToken } from '@/hooks/useIdToken';
+import { useMusicBrainzSearch } from '@/hooks/useMusicBrainzSearch';
+import MbResultsList from '@/components/common/MbResultsList';
 import HelperBox from '@/components/admin/HelperBox';
 import type { Event, RsvpApprovalMode } from '@/types';
 
@@ -55,37 +57,14 @@ export const EventForm: React.FC<EventFormProps> = ({
   );
 
   // ── Album search ───────────────────────────────────────────────────
-  const [albumQuery, setAlbumQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<MbSearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
+  const { query: albumQuery, setQuery: setAlbumQuery, results: searchResults, searching, reset: resetAlbumSearch } = useMusicBrainzSearch();
   const [selectedCover, setSelectedCover] = useState<string | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const doSearch = useCallback(async (q: string) => {
-    if (q.length < 2) { setSearchResults([]); return; }
-    setSearching(true);
-    try {
-      const results = await searchMusicBrainz(q);
-      setSearchResults(results);
-    } catch {
-      setSearchResults([]);
-    } finally {
-      setSearching(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => void doSearch(albumQuery), 400);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [albumQuery, doSearch]);
 
   function selectAlbum(r: MbSearchResult) {
     setMbAlbumId(r.id);
     setTitle(r.title + (r.artistCredit ? ` — ${r.artistCredit}` : ''));
     setSelectedCover(r.coverUrl);
-    setAlbumQuery('');
-    setSearchResults([]);
+    resetAlbumSearch();
   }
 
   // ── Submit ──────────────────────────────────────────────────────────
@@ -146,43 +125,17 @@ export const EventForm: React.FC<EventFormProps> = ({
             Buscar álbum
           </label>
           <input
-            type="text"
-            value={albumQuery}
-            onChange={(e) => setAlbumQuery(e.target.value)}
-            placeholder="ex: OK Computer, Abbey Road…"
-            className={inputClass}
+              type="text"
+              value={albumQuery}
+              onChange={(e) => setAlbumQuery(e.target.value)}
+              placeholder="ex: OK Computer, Abbey Road…"
+              className={inputClass}
+            />
+          <MbResultsList
+            results={searchResults}
+            searching={searching}
+            onSelect={selectAlbum}
           />
-          {searching && (
-            <p className="font-body text-xs text-zine-burntOrange/60">buscando…</p>
-          )}
-          {searchResults.length > 0 && (
-            <ul className="border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark max-h-64 overflow-y-auto">
-              {searchResults.map((r) => (
-                <li key={r.id}>
-                  <button
-                    type="button"
-                    onClick={() => selectAlbum(r)}
-                    className="w-full text-left px-2 py-2 flex items-center gap-3 hover:bg-zine-mint dark:hover:bg-zine-mint-dark border-b border-zine-burntYellow/20"
-                  >
-                    <img
-                      src={r.coverUrl ?? ''}
-                      alt=""
-                      className="w-10 h-10 object-cover border-2 border-zine-cream bg-zine-periwinkle"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-body font-bold text-zine-burntOrange dark:text-zine-cream text-sm truncate">
-                        {r.title}
-                      </span>
-                      <span className="font-body text-xs text-zine-burntOrange/70 dark:text-zine-cream/70 truncate">
-                        {r.artistCredit} {r.date ? `(${r.date.slice(0, 4)})` : ''}
-                      </span>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
 
         {/* Selected album preview */}

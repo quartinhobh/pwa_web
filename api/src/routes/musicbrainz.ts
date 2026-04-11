@@ -11,12 +11,14 @@ export const musicbrainzRouter: Router = Router();
 
 musicbrainzRouter.get('/search', async (req: Request, res: Response) => {
   const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const year = typeof req.query.year === 'string' ? req.query.year.trim() : '';
   if (!q) {
     res.status(400).json({ error: 'missing_query' });
     return;
   }
   try {
-    const results = await searchReleases(q, 8);
+    const numberResearchedAlbums = 12;
+    const results = await searchReleases(q, numberResearchedAlbums, year);
     res.status(200).json({ results });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'mb_search_failed';

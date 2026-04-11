@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import multer from 'multer';
 import sharp from 'sharp';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/roleCheck';
 import { writeLimiter } from '../middleware/rateLimit';
@@ -331,7 +331,7 @@ usersRouter.put(
         .jpeg({ quality: 80 })
         .toBuffer();
 
-      const objectKey = `avatars/${req.user.uid}.jpg`;
+      const objectKey = `avatars/${req.user.uid}-${Date.now()}.jpg`;
 
       const client = createR2Client();
       await client.send(
@@ -344,11 +344,32 @@ usersRouter.put(
         }),
       );
       const avatarUrl = getR2PublicUrl(objectKey);
+
+      // Read previous avatarUrl so we can delete the old object after the new one is live
+      const userRef = adminDb.collection('users').doc(req.user.uid);
+      const prevSnap = await userRef.get();
+      const prevUrl = prevSnap.exists ? (prevSnap.data()?.avatarUrl as string | null | undefined) : null;
+
       // Use set+merge so it works even if user doc doesn't exist yet
-      await adminDb.collection('users').doc(req.user.uid).set(
+      await userRef.set(
         { avatarUrl, updatedAt: Date.now() },
         { merge: true },
       );
+
+      // Best-effort cleanup of the previous object (don't fail the request if this errors)
+      if (prevUrl && typeof prevUrl === 'string') {
+        const match = prevUrl.match(/avatars\/[^?#]+/);
+        const prevKey = match?.[0];
+        if (prevKey && prevKey !== objectKey) {
+          try {
+            await client.send(
+              new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: prevKey }),
+            );
+          } catch (delErr) {
+            console.warn('[avatar] failed to delete previous object:', prevKey, delErr);
+          }
+        }
+      }
       res.status(200).json({ avatarUrl });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'unknown';

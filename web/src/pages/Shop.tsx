@@ -47,7 +47,7 @@ function crc16(str: string): string {
   return (crc & 0xffff).toString(16).toUpperCase().padStart(4, '0');
 }
 
-function CopyButton({ text }: { text: string }) {
+function CopyButton({ text, label = 'copiar' }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -62,7 +62,7 @@ function CopyButton({ text }: { text: string }) {
       onClick={handleCopy}
       className="font-body text-sm px-3 py-1 bg-zine-burntOrange text-zine-cream rounded-sm transition-colors hover:bg-zine-burntOrange/80"
     >
-      {copied ? 'copiado!' : 'copiar chave'}
+      {copied ? 'copiado!' : label}
     </button>
   );
 }
@@ -90,7 +90,10 @@ function PixQrCode({ config }: { config: PixConfig }) {
           gerando QR…
         </div>
       )}
-      {config.key && <CopyButton text={config.key} />}
+      <div className="flex flex-col gap-2">
+        {config.key && <CopyButton text={config.key} label="copiar chave PIX" />}
+        <CopyButton text={payload} label="copiar código QR" />
+      </div>
     </div>
   );
 }

@@ -263,10 +263,13 @@ export interface MbSearchResult {
   coverUrl: string | null;
 }
 
-export async function searchMusicBrainz(query: string): Promise<MbSearchResult[]> {
-  const res = await fetch(
-    `${API_URL}/mb/search?q=${encodeURIComponent(query)}`,
-  );
+export async function searchMusicBrainz(
+  query: string,
+  year = '',
+): Promise<MbSearchResult[]> {
+  const params = new URLSearchParams({ q: query });
+  if (year) params.set('year', year);
+  const res = await fetch(`${API_URL}/mb/search?${params}`);
   if (!res.ok) throw new Error(`GET /mb/search failed: ${res.status}`);
   const body = (await res.json()) as { results: MbSearchResult[] };
   return body.results;
