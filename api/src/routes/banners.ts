@@ -133,12 +133,13 @@ bannersRouter.post(
   requireAuth,
   requireRole('admin'),
   async (req: Request, res: Response) => {
-    const { imageUrl, altText, link, routes, autoDismissSeconds } = req.body as {
+    const { imageUrl, altText, link, routes, autoDismissSeconds, reappearAfterDismissMs } = req.body as {
       imageUrl?: string;
       altText?: string;
       link?: string;
       routes?: BannerRoute[];
       autoDismissSeconds?: number;
+      reappearAfterDismissMs?: number;
     };
     if (!imageUrl || typeof imageUrl !== 'string') {
       res.status(400).json({ error: 'imageUrl is required' });
@@ -168,6 +169,7 @@ bannersRouter.post(
         isActive: false,
         routes: resolvedRoutes,
         autoDismissSeconds: autoDismissSeconds ?? null,
+        reappearAfterDismissMs: reappearAfterDismissMs ?? null,
         version: 1,
         createdAt: now,
         updatedAt: now,
@@ -199,12 +201,14 @@ bannersRouter.post(
       return;
     }
     try {
-      // Verify banner exists
+      // Verify banner exists and get reappearance config
       const bannerSnap = await adminDb.collection(COLLECTION).doc(bannerId).get();
       if (!bannerSnap.exists) {
         res.status(404).json({ error: 'banner_not_found' });
         return;
       }
+      const banner = bannerSnap.data() as Banner;
+      const reappearMs = banner.reappearAfterDismissMs ?? 2 * 60 * 60 * 1000; // 2 hours default
       const now = Date.now();
       const docId = `${req.user!.uid}_${bannerId}`;
       const dismissal: BannerDismissal = {
@@ -213,7 +217,7 @@ bannersRouter.post(
         bannerId,
         bannerVersion,
         dismissedAt: now,
-        expiresAt: now + 2 * 60 * 60 * 1000,
+        expiresAt: now + reappearMs,
       };
       await adminDb.collection(DISMISSALS).doc(docId).set(dismissal);
       res.status(200).json({ ok: true });
@@ -286,12 +290,13 @@ bannersRouter.put(
   requireAuth,
   requireRole('admin'),
   async (req: Request, res: Response) => {
-    const { imageUrl, link, altText, routes, autoDismissSeconds } = req.body as {
+    const { imageUrl, link, altText, routes, autoDismissSeconds, reappearAfterDismissMs } = req.body as {
       imageUrl?: string;
       link?: string | null;
       altText?: string;
       routes?: BannerRoute[];
       autoDismissSeconds?: number | null;
+      reappearAfterDismissMs?: number | null;
     };
     if (link !== undefined && link !== null && !link.startsWith('https://')) {
       res.status(400).json({ error: 'link must start with https://' });
@@ -314,6 +319,7 @@ bannersRouter.put(
       if (typeof altText === 'string') update.altText = altText.trim();
       if (routes !== undefined) update.routes = routes;
       if (autoDismissSeconds !== undefined) update.autoDismissSeconds = autoDismissSeconds;
+      if (reappearAfterDismissMs !== undefined) update.reappearAfterDismissMs = reappearAfterDismissMs;
       await ref.update(update);
       const updated = { ...(snap.data() as Banner), ...update };
       res.status(200).json({ banner: updated });

@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import type { Banner, BannerRoute } from '@/types';
 
 const STORAGE_KEY = 'quartinho:banner-dismiss';
-const COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours
+const DEFAULT_REAPPEAR_MS = 2 * 60 * 60 * 1000; // 2 hours fallback
 
 const ROUTE_MAP: Record<BannerRoute, (path: string) => boolean> = {
   home: (p) => p === '/',
@@ -18,6 +18,7 @@ interface DismissState {
   bannerId: string;
   version: number;
   expiresAt: number;
+  reappearAfterMs: number;
 }
 
 function readDismissLocal(): DismissState | null {
@@ -57,11 +58,12 @@ export function useBanner(): UseBannerResult {
   useEffect(() => {
     if (!banner) return;
     const local = readDismissLocal();
+    // Check if we have a valid dismissal for THIS banner that hasn't expired
     if (local && local.bannerId === banner.id && local.version === banner.version && local.expiresAt > Date.now()) {
       setDismissed(true);
       return;
     }
-    // Version mismatch or expired — reset
+    // No valid dismissal — show banner
     setDismissed(false);
 
     // Check server-side for authenticated users
@@ -71,7 +73,8 @@ export function useBanner(): UseBannerResult {
       ).then((serverDismissed) => {
         if (serverDismissed) {
           setDismissed(true);
-          writeDismissLocal({ bannerId: banner.id, version: banner.version, expiresAt: Date.now() + COOLDOWN_MS });
+          const reappearMs = banner.reappearAfterDismissMs ?? DEFAULT_REAPPEAR_MS;
+          writeDismissLocal({ bannerId: banner.id, version: banner.version, expiresAt: Date.now() + reappearMs, reappearAfterMs: reappearMs });
         }
       }).catch(() => {});
     }
@@ -79,7 +82,8 @@ export function useBanner(): UseBannerResult {
 
   const handleDismiss = useCallback(() => {
     if (!banner) return;
-    const state: DismissState = { bannerId: banner.id, version: banner.version, expiresAt: Date.now() + COOLDOWN_MS };
+    const reappearMs = banner.reappearAfterDismissMs ?? DEFAULT_REAPPEAR_MS;
+    const state: DismissState = { bannerId: banner.id, version: banner.version, expiresAt: Date.now() + reappearMs, reappearAfterMs: reappearMs };
     writeDismissLocal(state);
     setDismissed(true);
     if (timerRef.current) clearTimeout(timerRef.current);

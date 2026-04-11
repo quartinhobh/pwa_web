@@ -279,6 +279,7 @@ export interface Banner {
   isActive: boolean;
   routes: BannerRoute[];
   autoDismissSeconds: number | null;
+  reappearAfterDismissMs: number | null;
   version: number;
   createdAt: number;
   updatedAt: number;

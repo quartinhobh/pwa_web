@@ -42,6 +42,7 @@ export const BannerPanel: React.FC = () => {
   const [link, setLink] = useState('');
   const [routes, setRoutes] = useState<BannerRoute[]>(['home']);
   const [autoDismiss, setAutoDismiss] = useState('');
+  const [reappearAfter, setReappearAfter] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Pending-delete tracking — disables the row's delete button while the
@@ -81,6 +82,7 @@ export const BannerPanel: React.FC = () => {
     setLink('');
     setRoutes(['home']);
     setAutoDismiss('');
+    setReappearAfter('');
     if (fileRef.current) fileRef.current.value = '';
   }
 
@@ -93,6 +95,7 @@ export const BannerPanel: React.FC = () => {
     setLink(banner.link ?? '');
     setRoutes(banner.routes);
     setAutoDismiss(banner.autoDismissSeconds != null ? String(banner.autoDismissSeconds) : '');
+    setReappearAfter(banner.reappearAfterDismissMs != null ? String(Math.round(banner.reappearAfterDismissMs / 60000)) : '');
     if (fileRef.current) fileRef.current.value = '';
     // Scroll the form into view so the user notices the panel above the list
     // populated with the banner they clicked.
@@ -110,12 +113,15 @@ export const BannerPanel: React.FC = () => {
         finalUrl = await uploadBannerImage(imageFile, idToken);
       }
       const seconds = autoDismiss.trim() ? parseInt(autoDismiss, 10) : null;
+      const reappearMinutes = reappearAfter.trim() ? parseInt(reappearAfter, 10) : null;
+      const reappearMs = reappearMinutes != null && !Number.isNaN(reappearMinutes) ? reappearMinutes * 60 * 1000 : null;
       const payload = {
         imageUrl: finalUrl,
         altText: altText.trim(),
         link: link.trim() || null,
         routes,
         autoDismissSeconds: Number.isNaN(seconds) ? null : seconds,
+        reappearAfterDismissMs: reappearMs,
       };
       if (editingId) {
         await updateBanner(editingId, payload, idToken);
@@ -245,6 +251,15 @@ export const BannerPanel: React.FC = () => {
             value={autoDismiss}
             onChange={(e) => setAutoDismiss(e.target.value)}
             placeholder="Auto-fechar após N segundos (opcional)"
+            className={inputClass}
+            min={1}
+          />
+          <HelperBox>Após o usuário fechar o banner, tempo até ele reaparecer (deixe vazio para reaparecer na próxima visita).</HelperBox>
+          <input
+            type="number"
+            value={reappearAfter}
+            onChange={(e) => setReappearAfter(e.target.value)}
+            placeholder="Reaparecer após N minutos (opcional)"
             className={inputClass}
             min={1}
           />
