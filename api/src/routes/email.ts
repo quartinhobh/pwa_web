@@ -425,7 +425,13 @@ emailRouter.get(
   async (_req: Request, res: Response) => {
     try {
       const doc = await adminDb.collection('email_config').doc('settings').get();
-      res.json({ config: doc.exists ? doc.data() : { autoEventEmail: true } });
+      const data = (doc.exists ? doc.data() : {}) as Record<string, unknown>;
+      res.json({
+        config: {
+          autoEventEmail: (data.autoEventEmail as boolean | undefined) ?? true,
+          pauseAllTransactional: (data.pauseAllTransactional as boolean | undefined) ?? false,
+        },
+      });
     } catch (err) {
       console.error('[email/config]', err);
       res.status(500).json({ error: 'get_config_failed' });
@@ -439,12 +445,15 @@ emailRouter.put(
   requireAuth,
   requireRole('admin'),
   async (req: Request, res: Response) => {
-    const { autoEventEmail } = req.body as { autoEventEmail?: boolean };
+    const { autoEventEmail, pauseAllTransactional } = req.body as {
+      autoEventEmail?: boolean;
+      pauseAllTransactional?: boolean;
+    };
     try {
-      await adminDb.collection('email_config').doc('settings').set(
-        { autoEventEmail: autoEventEmail ?? true, updatedAt: Date.now() },
-        { merge: true },
-      );
+      const patch: Record<string, unknown> = { updatedAt: Date.now() };
+      if (typeof autoEventEmail === 'boolean') patch.autoEventEmail = autoEventEmail;
+      if (typeof pauseAllTransactional === 'boolean') patch.pauseAllTransactional = pauseAllTransactional;
+      await adminDb.collection('email_config').doc('settings').set(patch, { merge: true });
       res.json({ ok: true });
     } catch (err) {
       console.error('[email/config]', err);
@@ -531,7 +540,7 @@ emailRouter.put(
   requireRole('admin'),
   async (req: Request, res: Response) => {
     const key = req.params.key as EmailTemplateKey;
-    const validKeys: EmailTemplateKey[] = ['confirmation', 'waitlist', 'promotion', 'reminder', 'venue_reveal', 'rejected'];
+    const validKeys: EmailTemplateKey[] = ['confirmation', 'waitlist', 'promotion', 'reminder', 'venue_reveal', 'rejected', 'role_invite', 'role_promotion'];
     if (!validKeys.includes(key)) {
       res.status(400).json({ error: 'invalid_key' });
       return;
@@ -555,7 +564,7 @@ emailRouter.delete(
   requireRole('admin'),
   async (req: Request, res: Response) => {
     const key = req.params.key as EmailTemplateKey;
-    const validKeys: EmailTemplateKey[] = ['confirmation', 'waitlist', 'promotion', 'reminder', 'venue_reveal', 'rejected'];
+    const validKeys: EmailTemplateKey[] = ['confirmation', 'waitlist', 'promotion', 'reminder', 'venue_reveal', 'rejected', 'role_invite', 'role_promotion'];
     if (!validKeys.includes(key)) {
       res.status(400).json({ error: 'invalid_key' });
       return;

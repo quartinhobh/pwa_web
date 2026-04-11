@@ -6,14 +6,18 @@ import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/roleCheck';
 import { writeLimiter } from '../middleware/rateLimit';
 import {
+  cancelEvent,
   createEvent,
   deleteEvent,
   getCurrentEvent,
   getEventById,
+  getRsvpEmailsByFilter,
   listEvents,
   updateEvent,
 } from '../services/eventService';
 import { getRsvpSummary } from '../services/rsvpService';
+import { buildRsvpEmail } from '../services/emailTemplateService';
+import { sendBulk, wrapTransactionalTemplate } from '../services/emailService';
 import type { Event, EventCreatePayload } from '../types';
 import { rsvpRouter } from './rsvp';
 
@@ -124,7 +128,48 @@ function parsePayload(body: unknown): EventCreatePayload | null {
         : undefined,
     spotifyPlaylistUrl:
       typeof b.spotifyPlaylistUrl === 'string' ? b.spotifyPlaylistUrl : null,
+    chatEnabled: typeof b.chatEnabled === 'boolean' ? b.chatEnabled : undefined,
+    chatOpensAt:
+      typeof b.chatOpensAt === 'number'
+        ? b.chatOpensAt
+        : b.chatOpensAt === null
+        ? null
+        : undefined,
+    chatClosesAt:
+      typeof b.chatClosesAt === 'number'
+        ? b.chatClosesAt
+        : b.chatClosesAt === null
+        ? null
+        : undefined,
   };
+}
+
+/** Whitelist for PUT /events/:id patches — keeps arbitrary fields out of Firestore. */
+function parseUpdatePatch(body: unknown): Partial<Event> {
+  if (!body || typeof body !== 'object') return {};
+  const b = body as Record<string, unknown>;
+  const patch: Partial<Event> = {};
+  if (typeof b.title === 'string') patch.title = b.title;
+  if (typeof b.date === 'string') patch.date = b.date;
+  if (typeof b.startTime === 'string') patch.startTime = b.startTime;
+  if (typeof b.endTime === 'string') patch.endTime = b.endTime;
+  if (typeof b.location === 'string' || b.location === null) patch.location = b.location as string | null;
+  if (typeof b.venueRevealDaysBefore === 'number' && b.venueRevealDaysBefore >= 0) {
+    patch.venueRevealDaysBefore = Math.floor(b.venueRevealDaysBefore);
+  }
+  if (typeof b.spotifyPlaylistUrl === 'string' || b.spotifyPlaylistUrl === null) {
+    patch.spotifyPlaylistUrl = b.spotifyPlaylistUrl as string | null;
+  }
+  if (b.extras && typeof b.extras === 'object') patch.extras = b.extras as Event['extras'];
+  if (b.rsvp && typeof b.rsvp === 'object') patch.rsvp = b.rsvp as Event['rsvp'];
+  if (typeof b.chatEnabled === 'boolean') patch.chatEnabled = b.chatEnabled;
+  if (typeof b.chatOpensAt === 'number' || b.chatOpensAt === null) {
+    patch.chatOpensAt = b.chatOpensAt as number | null;
+  }
+  if (typeof b.chatClosesAt === 'number' || b.chatClosesAt === null) {
+    patch.chatClosesAt = b.chatClosesAt as number | null;
+  }
+  return patch;
 }
 
 eventsRouter.post(
@@ -155,7 +200,8 @@ eventsRouter.put(
   requireRole('admin'),
   async (req: Request, res: Response) => {
     try {
-      const updated = await updateEvent(req.params.id!, req.body ?? {});
+      const patch = parseUpdatePatch(req.body);
+      const updated = await updateEvent(req.params.id!, patch);
       if (!updated) {
         res.status(404).json({ error: 'not_found' });
         return;
@@ -164,6 +210,124 @@ eventsRouter.put(
       res.status(200).json({ event: updated });
     } catch {
       res.status(500).json({ error: 'update_failed' });
+    }
+  },
+);
+
+// POST /events/:id/cancel — admin cancels an event and emails its RSVPs.
+eventsRouter.post(
+  '/:id/cancel',
+  writeLimiter,
+  requireAuth,
+  requireRole('admin'),
+  async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id!;
+      const body = (req.body ?? {}) as { reason?: string };
+      const reason = typeof body.reason === 'string' ? body.reason : undefined;
+      const event = await cancelEvent(id, reason);
+      if (!event) {
+        res.status(404).json({ error: 'not_found' });
+        return;
+      }
+      invalidateCache();
+      res.status(200).json({ event });
+
+      // Fire-and-forget broadcast to all non-cancelled/rejected entries.
+      void (async () => {
+        try {
+          const recipients = await getRsvpEmailsByFilter(id, 'all');
+          if (!recipients.length) return;
+          // buildRsvpEmail short-circuits if template disabled / master pause on.
+          // Per-recipient `{nome}` would require N sends; we compromise by using
+          // a generic 'amigo' placeholder in the bulk version to stay in a single
+          // Brevo call. Individualization can come later if needed.
+          const built = await buildRsvpEmail('event_cancelled', {
+            nome: 'amigo',
+            evento: event.title,
+            data: event.date,
+            motivo: reason?.trim() || 'não informado',
+          });
+          if (!built) return;
+          const html = wrapTransactionalTemplate(
+            `<p>${built.bodyText.replace(/\n/g, '<br>')}</p>`,
+          );
+          await sendBulk(
+            recipients.map((r) => r.email),
+            built.subject,
+            html,
+          );
+        } catch (err) {
+          console.error('[events.cancel] broadcast failed', err);
+        }
+      })();
+    } catch {
+      res.status(500).json({ error: 'cancel_failed' });
+    }
+  },
+);
+
+// POST /events/:id/broadcast — admin-authored message to all/confirmed/waitlisted RSVPs.
+eventsRouter.post(
+  '/:id/broadcast',
+  writeLimiter,
+  requireAuth,
+  requireRole('admin'),
+  async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id!;
+      const body = (req.body ?? {}) as {
+        subject?: string;
+        body?: string;
+        filter?: 'confirmed' | 'waitlisted' | 'all';
+      };
+      const subject = (body.subject ?? '').trim();
+      const bodyText = (body.body ?? '').trim();
+      const filter = body.filter;
+      if (!subject || subject.length > 200) {
+        res.status(400).json({ error: 'invalid_subject' });
+        return;
+      }
+      if (!bodyText || bodyText.length > 5000) {
+        res.status(400).json({ error: 'invalid_body' });
+        return;
+      }
+      if (filter !== 'confirmed' && filter !== 'waitlisted' && filter !== 'all') {
+        res.status(400).json({ error: 'invalid_filter' });
+        return;
+      }
+      const event = await getEventById(id);
+      if (!event) {
+        res.status(404).json({ error: 'not_found' });
+        return;
+      }
+      const recipients = await getRsvpEmailsByFilter(id, filter);
+      if (!recipients.length) {
+        res.status(200).json({ sentCount: 0 });
+        return;
+      }
+      const built = await buildRsvpEmail('event_broadcast', {
+        nome: 'amigo',
+        evento: event.title,
+        assunto: subject,
+        corpo: bodyText,
+      });
+      if (!built) {
+        res.status(200).json({ sentCount: 0 });
+        return;
+      }
+      const html = wrapTransactionalTemplate(
+        `<p>${built.bodyText.replace(/\n/g, '<br>')}</p>`,
+      );
+      const sent = await sendBulk(
+        recipients.map((r) => r.email),
+        built.subject,
+        html,
+      );
+      res.status(200).json({ sentCount: sent });
+    } catch (err) {
+      console.error('[events.broadcast] failed', err);
+      res.status(500).json({ error: 'broadcast_failed' });
     }
   },
 );

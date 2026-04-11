@@ -34,6 +34,7 @@ const PublicProfile = lazy(() => import('@/pages/PublicProfile'));
 const Links = lazy(() => import('@/pages/Links'));
 const UserRedirect = lazy(() => import('@/pages/UserRedirect'));
 const DevLogin = lazy(() => import('@/pages/DevLogin'));
+const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
 const BannerDisplay = lazy(() => import('@/components/layout/BannerDisplay'));
 
 /** Reads :eventId from the route and forwards to EventDetail. */
@@ -85,6 +86,7 @@ export default function App() {
               <Route path="/u/:username" element={<PublicProfile />} />
               <Route path="/user/:id" element={<UserRedirect />} />
               <Route path="/admin" element={<Admin idToken={idToken} />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               {import.meta.env.DEV && (
                 <Route path="/__dev-login" element={<DevLogin />} />
               )}

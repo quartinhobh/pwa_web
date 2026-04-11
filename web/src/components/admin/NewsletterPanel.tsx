@@ -20,15 +20,17 @@ import {
   fetchUnsubscribed,
   resubscribeUser,
   fetchEmailTemplates,
+  updateEmailTemplate,
   type ContactGroup,
   type GroupMember,
   type EmailCampaign,
   type EmailLimits,
   type UnsubscribedUser,
+  type EmailConfig,
 } from '@/services/api';
 import HelperBox from '@/components/admin/HelperBox';
 import { EmailTemplatesPanel } from '@/components/admin/EmailTemplatesPanel';
-import type { EmailTemplate, User } from '@/types';
+import type { EmailTemplate, EmailTemplateKey, User } from '@/types';
 
 const inputClass =
   'font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange w-full';
@@ -40,14 +42,39 @@ interface InitialData {
   groups: ContactGroup[];
   templates: EmailTemplate[];
   campaigns: EmailCampaign[];
-  config: { autoEventEmail: boolean };
+  config: EmailConfig;
   unsubscribed: UnsubscribedUser[];
 }
+
+const RSVP_TEMPLATE_KEYS: EmailTemplateKey[] = [
+  'confirmation',
+  'waitlist',
+  'promotion',
+  'reminder',
+  'venue_reveal',
+  'rejected',
+];
+
+const TEMPLATE_LABELS: Record<EmailTemplateKey, string> = {
+  confirmation: 'confirmação de presença',
+  waitlist: 'fila de espera',
+  promotion: 'saiu da fila',
+  reminder: 'lembrete 24h',
+  venue_reveal: 'revelação do endereço',
+  rejected: 'inscrição recusada',
+  role_invite: 'convite de admin/moderador',
+  role_promotion: 'promoção a admin/moderador',
+  event_cancelled: 'evento cancelado',
+  event_broadcast: 'mensagem em massa',
+};
+
+const DISMISS_DEFAULTS_BANNER_KEY = 'qbh.emailDefaultsBannerDismissed';
 
 export const NewsletterPanel: React.FC = () => {
   const idToken = useIdToken();
   const [mode, setMode] = useState<Mode>('newsletter');
   const [data, setData] = useState<InitialData | null>(null);
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -62,13 +89,18 @@ export const NewsletterPanel: React.FC = () => {
       fetchEmailConfig(idToken),
       fetchUnsubscribed(idToken),
     ])
-      .then(([limits, groups, templates, campaigns, config, unsubscribed]) => {
-        setData({ limits, groups, templates, campaigns, config, unsubscribed });
+      .then(([limits, groups, tpls, campaigns, config, unsubscribed]) => {
+        setData({ limits, groups, templates: tpls, campaigns, config, unsubscribed });
+        setTemplates(tpls);
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Erro ao carregar painel de e-mail');
       });
   }, [idToken]);
+
+  function handleTemplatesChange(next: EmailTemplate[]) {
+    setTemplates(next);
+  }
 
   if (error) return <p className="font-body text-zine-burntOrange p-4">{error}</p>;
   if (!data) return <LoadingState />;
@@ -105,13 +137,22 @@ export const NewsletterPanel: React.FC = () => {
       {mode === 'newsletter' && <NewsletterForm idToken={idToken} initialGroups={data.groups} />}
       {mode === 'single' && <SingleEmailForm idToken={idToken} />}
       {mode === 'groups' && <GroupsManager idToken={idToken} initialGroups={data.groups} />}
-      {mode === 'templates' && <EmailTemplatesPanel idToken={idToken} initialTemplates={data.templates} />}
+      {mode === 'templates' && (
+        <EmailTemplatesPanel
+          idToken={idToken}
+          initialTemplates={templates}
+          onTemplatesChange={handleTemplatesChange}
+        />
+      )}
       {mode === 'history' && <CampaignHistory initialCampaigns={data.campaigns} />}
       {mode === 'config' && (
         <EmailConfigPanel
           idToken={idToken}
           initialConfig={data.config}
           initialUnsubscribed={data.unsubscribed}
+          templates={templates}
+          onTemplatesChange={handleTemplatesChange}
+          onGoToTemplates={() => setMode('templates')}
         />
       )}
     </div>
@@ -698,13 +739,36 @@ const CampaignHistory: React.FC<{ initialCampaigns: EmailCampaign[] }> = ({ init
 
 // ── Email Config + Desinscritos ──────────────────────────────────────
 
-const EmailConfigPanel: React.FC<{
+export const EmailConfigPanel: React.FC<{
   idToken: string | null;
-  initialConfig: { autoEventEmail: boolean };
+  initialConfig: EmailConfig;
   initialUnsubscribed: UnsubscribedUser[];
-}> = ({ idToken, initialConfig, initialUnsubscribed }) => {
+  templates: EmailTemplate[];
+  onTemplatesChange: (next: EmailTemplate[]) => void;
+  onGoToTemplates: () => void;
+}> = ({ idToken, initialConfig, initialUnsubscribed, templates, onTemplatesChange, onGoToTemplates }) => {
   const [autoEventEmail, setAutoEventEmail] = useState(initialConfig.autoEventEmail);
+  const [pauseAll, setPauseAll] = useState(initialConfig.pauseAllTransactional);
   const [unsubscribed, setUnsubscribed] = useState<UnsubscribedUser[]>(initialUnsubscribed);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(DISMISS_DEFAULTS_BANNER_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const anyRsvpEnabled = templates.some((t) => RSVP_TEMPLATE_KEYS.includes(t.key) && t.enabled);
+  const showBanner = !bannerDismissed && anyRsvpEnabled;
+
+  const enabledCount = templates.filter((t) => t.enabled).length;
+  const disabledCount = templates.length - enabledCount;
+
+  function dismissBanner() {
+    setBannerDismissed(true);
+    try { localStorage.setItem(DISMISS_DEFAULTS_BANNER_KEY, '1'); } catch { /* ignore */ }
+  }
 
   async function refresh() {
     if (!idToken) return;
@@ -719,6 +783,33 @@ const EmailConfigPanel: React.FC<{
     await updateEmailConfig({ autoEventEmail: next }, idToken);
   }
 
+  async function handleTogglePauseAll() {
+    if (!idToken) return;
+    const next = !pauseAll;
+    setPauseAll(next);
+    await updateEmailConfig({ pauseAllTransactional: next }, idToken);
+  }
+
+  async function handleDisableAllRsvp() {
+    if (!idToken) return;
+    if (!confirm('Desativar todos os 6 e-mails de RSVP (confirmação, fila, lembrete, etc.)? Você pode reativar um por um depois.')) return;
+    setBulkBusy(true);
+    try {
+      const updatedMap = new Map<EmailTemplateKey, EmailTemplate>();
+      for (const key of RSVP_TEMPLATE_KEYS) {
+        const t = await updateEmailTemplate(key, { enabled: false }, idToken);
+        updatedMap.set(key, t);
+      }
+      const next = templates.map((t) => updatedMap.get(t.key) ?? t);
+      onTemplatesChange(next);
+      dismissBanner();
+    } catch (err) {
+      alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   async function handleResubscribe(userId: string) {
     if (!idToken) return;
     if (!confirm('Reinscrever este usuário na newsletter?')) return;
@@ -729,8 +820,79 @@ const EmailConfigPanel: React.FC<{
   return (
     <>
       <HelperBox>Configurações gerais de e-mail: envios automáticos de eventos/RSVP e lista de pessoas que se desinscreveram. Os modelos de cada e-mail automático (confirmação, lembrete, etc.) ficam na aba "Modelos".</HelperBox>
+
+      {showBanner && (
+        <ZineFrame bg="cream">
+          <div className="flex flex-col gap-2">
+            <p className="font-body text-sm text-zine-burntOrange">
+              <strong>Novos defaults:</strong> recomendamos revisar os envios automáticos habilitados. Os 6 e-mails de RSVP estão ligados — se preferir, desligue todos agora e ative um por um depois.
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              <Button onClick={() => void handleDisableAllRsvp()} disabled={bulkBusy}>
+                {bulkBusy ? 'Desligando...' : 'Desligar todos os RSVP agora'}
+              </Button>
+              <button
+                type="button"
+                onClick={dismissBanner}
+                className="font-body text-sm text-zine-burntOrange/60 underline"
+              >
+                dispensar
+              </button>
+            </div>
+          </div>
+        </ZineFrame>
+      )}
+
       <ZineFrame bg="cream">
-        <h3 className="font-display text-xl text-zine-burntOrange mb-3">Envios automáticos</h3>
+        <h3 className="font-display text-xl text-zine-burntOrange mb-3">Envio de e-mails</h3>
+        <label className="flex items-start gap-3 font-body text-zine-burntOrange cursor-pointer mb-4">
+          <input
+            type="checkbox"
+            checked={pauseAll}
+            onChange={() => void handleTogglePauseAll()}
+            className="w-5 h-5 mt-0.5"
+          />
+          <div>
+            <span className="font-bold">Pausar todos os envios transacionais</span>
+            <p className="text-xs text-zine-burntOrange/60">
+              Quando ativo, ignora os toggles individuais e bloqueia confirmação, fila, lembrete, revelação de endereço e recusa. <strong>Convites e promoções de admin/moderador continuam funcionando</strong> (são ops críticos).
+            </p>
+          </div>
+        </label>
+
+        <div className="border-t-2 border-dashed border-zine-burntYellow/60 pt-3 mt-2">
+          <p className="font-body text-sm text-zine-burntOrange mb-2">
+            <strong className="text-zine-mint">{enabledCount} habilitados</strong>
+            <span className="text-zine-burntOrange/50"> · </span>
+            <strong className="text-zine-burntOrange/60">{disabledCount} desabilitados</strong>
+          </p>
+          <ul className="flex flex-col gap-0.5 mb-3">
+            {templates.map((t) => (
+              <li key={t.key} className="font-body text-xs text-zine-burntOrange/80 flex items-center gap-2">
+                <span className={t.enabled ? 'text-zine-mint' : 'text-zine-burntOrange/40'}>
+                  {t.enabled ? '✓' : '✗'}
+                </span>
+                <span className={t.enabled ? '' : 'line-through text-zine-burntOrange/50'}>
+                  {TEMPLATE_LABELS[t.key]}
+                </span>
+                {!t.enabled && (
+                  <span className="text-zine-burntOrange/40">(desativado)</span>
+                )}
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={onGoToTemplates}
+            className="font-body text-sm text-zine-burntOrange underline"
+          >
+            editar modelos →
+          </button>
+        </div>
+      </ZineFrame>
+
+      <ZineFrame bg="cream">
+        <h3 className="font-display text-xl text-zine-burntOrange mb-3">Envio automático de evento</h3>
         <label className="flex items-center gap-3 font-body text-zine-burntOrange cursor-pointer">
           <input
             type="checkbox"

@@ -1,6 +1,9 @@
 import { adminDb } from '../config/firebase';
 import type { EmailTemplateKey, EmailTemplate } from '../types';
 
+// Templates que ignoram o master switch pauseAllTransactional — ops críticos de admin.
+const CRITICAL_KEYS: readonly EmailTemplateKey[] = ['role_invite', 'role_promotion'];
+
 // ─── Default templates (used as fallback when Firestore has no override) ────
 
 interface TemplateDefault {
@@ -33,12 +36,32 @@ const DEFAULTS: Record<EmailTemplateKey, TemplateDefault> = {
   venue_reveal: {
     subject: 'o endereço é... 📍 {evento}',
     body: 'Oi {nome}!\n\nO local do {evento} ({data}) foi revelado:\n\n{local}\n\nAnota aí!',
-    description: 'Enviado 3 dias antes com o endereço',
+    description: 'Enviado N dias antes com o endereço (N configurado no evento)',
   },
   rejected: {
     subject: 'dessa vez não rolou — {evento}',
     body: 'Oi {nome}!\n\nInfelizmente sua presença no {evento} ({data}) não foi aprovada dessa vez. Mas fique ligado nos próximos eventos!',
     description: 'Enviado quando admin recusa alguém',
+  },
+  role_invite: {
+    subject: 'convite: você é {role} no Quartinho BH',
+    body: 'Oi {nome}!\n\nVocê recebeu acesso de {role} no Quartinho BH.\n\nPra ativar, basta fazer login no painel:\n{link}\n\nUse sua conta Google ou email+senha pra entrar. Seus privilégios já estarão ativos.',
+    description: 'Enviado quando admin convida alguém por email pra ser admin/moderador',
+  },
+  role_promotion: {
+    subject: 'você agora é {role} no Quartinho BH!',
+    body: 'Oi {nome}!\n\nVocê foi promovido a {role} do Quartinho BH.\n\nAcesse o painel:\n{link}',
+    description: 'Enviado quando admin promove um usuário existente a admin/moderador',
+  },
+  event_cancelled: {
+    subject: 'evento cancelado: {evento}',
+    body: 'Oi {nome},\n\nInfelizmente o {evento} ({data}) foi cancelado.\n\nMotivo: {motivo}\n\nDesculpa pelo transtorno — a gente avisa quando tiver a próxima.',
+    description: 'Enviado quando admin cancela um evento (broadcast pra confirmados e waitlist)',
+  },
+  event_broadcast: {
+    subject: '{assunto}',
+    body: 'Oi {nome},\n\n{corpo}\n\n— Quartinho ({evento})',
+    description: 'Wrapper pra mensagem em massa admin-authored pros RSVPs de um evento',
   },
 };
 
@@ -53,6 +76,10 @@ export const ALL_KEYS: EmailTemplateKey[] = [
   'reminder',
   'venue_reveal',
   'rejected',
+  'role_invite',
+  'role_promotion',
+  'event_cancelled',
+  'event_broadcast',
 ];
 
 function buildDefault(key: EmailTemplateKey): EmailTemplate {
@@ -90,6 +117,30 @@ export async function getAllTemplates(): Promise<EmailTemplate[]> {
   return ALL_KEYS.map((key) => stored.get(key) ?? buildDefault(key));
 }
 
+/** Read the global email config (pauseAllTransactional, etc.). */
+export async function getEmailConfig(): Promise<{ autoEventEmail: boolean; pauseAllTransactional: boolean }> {
+  const doc = await adminDb.collection('email_config').doc('settings').get();
+  const data = doc.exists ? (doc.data() as Record<string, unknown>) : {};
+  return {
+    autoEventEmail: (data.autoEventEmail as boolean | undefined) ?? true,
+    pauseAllTransactional: (data.pauseAllTransactional as boolean | undefined) ?? false,
+  };
+}
+
+/**
+ * Decide if a template key is sendable right now, combining:
+ *   - global pauseAllTransactional master switch (except CRITICAL_KEYS)
+ *   - individual template.enabled flag
+ */
+export async function isTemplateSendable(key: EmailTemplateKey): Promise<boolean> {
+  const template = await getEffectiveTemplate(key);
+  if (!template.enabled) return false;
+  if (CRITICAL_KEYS.includes(key)) return true;
+  const config = await getEmailConfig();
+  if (config.pauseAllTransactional) return false;
+  return true;
+}
+
 /** Upsert a template in Firestore. */
 export async function updateTemplate(
   key: EmailTemplateKey,
@@ -118,8 +169,8 @@ export async function buildRsvpEmail(
   key: EmailTemplateKey,
   variables: Record<string, string>,
 ): Promise<{ subject: string; bodyText: string } | null> {
+  if (!(await isTemplateSendable(key))) return null;
   const template = await getEffectiveTemplate(key);
-  if (!template.enabled) return null;
 
   function interpolate(str: string): string {
     return str.replace(/\{(\w+)\}/g, (_, v: string) => variables[v] ?? `{${v}}`);

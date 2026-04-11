@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { RsvpConfig, RsvpEntry, RsvpSummary } from '@/types';
+import RsvpForm from './RsvpForm';
 
 interface RsvpButtonProps {
   config: RsvpConfig;
@@ -8,6 +9,7 @@ interface RsvpButtonProps {
   isAuthenticated: boolean;
   onSubmit: (opts?: { plusOne?: boolean; plusOneName?: string }) => Promise<void>;
   onCancel: () => Promise<void>;
+  eventId?: string;
 }
 
 function isWindowOpen(config: RsvpConfig): boolean {
@@ -24,6 +26,7 @@ export const RsvpButton: React.FC<RsvpButtonProps> = ({
   isAuthenticated,
   onSubmit,
   onCancel,
+  eventId,
 }) => {
   const [submitting, setSubmitting] = useState(false);
   const [showPlusOne, setShowPlusOne] = useState(false);
@@ -102,15 +105,34 @@ export const RsvpButton: React.FC<RsvpButtonProps> = ({
     );
   }
 
-  // Not authenticated
+  // Not authenticated — guest RSVP form
   if (!isAuthenticated) {
-    return (
-      <div className="bg-zine-cream dark:bg-zine-surface-dark border-4 border-zine-burntYellow px-4 py-3 text-center">
-        <p className="font-body text-sm text-zine-burntOrange">
-          faça login pra confirmar presença
-        </p>
-      </div>
-    );
+    if (!eventId) {
+      return (
+        <div className="bg-zine-cream dark:bg-zine-surface-dark border-4 border-zine-burntYellow px-4 py-3 text-center">
+          <p className="font-body text-sm text-zine-burntOrange">
+            configuração inválida: eventId ausente
+          </p>
+        </div>
+      );
+    }
+    if (!windowOpen && config.opensAt && Date.now() < config.opensAt) {
+      return (
+        <div className="bg-zine-cream dark:bg-zine-surface-dark border-4 border-zine-burntYellow px-4 py-3 text-center">
+          <p className="font-body text-sm text-zine-burntOrange italic">
+            inscrições abrem em {new Date(config.opensAt).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+          </p>
+        </div>
+      );
+    }
+    if (!windowOpen) {
+      return (
+        <div className="bg-zine-cream dark:bg-zine-surface-dark border-4 border-zine-burntYellow px-4 py-3 text-center">
+          <p className="font-body text-sm text-zine-burntOrange italic">inscrições encerradas</p>
+        </div>
+      );
+    }
+    return <RsvpForm eventId={eventId} />;
   }
 
   // Window not open yet

@@ -7,6 +7,7 @@ import ModerationPanel from '@/components/admin/ModerationPanel';
 import ShopPanel from '@/components/admin/ShopPanel';
 import UsersPanel from '@/components/admin/UsersPanel';
 import NewsletterPanel from '@/components/admin/NewsletterPanel';
+import ChatPanel from '@/components/admin/ChatPanel';
 import LinkTreePanel from '@/components/admin/LinkTreePanel';
 import BannerPanel from '@/components/admin/BannerPanel';
 import StickerPanel from '@/components/admin/StickerPanel';
@@ -21,7 +22,10 @@ import {
   deletePhoto as apiDeletePhoto,
   fetchEvents,
   fetchPhotos,
+  cancelEvent as apiCancelEvent,
+  broadcastToEvent as apiBroadcastToEvent,
 } from '@/services/api';
+import Modal from '@/components/common/Modal';
 
 /** Get token with fallback to auth.currentUser for race-condition safety. */
 async function resolveToken(hookToken: string | null): Promise<string | null> {
@@ -34,7 +38,7 @@ export interface AdminPanelProps {
   idToken?: string | null;
 }
 
-type Tab = 'guia' | 'events' | 'photos' | 'moderation' | 'lojinha' | 'pix' | 'users' | 'email' | 'linktree' | 'banners' | 'stickers' | 'presenca';
+type Tab = 'guia' | 'events' | 'photos' | 'moderation' | 'lojinha' | 'pix' | 'users' | 'email' | 'chat' | 'linktree' | 'banners' | 'stickers' | 'presenca';
 
 /**
  * AdminPanel — three-tab admin dashboard:
@@ -45,7 +49,7 @@ type Tab = 'guia' | 'events' | 'photos' | 'moderation' | 'lojinha' | 'pix' | 'us
  */
 function getHashTab(): Tab {
   const hash = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
-  const valid: Tab[] = ['guia', 'events', 'photos', 'moderation', 'lojinha', 'pix', 'users', 'email', 'linktree', 'banners', 'stickers', 'presenca'];
+  const valid: Tab[] = ['guia', 'events', 'photos', 'moderation', 'lojinha', 'pix', 'users', 'email', 'chat', 'linktree', 'banners', 'stickers', 'presenca'];
   return valid.includes(hash as Tab) ? (hash as Tab) : 'events';
 }
 
@@ -162,6 +166,7 @@ const AdminPanelInner: React.FC = () => {
     { key: 'pix', label: 'PIX' },
     { key: 'users', label: 'Usuários' },
     { key: 'email', label: 'E-mail' },
+    { key: 'chat', label: 'Chat' },
     { key: 'linktree', label: 'Links' },
     { key: 'banners', label: 'Banners' },
     { key: 'stickers', label: 'Stickers' },
@@ -217,6 +222,7 @@ const AdminPanelInner: React.FC = () => {
       {tab === 'pix' && <ShopPanel idToken={idToken} mode="pix" />}
       {tab === 'users' && <UsersPanel />}
       {tab === 'email' && <NewsletterPanel />}
+      {tab === 'chat' && <ChatPanel />}
       {tab === 'linktree' && <LinkTreePanel />}
       {tab === 'banners' && <BannerPanel />}
       {tab === 'stickers' && <StickerPanel />}
@@ -238,6 +244,8 @@ const EventsTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
   const [editing, setEditing] = useState<Event | null>(null);
   const [creating, setCreating] = useState(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [cancelTarget, setCancelTarget] = useState<Event | null>(null);
+  const [broadcastTarget, setBroadcastTarget] = useState<Event | null>(null);
 
   async function refresh(): Promise<void> {
     const list = await fetchEvents();
@@ -326,8 +334,10 @@ const EventsTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
                   {e.date} · {e.status}
                 </span>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 justify-end">
                 <Button onClick={() => setEditing(e)}>editar</Button>
+                <Button onClick={() => setBroadcastTarget(e)}>enviar mensagem</Button>
+                <Button onClick={() => setCancelTarget(e)}>cancelar evento</Button>
                 <Button onClick={() => void handleDelete(e.id)} disabled={isDeleting}>
                   {isDeleting ? 'apagando...' : 'apagar'}
                 </Button>
@@ -337,7 +347,207 @@ const EventsTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
           })}
         </ul>
       )}
+
+      {cancelTarget && (
+        <CancelEventModal
+          event={cancelTarget}
+          idToken={idToken}
+          onClose={() => setCancelTarget(null)}
+          onDone={async () => {
+            setCancelTarget(null);
+            await refresh();
+          }}
+        />
+      )}
+      {broadcastTarget && (
+        <BroadcastEventModal
+          event={broadcastTarget}
+          idToken={idToken}
+          onClose={() => setBroadcastTarget(null)}
+        />
+      )}
     </ZineFrame>
+  );
+};
+
+interface CancelEventModalProps {
+  event: Event;
+  idToken: string | null;
+  onClose: () => void;
+  onDone: () => void | Promise<void>;
+}
+
+const CancelEventModal: React.FC<CancelEventModalProps> = ({ event, idToken, onClose, onDone }) => {
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function handleConfirm(): Promise<void> {
+    const token = await resolveToken(idToken);
+    if (!token) {
+      setErr('sessão expirada');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      await apiCancelEvent(token, event.id, reason.trim() || undefined);
+      await onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'erro ao cancelar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal isOpen onClose={onClose} title="Cancelar evento">
+      <p className="font-body text-zine-burntOrange mb-2">
+        Tem certeza que quer cancelar <strong>{event.title}</strong>? Todas as pessoas
+        confirmadas e na fila vão receber um e-mail.
+      </p>
+      <label className="font-body text-zine-burntOrange flex flex-col gap-1 mb-3">
+        <span>Motivo (opcional)</span>
+        <textarea
+          aria-label="motivo do cancelamento"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={3}
+          maxLength={1000}
+          className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange w-full"
+        />
+      </label>
+      {err && <p role="alert" className="font-body text-zine-burntOrange mb-2">{err}</p>}
+      <div className="flex gap-2 justify-end">
+        <Button onClick={onClose} disabled={busy}>voltar</Button>
+        <Button onClick={() => void handleConfirm()} disabled={busy}>
+          {busy ? 'cancelando...' : 'confirmar cancelamento'}
+        </Button>
+      </div>
+    </Modal>
+  );
+};
+
+interface BroadcastEventModalProps {
+  event: Event;
+  idToken: string | null;
+  onClose: () => void;
+}
+
+const BroadcastEventModal: React.FC<BroadcastEventModalProps> = ({ event, idToken, onClose }) => {
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [filter, setFilter] = useState<'confirmed' | 'waitlisted' | 'all'>('confirmed');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [sentCount, setSentCount] = useState<number | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+
+  async function handleSend(): Promise<void> {
+    setErr(null);
+    if (!subject.trim() || subject.length > 200) {
+      setErr('assunto inválido (1–200 caracteres)');
+      return;
+    }
+    if (!body.trim() || body.length > 5000) {
+      setErr('corpo inválido (1–5000 caracteres)');
+      return;
+    }
+    const token = await resolveToken(idToken);
+    if (!token) {
+      setErr('sessão expirada');
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await apiBroadcastToEvent(token, event.id, {
+        subject: subject.trim(),
+        body: body.trim(),
+        filter,
+      });
+      setSentCount(result.sentCount);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'erro ao enviar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const inputCls =
+    'font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange w-full';
+
+  if (sentCount != null) {
+    return (
+      <Modal isOpen onClose={onClose} title="Enviado">
+        <p className="font-body text-zine-burntOrange mb-3">
+          Mensagem enviada para <strong>{sentCount}</strong> pessoa{sentCount !== 1 ? 's' : ''}.
+        </p>
+        <div className="flex justify-end">
+          <Button onClick={onClose}>fechar</Button>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal isOpen onClose={onClose} title={`Enviar mensagem — ${event.title}`}>
+      <div className="flex flex-col gap-3">
+        <label className="font-body text-zine-burntOrange flex flex-col gap-1">
+          <span>Para</span>
+          <select
+            aria-label="filtro de destinatários"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as 'confirmed' | 'waitlisted' | 'all')}
+            className={inputCls}
+          >
+            <option value="confirmed">confirmados</option>
+            <option value="waitlisted">na fila</option>
+            <option value="all">todos (confirmados + fila)</option>
+          </select>
+        </label>
+        <label className="font-body text-zine-burntOrange flex flex-col gap-1">
+          <span>Assunto</span>
+          <input
+            type="text"
+            aria-label="assunto"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            maxLength={200}
+            className={inputCls}
+          />
+        </label>
+        <label className="font-body text-zine-burntOrange flex flex-col gap-1">
+          <span>Mensagem</span>
+          <textarea
+            aria-label="mensagem"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={6}
+            maxLength={5000}
+            className={inputCls}
+          />
+          <span className="font-body text-xs text-zine-burntOrange/60">
+            {body.length}/5000
+          </span>
+        </label>
+        {showPreview && (
+          <div className="border-2 border-dashed border-zine-burntYellow p-3 font-body text-sm text-zine-burntOrange whitespace-pre-wrap bg-zine-cream/50">
+            <div className="font-bold mb-2">{subject || '(sem assunto)'}</div>
+            {body || '(sem corpo)'}
+          </div>
+        )}
+        {err && <p role="alert" className="font-body text-zine-burntOrange">{err}</p>}
+        <div className="flex gap-2 justify-end flex-wrap">
+          <Button onClick={() => setShowPreview((v) => !v)} disabled={busy}>
+            {showPreview ? 'fechar preview' : 'preview'}
+          </Button>
+          <Button onClick={onClose} disabled={busy}>voltar</Button>
+          <Button onClick={() => void handleSend()} disabled={busy}>
+            {busy ? 'enviando...' : 'enviar'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 };
 

@@ -15,6 +15,11 @@ vi.mock('@/services/api', () => ({
   fetchBans: vi.fn(),
   fetchModerationLogs: vi.fn(),
   unbanUser: vi.fn(),
+  cancelEvent: vi.fn(),
+  broadcastToEvent: vi.fn(),
+  getChatConfig: vi.fn(),
+  updateChatConfig: vi.fn(),
+  fetchModerationUserProfile: vi.fn(),
 }));
 
 import { AdminPanel } from '@/components/admin/AdminPanel';

@@ -1,7 +1,17 @@
 // Quartinho core domain types — source of truth.
 // Owner: architect. Never edited by builder or UI-zine.
 
-export type EmailTemplateKey = 'confirmation' | 'waitlist' | 'promotion' | 'reminder' | 'venue_reveal' | 'rejected';
+export type EmailTemplateKey =
+  | 'confirmation'
+  | 'waitlist'
+  | 'promotion'
+  | 'reminder'
+  | 'venue_reveal'
+  | 'rejected'
+  | 'role_invite'
+  | 'role_promotion'
+  | 'event_cancelled'
+  | 'event_broadcast';
 
 export interface EmailTemplate {
   key: EmailTemplateKey;
@@ -56,7 +66,7 @@ export interface Session {
   lastActiveAt: number;
 }
 
-export type EventStatus = 'upcoming' | 'live' | 'archived';
+export type EventStatus = 'upcoming' | 'live' | 'archived' | 'cancelled';
 
 export interface EventExtraLink {
   label: string;
@@ -92,6 +102,11 @@ export interface Event {
   extras: EventExtras;
   spotifyPlaylistUrl: string | null;
   rsvp?: RsvpConfig;
+  chatEnabled?: boolean;
+  chatOpensAt?: number | null;
+  chatClosesAt?: number | null;
+  cancelledAt?: number;
+  cancelledReason?: string | null;
   createdBy: string;
   createdAt: number;
   updatedAt: number;
@@ -218,6 +233,9 @@ export interface EventCreatePayload {
   venueRevealDaysBefore?: number;
   extras: EventExtras;
   spotifyPlaylistUrl: string | null;
+  chatEnabled?: boolean;
+  chatOpensAt?: number | null;
+  chatClosesAt?: number | null;
 }
 
 export interface MusicBrainzTrack {
@@ -312,10 +330,15 @@ export interface RsvpConfig {
 
 export type RsvpStatus = 'confirmed' | 'waitlisted' | 'pending_approval' | 'cancelled' | 'rejected';
 
+export type RsvpAuthMode = 'firebase' | 'guest';
+
 export interface RsvpEntry {
   status: RsvpStatus;
   plusOne: boolean;
   plusOneName: string | null;
+  email: string;
+  displayName: string;
+  authMode: RsvpAuthMode;
   createdAt: number;
   updatedAt: number;
 }

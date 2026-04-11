@@ -9,6 +9,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 const mockDocGet = vi.fn();
 const mockCollectionGet = vi.fn();
 const mockDocSet = vi.fn();
+// Per-collection doc getter: allows tests to mock template + config separately.
+const mockDocGetByCollection: Record<string, (id: string) => unknown> = {};
 
 vi.mock('../config/firebase', () => {
   const makeDoc = (id: string, data?: Record<string, unknown>) => ({
@@ -17,15 +19,19 @@ vi.mock('../config/firebase', () => {
     data: () => data,
   });
 
-  const makeDocRef = (id: string, storedData?: Record<string, unknown>) => ({
-    get: () => Promise.resolve(mockDocGet(id) ?? makeDoc(id, storedData)),
+  const makeDocRef = (collectionName: string, id: string, storedData?: Record<string, unknown>) => ({
+    get: () => {
+      const scoped = mockDocGetByCollection[collectionName];
+      if (scoped) return Promise.resolve(scoped(id));
+      return Promise.resolve(mockDocGet(id) ?? makeDoc(id, storedData));
+    },
     set: (...args: unknown[]) => Promise.resolve(mockDocSet(id, ...args)),
   });
 
   return {
     adminDb: {
-      collection: () => ({
-        doc: (id: string) => makeDocRef(id),
+      collection: (collectionName: string) => ({
+        doc: (id: string) => makeDocRef(collectionName, id),
         get: () => Promise.resolve(mockCollectionGet()),
       }),
     },
@@ -40,17 +46,44 @@ import {
   getEffectiveTemplate,
   updateTemplate,
   buildRsvpEmail,
+  isTemplateSendable,
 } from '../services/emailTemplateService';
 import type { EmailTemplateKey } from '../types';
 
 beforeEach(() => {
   vi.resetAllMocks();
+  for (const k of Object.keys(mockDocGetByCollection)) delete mockDocGetByCollection[k];
 });
+
+// Helper: wires the mocked Firestore so that template reads and email_config reads
+// return distinct payloads, matching how isTemplateSendable calls both collections.
+function wireTemplateAndConfig(opts: {
+  templateEnabled: boolean;
+  pauseAllTransactional: boolean;
+}) {
+  mockDocGetByCollection.emailTemplates = () => ({
+    exists: true,
+    data: () => ({
+      enabled: opts.templateEnabled,
+      subject: 'subj',
+      body: 'body {nome}',
+      updatedAt: 0,
+      updatedBy: 'system',
+    }),
+  });
+  mockDocGetByCollection.email_config = () => ({
+    exists: true,
+    data: () => ({
+      autoEventEmail: true,
+      pauseAllTransactional: opts.pauseAllTransactional,
+    }),
+  });
+}
 
 // ── DEFAULTS structure ────────────────────────────────────────────────────────
 
 describe('ALL_KEYS', () => {
-  it('contains all 6 template keys', () => {
+  it('contains all template keys including event_cancelled and event_broadcast', () => {
     const expected: EmailTemplateKey[] = [
       'confirmation',
       'waitlist',
@@ -58,13 +91,17 @@ describe('ALL_KEYS', () => {
       'reminder',
       'venue_reveal',
       'rejected',
+      'role_invite',
+      'role_promotion',
+      'event_cancelled',
+      'event_broadcast',
     ];
     expect(ALL_KEYS).toEqual(expected);
   });
 });
 
 describe('EMAIL_TEMPLATE_DESCRIPTIONS', () => {
-  it('has a description for all 6 keys', () => {
+  it('has a description for all keys', () => {
     const keys: EmailTemplateKey[] = [
       'confirmation',
       'waitlist',
@@ -72,11 +109,32 @@ describe('EMAIL_TEMPLATE_DESCRIPTIONS', () => {
       'reminder',
       'venue_reveal',
       'rejected',
+      'role_invite',
+      'role_promotion',
+      'event_cancelled',
+      'event_broadcast',
     ];
     for (const key of keys) {
       expect(EMAIL_TEMPLATE_DESCRIPTIONS[key]).toBeTruthy();
       expect(typeof EMAIL_TEMPLATE_DESCRIPTIONS[key]).toBe('string');
     }
+  });
+});
+
+describe('event_cancelled / event_broadcast respect master switch', () => {
+  it('event_cancelled returns false when master switch is on (not in CRITICAL_KEYS)', async () => {
+    wireTemplateAndConfig({ templateEnabled: true, pauseAllTransactional: true });
+    expect(await isTemplateSendable('event_cancelled')).toBe(false);
+  });
+
+  it('event_broadcast returns false when master switch is on (not in CRITICAL_KEYS)', async () => {
+    wireTemplateAndConfig({ templateEnabled: true, pauseAllTransactional: true });
+    expect(await isTemplateSendable('event_broadcast')).toBe(false);
+  });
+
+  it('event_cancelled returns true when master switch off and template enabled', async () => {
+    wireTemplateAndConfig({ templateEnabled: true, pauseAllTransactional: false });
+    expect(await isTemplateSendable('event_cancelled')).toBe(true);
   });
 });
 
@@ -119,12 +177,12 @@ describe('getEffectiveTemplate', () => {
 // ── getAllTemplates — merges Firestore + defaults ──────────────────────────────
 
 describe('getAllTemplates', () => {
-  it('returns 6 templates using defaults when collection is empty', async () => {
+  it('returns templates using defaults when collection is empty', async () => {
     mockCollectionGet.mockReturnValue({ docs: [] });
 
     const result = await getAllTemplates();
 
-    expect(result).toHaveLength(6);
+    expect(result).toHaveLength(ALL_KEYS.length);
     expect(result.map((t) => t.key)).toEqual(ALL_KEYS);
   });
 
@@ -146,7 +204,7 @@ describe('getAllTemplates', () => {
 
     const result = await getAllTemplates();
 
-    expect(result).toHaveLength(6);
+    expect(result).toHaveLength(ALL_KEYS.length);
     const confirmation = result.find((t) => t.key === 'confirmation');
     expect(confirmation?.enabled).toBe(false);
     expect(confirmation?.subject).toBe('stored subject');
@@ -265,5 +323,39 @@ describe('buildRsvpEmail', () => {
     expect(result).not.toBeNull();
     expect(typeof result?.subject).toBe('string');
     expect(typeof result?.bodyText).toBe('string');
+  });
+});
+
+// ── isTemplateSendable — master switch + template.enabled + role_* exception ──
+
+describe('isTemplateSendable', () => {
+  it('returns false when master switch is on and template is enabled (non-critical)', async () => {
+    wireTemplateAndConfig({ templateEnabled: true, pauseAllTransactional: true });
+    expect(await isTemplateSendable('confirmation')).toBe(false);
+  });
+
+  it('returns true when master switch is off and template is enabled', async () => {
+    wireTemplateAndConfig({ templateEnabled: true, pauseAllTransactional: false });
+    expect(await isTemplateSendable('confirmation')).toBe(true);
+  });
+
+  it('returns false when master switch is off but template is disabled', async () => {
+    wireTemplateAndConfig({ templateEnabled: false, pauseAllTransactional: false });
+    expect(await isTemplateSendable('confirmation')).toBe(false);
+  });
+
+  it('role_invite ignores master switch (sends when template is enabled)', async () => {
+    wireTemplateAndConfig({ templateEnabled: true, pauseAllTransactional: true });
+    expect(await isTemplateSendable('role_invite')).toBe(true);
+  });
+
+  it('role_promotion ignores master switch (sends when template is enabled)', async () => {
+    wireTemplateAndConfig({ templateEnabled: true, pauseAllTransactional: true });
+    expect(await isTemplateSendable('role_promotion')).toBe(true);
+  });
+
+  it('role_invite still blocked when its own template is disabled', async () => {
+    wireTemplateAndConfig({ templateEnabled: false, pauseAllTransactional: false });
+    expect(await isTemplateSendable('role_invite')).toBe(false);
   });
 });

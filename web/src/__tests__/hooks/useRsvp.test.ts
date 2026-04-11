@@ -33,6 +33,9 @@ const confirmedEntry: RsvpEntry = {
   status: 'confirmed',
   plusOne: false,
   plusOneName: null,
+  email: 'a@test.com',
+  displayName: 'A',
+  authMode: 'firebase',
   createdAt: 1000,
   updatedAt: 1000,
 };

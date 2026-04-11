@@ -12,7 +12,11 @@ import type { Event, EventStatus } from '../types';
  *   - start ≤ now ≤ end → live
  *   - now > endTime    → archived
  */
-export function computeEventStatus(event: Pick<Event, 'date' | 'startTime' | 'endTime'>): EventStatus {
+export function computeEventStatus(
+  event: Pick<Event, 'date' | 'startTime' | 'endTime'> & { status?: EventStatus },
+): EventStatus {
+  // Cancelled is a terminal, admin-authored state — never overridden by date.
+  if (event.status === 'cancelled') return 'cancelled';
   const now = Date.now();
   const start = new Date(`${event.date}T${event.startTime}:00`).getTime();
   const end = new Date(`${event.date}T${event.endTime}:00`).getTime();
@@ -23,8 +27,8 @@ export function computeEventStatus(event: Pick<Event, 'date' | 'startTime' | 'en
 }
 
 /** Same event, with `status` overwritten by the date-derived value. */
-export function withDerivedStatus<T extends Pick<Event, 'date' | 'startTime' | 'endTime'>>(
-  event: T,
-): T & { status: EventStatus } {
+export function withDerivedStatus<
+  T extends Pick<Event, 'date' | 'startTime' | 'endTime'> & { status?: EventStatus },
+>(event: T): T & { status: EventStatus } {
   return { ...event, status: computeEventStatus(event) };
 }

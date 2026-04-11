@@ -95,7 +95,10 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
       closesAt: null,
     });
 
-    const result = await submitRsvp('evt1', 'user1', {});
+    await seedUser('user1', 'u1@test.com', 'U1');
+    const result = await submitRsvp('evt1', {
+      type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+    });
     expect(result.entry.status).toBe('confirmed');
 
     const summary = await getRsvpSummary('evt1');
@@ -115,7 +118,10 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
       closesAt: null,
     });
 
-    await submitRsvp('evt2', 'user1', { plusOne: true, plusOneName: 'Maria' });
+    await submitRsvp('evt2', {
+      type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+      plusOne: true, plusOneName: 'Maria',
+    });
 
     const summary = await getRsvpSummary('evt2');
     expect(summary.confirmedCount).toBe(2);
@@ -134,10 +140,14 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
       closesAt: null,
     });
 
-    const r1 = await submitRsvp('evt3', 'user1', {});
+    const r1 = await submitRsvp('evt3', {
+      type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+    });
     expect(r1.entry.status).toBe('confirmed');
 
-    const r2 = await submitRsvp('evt3', 'user2', {});
+    const r2 = await submitRsvp('evt3', {
+      type: 'firebase', uid: 'user2', email: 'u2@test.com', displayName: 'U2',
+    });
     expect(r2.entry.status).toBe('waitlisted');
   });
 
@@ -154,17 +164,17 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
       closesAt: null,
     });
 
-    await submitRsvp('evt4', 'user1', {});
-    await submitRsvp('evt4', 'user2', {});
-    await submitRsvp('evt4', 'user3', {});
+    await submitRsvp('evt4', { type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1' });
+    await submitRsvp('evt4', { type: 'firebase', uid: 'user2', email: 'u2@test.com', displayName: 'U2' });
+    await submitRsvp('evt4', { type: 'firebase', uid: 'user3', email: 'u3@test.com', displayName: 'U3' });
 
-    const cancelResult = await cancelRsvp('evt4', 'user1');
-    expect(cancelResult.promotedUserId).toBe('user2');
+    const cancelResult = await cancelRsvp('evt4', 'firebase:user1');
+    expect(cancelResult.promotedEntryKey).toBe('firebase:user2');
 
-    const user2Entry = await getUserRsvp('evt4', 'user2');
+    const user2Entry = await getUserRsvp('evt4', 'firebase:user2');
     expect(user2Entry?.status).toBe('confirmed');
 
-    const user3Entry = await getUserRsvp('evt4', 'user3');
+    const user3Entry = await getUserRsvp('evt4', 'firebase:user3');
     expect(user3Entry?.status).toBe('waitlisted');
   });
 
@@ -181,11 +191,14 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
       closesAt: null,
     });
 
-    await submitRsvp('evt5', 'user1', { plusOne: true, plusOneName: 'Guest' });
+    await submitRsvp('evt5', {
+      type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+      plusOne: true, plusOneName: 'Guest',
+    });
     const before = await getRsvpSummary('evt5');
     expect(before.confirmedCount).toBe(2);
 
-    await cancelRsvp('evt5', 'user1');
+    await cancelRsvp('evt5', 'firebase:user1');
     const after = await getRsvpSummary('evt5');
     expect(after.confirmedCount).toBe(0);
   });
@@ -203,13 +216,15 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
       closesAt: null,
     });
 
-    const r = await submitRsvp('evt6', 'user1', {});
+    const r = await submitRsvp('evt6', {
+      type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+    });
     expect(r.entry.status).toBe('pending_approval');
 
-    const approved = await approveOrReject('evt6', 'user1', 'confirmed');
+    const approved = await approveOrReject('evt6', 'firebase:user1', 'confirmed');
     expect(approved.status).toBe('confirmed');
 
-    const entry = await getUserRsvp('evt6', 'user1');
+    const entry = await getUserRsvp('evt6', 'firebase:user1');
     expect(entry?.status).toBe('confirmed');
   });
 
@@ -226,10 +241,12 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
       closesAt: null,
     });
 
-    await submitRsvp('evt7', 'user1', {});
+    await submitRsvp('evt7', {
+      type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+    });
 
     await expect(
-      approveOrReject('evt7', 'user1', 'confirmed'),
+      approveOrReject('evt7', 'firebase:user1', 'confirmed'),
     ).rejects.toThrow('invalid_transition');
   });
 
@@ -246,8 +263,14 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
       closesAt: null,
     });
 
-    await submitRsvp('evt8', 'user1', {});
-    await expect(submitRsvp('evt8', 'user2', {})).rejects.toThrow('event_full');
+    await submitRsvp('evt8', {
+      type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+    });
+    await expect(
+      submitRsvp('evt8', {
+        type: 'firebase', uid: 'user2', email: 'u2@test.com', displayName: 'U2',
+      }),
+    ).rejects.toThrow('event_full');
   });
 
   it('updatePlusOne adjusts counter correctly', async () => {
@@ -263,13 +286,15 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
       closesAt: null,
     });
 
-    await submitRsvp('evt9', 'user1', {});
+    await submitRsvp('evt9', {
+      type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+    });
     expect((await getRsvpSummary('evt9')).confirmedCount).toBe(1);
 
-    await updatePlusOne('evt9', 'user1', true, 'Guest');
+    await updatePlusOne('evt9', 'firebase:user1', true, 'Guest');
     expect((await getRsvpSummary('evt9')).confirmedCount).toBe(2);
 
-    await updatePlusOne('evt9', 'user1', false, null);
+    await updatePlusOne('evt9', 'firebase:user1', false, null);
     expect((await getRsvpSummary('evt9')).confirmedCount).toBe(1);
   });
 
@@ -287,7 +312,11 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
     });
 
     await seedUser('user-csv', 'csv@test.com', 'Maria "Mimi", Silva');
-    await submitRsvp('evt10', 'user-csv', { plusOne: true, plusOneName: 'João, o acompanhante' });
+    await submitRsvp('evt10', {
+      type: 'firebase', uid: 'user-csv', email: 'csv@test.com',
+      displayName: 'Maria "Mimi", Silva',
+      plusOne: true, plusOneName: 'João, o acompanhante',
+    });
 
     const entries = await getAdminList('evt10');
     const csv = exportCsv(entries);
@@ -318,9 +347,10 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
     const { getAllTemplates } = await import('../../services/emailTemplateService');
 
     const templates = await getAllTemplates();
-    expect(templates).toHaveLength(6);
+    expect(templates).toHaveLength(10);
     expect(templates.map((t) => t.key)).toEqual([
       'confirmation', 'waitlist', 'promotion', 'reminder', 'venue_reveal', 'rejected',
+      'role_invite', 'role_promotion', 'event_cancelled', 'event_broadcast',
     ]);
     expect(templates.every((t) => t.enabled)).toBe(true);
   });
@@ -365,7 +395,11 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
       closesAt: null,
     });
 
-    await expect(submitRsvp('evt-no-rsvp', 'user1', {})).rejects.toThrow('rsvp_disabled');
+    await expect(
+      submitRsvp('evt-no-rsvp', {
+        type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+      }),
+    ).rejects.toThrow('rsvp_disabled');
   });
 
   it('throws rsvp_closed when outside time window', async () => {
@@ -381,7 +415,11 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
       closesAt: Date.now() - 1000, // closed 1 second ago
     });
 
-    await expect(submitRsvp('evt-closed', 'user1', {})).rejects.toThrow('rsvp_closed');
+    await expect(
+      submitRsvp('evt-closed', {
+        type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+      }),
+    ).rejects.toThrow('rsvp_closed');
   });
 
   it('throws already_rsvped on duplicate submission', async () => {
@@ -397,8 +435,14 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
       closesAt: null,
     });
 
-    await submitRsvp('evt-dup', 'user1', {});
-    await expect(submitRsvp('evt-dup', 'user1', {})).rejects.toThrow('already_rsvped');
+    await submitRsvp('evt-dup', {
+      type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+    });
+    await expect(
+      submitRsvp('evt-dup', {
+        type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+      }),
+    ).rejects.toThrow('already_rsvped');
   });
 
   it('allows re-RSVP after cancellation', async () => {
@@ -414,9 +458,13 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
       closesAt: null,
     });
 
-    await submitRsvp('evt-resubmit', 'user1', {});
-    await cancelRsvp('evt-resubmit', 'user1');
-    const r = await submitRsvp('evt-resubmit', 'user1', {});
+    await submitRsvp('evt-resubmit', {
+      type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+    });
+    await cancelRsvp('evt-resubmit', 'firebase:user1');
+    const r = await submitRsvp('evt-resubmit', {
+      type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'U1',
+    });
     expect(r.entry.status).toBe('confirmed');
   });
 });

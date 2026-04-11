@@ -1,5 +1,30 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+
+vi.mock('@/services/api', () => ({
+  submitRsvpGuest: vi.fn().mockResolvedValue({
+    entry: {
+      status: 'confirmed',
+      plusOne: false,
+      plusOneName: null,
+      email: 'x@y.com',
+      displayName: 'X',
+      authMode: 'guest',
+      createdAt: 1,
+      updatedAt: 1,
+    },
+    entryKey: 'guest:abc',
+  }),
+}));
+
+vi.mock('firebase/auth', () => ({
+  createUserWithEmailAndPassword: vi.fn(),
+}));
+
+vi.mock('@/services/firebase', () => ({
+  auth: {},
+}));
+
 import { RsvpButton } from '@/components/rsvp/RsvpButton';
 import type { RsvpConfig, RsvpSummary, RsvpEntry } from '@/types';
 
@@ -24,6 +49,9 @@ const confirmedEntry: RsvpEntry = {
   status: 'confirmed',
   plusOne: false,
   plusOneName: null,
+  email: 'a@test.com',
+  displayName: 'A',
+  authMode: 'firebase',
   createdAt: 1,
   updatedAt: 1,
 };
@@ -32,6 +60,9 @@ const waitlistedEntry: RsvpEntry = {
   status: 'waitlisted',
   plusOne: false,
   plusOneName: null,
+  email: 'a@test.com',
+  displayName: 'A',
+  authMode: 'firebase',
   createdAt: 1,
   updatedAt: 1,
 };
@@ -55,7 +86,23 @@ describe('RsvpButton', () => {
     expect(screen.getByRole('button', { name: /confirmar presença/i })).toBeInTheDocument();
   });
 
-  it('shows "faça login" when not authenticated', () => {
+  it('renders guest RsvpForm when not authenticated and eventId provided', () => {
+    render(
+      <RsvpButton
+        config={baseConfig}
+        summary={baseSummary}
+        userEntry={null}
+        isAuthenticated={false}
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+        eventId="evt-1"
+      />,
+    );
+    expect(screen.getByLabelText('nome')).toBeInTheDocument();
+    expect(screen.getByLabelText('email')).toBeInTheDocument();
+  });
+
+  it('shows configuração inválida when guest but no eventId', () => {
     render(
       <RsvpButton
         config={baseConfig}
@@ -66,7 +113,7 @@ describe('RsvpButton', () => {
         onCancel={vi.fn()}
       />,
     );
-    expect(screen.getByText(/faça login/i)).toBeInTheDocument();
+    expect(screen.getByText(/configuração inválida/i)).toBeInTheDocument();
   });
 
   it('shows "esgotado" when full and no waitlist', () => {

@@ -132,6 +132,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
               <tr className="border-b-2 border-zine-burntYellow">
                 <th className="text-left py-2 pr-3">Nome</th>
                 <th className="text-left py-2 pr-3">Email</th>
+                <th className="text-left py-2 pr-3">Origem</th>
                 <th className="text-left py-2 pr-3">Status</th>
                 <th className="text-left py-2 pr-3">+1</th>
                 <th className="text-left py-2 pr-3">Data</th>
@@ -146,6 +147,18 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
                 >
                   <td className="py-2 pr-3 font-bold">{entry.displayName}</td>
                   <td className="py-2 pr-3 text-zine-burntOrange/70">{entry.email ?? '—'}</td>
+                  <td className="py-2 pr-3">
+                    <span
+                      data-testid={`authmode-badge-${entry.userId}`}
+                      className={`inline-block px-2 py-0.5 text-xs border font-body ${
+                        entry.authMode === 'firebase'
+                          ? 'border-zine-burntOrange bg-zine-burntOrange/20 text-zine-burntOrange'
+                          : 'border-zine-mint bg-zine-mint/30 text-zine-burntOrange'
+                      }`}
+                    >
+                      {entry.authMode === 'firebase' ? 'conta' : 'convidado'}
+                    </span>
+                  </td>
                   <td className="py-2 pr-3">
                     <span className={`inline-block px-2 py-0.5 text-xs border ${
                       entry.status === 'confirmed'

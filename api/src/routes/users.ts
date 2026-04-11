@@ -8,7 +8,26 @@ import { writeLimiter } from '../middleware/rateLimit';
 import { adminDb } from '../config/firebase';
 import { createR2Client, getR2PublicUrl, R2_BUCKET } from '../config/r2';
 import type { FavoriteAlbum, SocialLink, SocialPlatform, User, UserRole } from '../types';
-import { sendEmail, buildRoleInviteEmail, buildRolePromotionEmail } from '../services/emailService';
+import { sendEmail, wrapTransactionalTemplate } from '../services/emailService';
+import { buildRsvpEmail } from '../services/emailTemplateService';
+
+async function sendRoleEmail(
+  key: 'role_invite' | 'role_promotion',
+  email: string,
+  nome: string,
+  role: string,
+): Promise<void> {
+  try {
+    const frontendUrl = process.env.FRONTEND_URL ?? 'https://teste-qbh.web.app';
+    const roleName = role === 'admin' ? 'administrador' : 'moderador';
+    const result = await buildRsvpEmail(key, { nome, role: roleName, link: `${frontendUrl}/admin` });
+    if (!result) return;
+    const html = wrapTransactionalTemplate(`<p>${result.bodyText.replace(/\n/g, '<br>')}</p>`);
+    await sendEmail(email, result.subject, html);
+  } catch (err) {
+    console.error(`[users] ${key} email failed:`, err);
+  }
+}
 
 const ALLOWED_MIMES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2 MB
@@ -64,12 +83,9 @@ usersRouter.put(
 
       // Auto-email when promoting to admin or moderator
       if ((role === 'admin' || role === 'moderator') && prevRole !== role) {
-        const email = (snap.data() as User).email;
-        if (email) {
-          const roleName = role === 'admin' ? 'admin' : 'moderador';
-          sendEmail(email, `Você agora é ${roleName} no Quartinho BH!`, buildRolePromotionEmail(role)).catch((err) =>
-            console.error('[users] role promotion email failed:', err),
-          );
+        const user = snap.data() as User;
+        if (user.email) {
+          void sendRoleEmail('role_promotion', user.email, user.displayName ?? 'você', role);
         }
       }
 
@@ -111,11 +127,14 @@ usersRouter.post(
     try {
       await adminDb.collection('role_invites').doc(email).set({ role, createdAt: Date.now() });
 
-      // Envia email de convite automaticamente
-      const roleName = role === 'admin' ? 'admin' : 'moderador';
-      sendEmail(email, `Convite: você é ${roleName} no Quartinho BH`, buildRoleInviteEmail(role)).catch((err) =>
-        console.error('[users] invite email failed:', err),
-      );
+      // Envia email de convite automaticamente (usa displayName do usuário existente se já cadastrado)
+      let nome = 'você';
+      const existing = await adminDb.collection('users').where('email', '==', email).limit(1).get();
+      if (!existing.empty) {
+        const u = existing.docs[0]!.data() as User;
+        if (u.displayName) nome = u.displayName;
+      }
+      void sendRoleEmail('role_invite', email, nome, role);
 
       res.status(201).json({ ok: true });
     } catch {

@@ -16,6 +16,8 @@ import { linktreeRouter } from './routes/linktree';
 import { bannersRouter } from './routes/banners';
 import { stickerConfigRouter } from './routes/stickerConfig';
 import { userStatsRouter } from './routes/userStats';
+import { chatRouter } from './routes/chat';
+import { startEmailScheduler } from './jobs/emailScheduler';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
@@ -50,12 +52,14 @@ app.use('/linktree', linktreeRouter);
 app.use('/banners', bannersRouter);
 app.use('/sticker-config', stickerConfigRouter);
 app.use('/user-stats', userStatsRouter);
+app.use('/chat', chatRouter);
 
 if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'preflight') {
   app.listen(PORT, () => {
 
     console.log(`[api] listening on :${PORT}`);
   });
+  startEmailScheduler();
 }
 
 export default app;

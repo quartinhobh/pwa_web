@@ -161,6 +161,16 @@ export const EventForm: React.FC<EventFormProps> = ({
     initial?.rsvp?.closesAt ? new Date(initial.rsvp.closesAt).toISOString().slice(0, 16) : '',
   );
 
+  // ── Chat config ─────────────────────────────────────────────────────
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatEnabled, setChatEnabled] = useState(initial?.chatEnabled ?? true);
+  const [chatOpensAt, setChatOpensAt] = useState<string>(
+    initial?.chatOpensAt ? new Date(initial.chatOpensAt).toISOString().slice(0, 16) : '',
+  );
+  const [chatClosesAt, setChatClosesAt] = useState<string>(
+    initial?.chatClosesAt ? new Date(initial.chatClosesAt).toISOString().slice(0, 16) : '',
+  );
+
   // ── Album search ───────────────────────────────────────────────────
   const { query: albumQuery, setQuery: setAlbumQuery, results: searchResults, searching, reset: resetAlbumSearch } = useMusicBrainzSearch();
   const [selectedCover, setSelectedCover] = useState<string | null>(null);
@@ -207,6 +217,9 @@ export const EventForm: React.FC<EventFormProps> = ({
         extras: { text: extrasText, links, images },
         spotifyPlaylistUrl: spotifyPlaylistUrl || null,
         rsvp,
+        chatEnabled,
+        chatOpensAt: chatOpensAt ? new Date(chatOpensAt).getTime() : null,
+        chatClosesAt: chatClosesAt ? new Date(chatClosesAt).getTime() : null,
       };
       const saved = mode === 'create'
         ? await createEvent(payload, token)
@@ -427,6 +440,59 @@ export const EventForm: React.FC<EventFormProps> = ({
                       aria-label="rsvp-closes-at"
                       value={rsvpClosesAt}
                       onChange={(e) => setRsvpClosesAt(e.target.value)}
+                      className={inputClass}
+                    />
+                  </label>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Chat config */}
+        <div className="border-2 border-dashed border-zine-burntYellow">
+          <button
+            type="button"
+            onClick={() => setChatOpen((v) => !v)}
+            className="w-full text-left px-3 py-2 font-body font-bold text-zine-burntOrange flex items-center justify-between"
+          >
+            <span>Chat</span>
+            <span className="text-xs text-zine-burntOrange/60">{chatOpen ? '▲ fechar' : '▼ abrir'}</span>
+          </button>
+          {chatOpen && (
+            <div className="px-3 pb-3 flex flex-col gap-3">
+              <HelperBox>Deixe em branco pra sempre aberto. Use pra cortar chat durante o rolê (ex: 20h–23h).</HelperBox>
+              <label className="font-body text-zine-burntOrange flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  aria-label="chat-enabled"
+                  checked={chatEnabled}
+                  onChange={(e) => setChatEnabled(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <span>Ativar chat</span>
+              </label>
+
+              {chatEnabled && (
+                <>
+                  <label className="font-body text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+                    <span>Abre em (opcional)</span>
+                    <input
+                      type="datetime-local"
+                      aria-label="chat-opens-at"
+                      value={chatOpensAt}
+                      onChange={(e) => setChatOpensAt(e.target.value)}
+                      className={inputClass}
+                    />
+                  </label>
+
+                  <label className="font-body text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+                    <span>Fecha em (opcional)</span>
+                    <input
+                      type="datetime-local"
+                      aria-label="chat-closes-at"
+                      value={chatClosesAt}
+                      onChange={(e) => setChatClosesAt(e.target.value)}
                       className={inputClass}
                     />
                   </label>

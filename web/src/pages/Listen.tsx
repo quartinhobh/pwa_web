@@ -11,6 +11,7 @@ import { RsvpButton } from '@/components/rsvp/RsvpButton';
 import { RsvpStatus } from '@/components/rsvp/RsvpStatus';
 import { EventDetailSkeleton } from '@/components/common/LoadingState';
 import ZineFrame from '@/components/common/ZineFrame';
+import { isChatAvailable, chatStatusText } from '@/utils/chatAvailability';
 
 const DEFAULT_LOCATION_REVEAL_DAYS = 7;
 
@@ -139,6 +140,7 @@ export const Listen: React.FC = () => {
             )}
             {isUpcoming && rsvpSummary && (
               <RsvpButton
+                eventId={event.id}
                 config={event.rsvp}
                 summary={rsvpSummary}
                 userEntry={rsvpEntry}
@@ -194,14 +196,24 @@ export const Listen: React.FC = () => {
         <TrackList tracks={tracks} artistCredit={album?.artistCredit} />
       )}
 
-      {/* Chat link — live events only */}
-      {isLive && (
-        <Link
-          to={`/chat/${event.id}`}
-          className="font-body font-bold text-center bg-zine-burntYellow dark:bg-zine-burntYellow-bright text-zine-cream dark:text-zine-surface-dark px-4 py-3 border-4 border-zine-cream dark:border-zine-cream/30 hover:bg-zine-burntOrange block"
-        >
-          💬 entrar no chat ao vivo
-        </Link>
+      {/* Chat link — gated by chatEnabled + window */}
+      {event.chatEnabled !== false && (
+        isChatAvailable(event) ? (
+          <Link
+            to={`/chat/${event.id}`}
+            className="font-body font-bold text-center bg-zine-burntYellow dark:bg-zine-burntYellow-bright text-zine-cream dark:text-zine-surface-dark px-4 py-3 border-4 border-zine-cream dark:border-zine-cream/30 hover:bg-zine-burntOrange block"
+          >
+            💬 entrar no chat
+          </Link>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="font-body font-bold text-center bg-zine-burntYellow/40 text-zine-cream/70 dark:text-zine-surface-dark/70 px-4 py-3 border-4 border-zine-cream dark:border-zine-cream/30 block cursor-not-allowed"
+          >
+            💬 {chatStatusText(event) ?? 'chat indisponível'}
+          </button>
+        )
       )}
 
       {/* Link to past events */}

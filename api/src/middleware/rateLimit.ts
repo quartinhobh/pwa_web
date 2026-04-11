@@ -38,3 +38,12 @@ export const authGuestLimiter: RateLimitRequestHandler = rateLimit({
   legacyHeaders: false,
   skip,
 });
+
+// Guest (unauthenticated) RSVP submissions — per IP, 5/hour.
+export const guestRsvpLimiter: RateLimitRequestHandler = rateLimit({
+  windowMs: 60 * ONE_MINUTE_MS,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip,
+});

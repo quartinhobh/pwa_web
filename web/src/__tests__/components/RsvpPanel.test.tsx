@@ -19,9 +19,11 @@ const makeMocks = () => ({
 });
 
 const confirmedEntry: AdminRsvpEntry = {
+  entryKey: 'firebase:u1',
   userId: 'u1',
   displayName: 'Alice',
   email: 'alice@example.com',
+  authMode: 'firebase',
   avatarUrl: null,
   status: 'confirmed',
   plusOne: false,
@@ -31,9 +33,11 @@ const confirmedEntry: AdminRsvpEntry = {
 };
 
 const pendingEntry: AdminRsvpEntry = {
+  entryKey: 'firebase:u2',
   userId: 'u2',
   displayName: 'Bruno',
   email: 'bruno@example.com',
+  authMode: 'firebase',
   avatarUrl: null,
   status: 'pending_approval',
   plusOne: false,
@@ -81,6 +85,25 @@ describe('RsvpPanel', () => {
 
     expect(screen.getByText('Alice')).toBeInTheDocument();
     expect(screen.queryByText('Bruno')).not.toBeInTheDocument();
+  });
+
+  it('renders authMode badges for guest vs firebase entries', async () => {
+    const guestEntry: AdminRsvpEntry = {
+      ...confirmedEntry,
+      entryKey: 'guest:abc',
+      userId: 'guest:abc',
+      displayName: 'Carla',
+      email: 'carla@example.com',
+      authMode: 'guest',
+    };
+    const { fetchAdminRsvpList: mockFetch } = makeMocks();
+    mockFetch.mockResolvedValue({ entries: [confirmedEntry, guestEntry] });
+
+    render(<RsvpPanel eventId="evt1" idToken="tok" />);
+
+    await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
+    expect(screen.getByTestId('authmode-badge-u1')).toHaveTextContent('conta');
+    expect(screen.getByTestId('authmode-badge-guest:abc')).toHaveTextContent('convidado');
   });
 
   it('shows approve/reject buttons for pending_approval entries', async () => {

@@ -1,10 +1,16 @@
 // RSVP routes — nested under /events/:eventId/rsvp.
 // Public reads, auth writes, admin management.
+//
+// entryKey format (new in guest-RSVP sprint): `firebase:${uid}` or `guest:${hash}`.
+// In URLs the `:` must be percent-encoded (`%3A`). Express decodes it back for
+// req.params.entryKey, so `/admin/firebase%3Aabc123` arrives as
+// `entryKey = 'firebase:abc123'`. We chose `:` (not `_`) to stay consistent with
+// the Firestore doc keys and avoid a second mental model.
 
 import { Router, type Request, type Response } from 'express';
-import { requireAuth } from '../middleware/auth';
+import { optionalAuth, requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/roleCheck';
-import { writeLimiter } from '../middleware/rateLimit';
+import { guestRsvpLimiter, writeLimiter } from '../middleware/rateLimit';
 import {
   getRsvpSummary,
   getUserRsvp,
@@ -14,27 +20,64 @@ import {
   getAdminList,
   approveOrReject,
   exportCsv,
+  buildEntryKey,
+  type SubmitRsvpInput,
 } from '../services/rsvpService';
 import { buildRsvpEmail } from '../services/emailTemplateService';
 import { sendEmail, wrapTransactionalTemplate } from '../services/emailService';
 import { adminDb } from '../config/firebase';
+import type { RsvpDoc, RsvpEntry } from '../types';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Read the RsvpEntry for a given entryKey, falling back to users/{uid} when firebase. */
+async function resolveEmailForEntry(
+  eventId: string,
+  entryKey: string,
+): Promise<{ email: string | null; displayName: string }> {
+  const snap = await adminDb.collection('rsvps').doc(eventId).get();
+  let entry: RsvpEntry | undefined;
+  if (snap.exists) {
+    const doc = snap.data() as RsvpDoc;
+    entry = doc.entries[entryKey];
+    if (!entry && entryKey.startsWith('firebase:')) {
+      entry = doc.entries[entryKey.slice('firebase:'.length)];
+    }
+  }
+  if (entry?.email) {
+    return { email: entry.email, displayName: entry.displayName || 'você' };
+  }
+  // Firebase fallback: read users/{uid}
+  if (entryKey.startsWith('firebase:')) {
+    const uid = entryKey.slice('firebase:'.length);
+    const userSnap = await adminDb.collection('users').doc(uid).get();
+    const user = userSnap.exists
+      ? (userSnap.data() as { email?: string | null; displayName?: string })
+      : null;
+    return {
+      email: user?.email ?? null,
+      displayName: entry?.displayName || user?.displayName || 'você',
+    };
+  }
+  return { email: null, displayName: entry?.displayName || 'você' };
+}
 
 /** Fire-and-forget: send RSVP email if template is enabled. */
 async function sendRsvpEmail(
   key: Parameters<typeof buildRsvpEmail>[0],
-  userId: string,
+  eventId: string,
+  entryKey: string,
   variables: Record<string, string>,
 ): Promise<void> {
   try {
-    const userSnap = await adminDb.collection('users').doc(userId).get();
-    const email = (userSnap.data() as { email?: string } | undefined)?.email;
+    const { email, displayName } = await resolveEmailForEntry(eventId, entryKey);
     if (!email) return;
-    const result = await buildRsvpEmail(key, { ...variables, nome: (userSnap.data() as { displayName?: string })?.displayName ?? 'você' });
+    const result = await buildRsvpEmail(key, { ...variables, nome: displayName });
     if (!result) return;
     const html = wrapTransactionalTemplate(`<p>${result.bodyText.replace(/\n/g, '<br>')}</p>`);
     await sendEmail(email, result.subject, html);
   } catch (err) {
-    console.error(`[rsvp-email] Failed to send ${key} to ${userId}:`, err);
+    console.error(`[rsvp-email] Failed to send ${key} to ${entryKey}:`, err);
   }
 }
 
@@ -53,7 +96,8 @@ rsvpRouter.get('/', async (req: Request, res: Response) => {
 // GET /events/:eventId/rsvp/user — current user's RSVP status
 rsvpRouter.get('/user', requireAuth, async (req: Request, res: Response) => {
   try {
-    const entry = await getUserRsvp(req.params.eventId!, req.user!.uid);
+    const entryKey = buildEntryKey({ type: 'firebase', uid: req.user!.uid });
+    const entry = await getUserRsvp(req.params.eventId!, entryKey);
     res.status(200).json({ entry });
   } catch {
     res.status(500).json({ error: 'rsvp_user_failed' });
@@ -61,20 +105,61 @@ rsvpRouter.get('/user', requireAuth, async (req: Request, res: Response) => {
 });
 
 // POST /events/:eventId/rsvp — submit RSVP
+// Accepts both authenticated (firebase) and anonymous (guest) submissions.
 rsvpRouter.post(
   '/',
   writeLimiter,
-  requireAuth,
+  guestRsvpLimiter,
+  optionalAuth,
   async (req: Request, res: Response) => {
     try {
-      const body = req.body as { plusOne?: boolean; plusOneName?: string } | undefined;
+      const body = (req.body ?? {}) as {
+        email?: string;
+        displayName?: string;
+        plusOne?: boolean;
+        plusOneName?: string;
+      };
       const eventId = req.params.eventId!;
-      const userId = req.user!.uid;
-      const result = await submitRsvp(eventId, userId, {
-        plusOne: body?.plusOne,
-        plusOneName: body?.plusOneName,
-      });
-      res.status(201).json(result);
+
+      let input: SubmitRsvpInput;
+      if (req.user) {
+        // Authenticated — pull email/displayName from the users doc.
+        const userSnap = await adminDb.collection('users').doc(req.user.uid).get();
+        const user = userSnap.exists
+          ? (userSnap.data() as { email?: string; displayName?: string })
+          : null;
+        const email = user?.email ?? req.user.email ?? '';
+        const displayName = user?.displayName ?? req.user.name ?? 'anônimo';
+        input = {
+          type: 'firebase',
+          uid: req.user.uid,
+          email,
+          displayName,
+          plusOne: body.plusOne,
+          plusOneName: body.plusOneName,
+        };
+      } else {
+        const email = (body.email ?? '').trim();
+        const displayName = (body.displayName ?? '').trim();
+        if (!email || !EMAIL_RE.test(email)) {
+          res.status(400).json({ error: 'invalid_email' });
+          return;
+        }
+        if (!displayName || displayName.length > 80) {
+          res.status(400).json({ error: 'invalid_display_name' });
+          return;
+        }
+        input = {
+          type: 'guest',
+          email,
+          displayName,
+          plusOne: body.plusOne,
+          plusOneName: body.plusOneName,
+        };
+      }
+
+      const result = await submitRsvp(eventId, input);
+      res.status(201).json({ entry: result.entry, entryKey: result.entryKey });
 
       // Send email (fire-and-forget, after response)
       const eventSnap = await adminDb.collection('events').doc(eventId).get();
@@ -83,16 +168,25 @@ rsvpRouter.post(
       const emailKey = result.entry.status === 'confirmed' ? 'confirmation' as const
         : result.entry.status === 'waitlisted' ? 'waitlist' as const
         : null;
-      if (emailKey) void sendRsvpEmail(emailKey, userId, vars);
+      if (emailKey) void sendRsvpEmail(emailKey, eventId, result.entryKey, vars);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'submit_failed';
-      const status = ['rsvp_disabled', 'rsvp_closed', 'already_rsvped', 'event_full'].includes(msg) ? 400 : 500;
+      const status = [
+        'rsvp_disabled',
+        'rsvp_closed',
+        'already_rsvped',
+        'email_already_rsvped',
+        'event_full',
+        'event_not_found',
+      ].includes(msg)
+        ? 400
+        : 500;
       res.status(status).json({ error: msg });
     }
   },
 );
 
-// DELETE /events/:eventId/rsvp — cancel RSVP
+// DELETE /events/:eventId/rsvp — cancel RSVP (authenticated only)
 rsvpRouter.delete(
   '/',
   writeLimiter,
@@ -100,14 +194,18 @@ rsvpRouter.delete(
   async (req: Request, res: Response) => {
     try {
       const eventId = req.params.eventId!;
-      const result = await cancelRsvp(eventId, req.user!.uid);
-      res.status(200).json(result);
+      const entryKey = buildEntryKey({ type: 'firebase', uid: req.user!.uid });
+      const result = await cancelRsvp(eventId, entryKey);
+      res.status(200).json({
+        promotedUserId: result.promotedEntryKey,
+        promotedEntryKey: result.promotedEntryKey,
+      });
 
       // Send promotion email if someone was auto-promoted
-      if (result.promotedUserId) {
+      if (result.promotedEntryKey) {
         const eventSnap = await adminDb.collection('events').doc(eventId).get();
         const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string } | undefined;
-        void sendRsvpEmail('promotion', result.promotedUserId, {
+        void sendRsvpEmail('promotion', eventId, result.promotedEntryKey, {
           evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '',
         });
       }
@@ -126,9 +224,10 @@ rsvpRouter.put(
   async (req: Request, res: Response) => {
     try {
       const body = req.body as { plusOne?: boolean; plusOneName?: string } | undefined;
+      const entryKey = buildEntryKey({ type: 'firebase', uid: req.user!.uid });
       const entry = await updatePlusOne(
         req.params.eventId!,
-        req.user!.uid,
+        entryKey,
         !!body?.plusOne,
         body?.plusOneName ?? null,
       );
@@ -142,7 +241,7 @@ rsvpRouter.put(
 
 // ── Admin endpoints ─────────────────────────────────────────────────
 
-// GET /events/:eventId/rsvp/admin/export — CSV download (MUST be before :userId)
+// GET /events/:eventId/rsvp/admin/export — CSV download (MUST be before :entryKey)
 rsvpRouter.get(
   '/admin/export',
   requireAuth,
@@ -175,9 +274,10 @@ rsvpRouter.get(
   },
 );
 
-// PUT /events/:eventId/rsvp/admin/:userId — approve/reject
+// PUT /events/:eventId/rsvp/admin/:entryKey — approve/reject
+// entryKey must be URL-encoded (`:` as `%3A`).
 rsvpRouter.put(
-  '/admin/:userId',
+  '/admin/:entryKey',
   writeLimiter,
   requireAuth,
   requireRole('admin'),
@@ -190,8 +290,8 @@ rsvpRouter.put(
         return;
       }
       const eventId = req.params.eventId!;
-      const targetUserId = req.params.userId!;
-      const entry = await approveOrReject(eventId, targetUserId, newStatus);
+      const targetEntryKey = req.params.entryKey!;
+      const entry = await approveOrReject(eventId, targetEntryKey, newStatus);
       res.status(200).json({ entry });
 
       // Send email
@@ -199,11 +299,10 @@ rsvpRouter.put(
       const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string } | undefined;
       const vars = { evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '' };
       const emailKey = newStatus === 'confirmed' ? 'confirmation' as const : 'rejected' as const;
-      void sendRsvpEmail(emailKey, targetUserId, vars);
+      void sendRsvpEmail(emailKey, eventId, targetEntryKey, vars);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'approve_failed';
       res.status(500).json({ error: msg });
     }
   },
 );
-

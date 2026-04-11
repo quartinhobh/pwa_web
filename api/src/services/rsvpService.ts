@@ -2,16 +2,59 @@
 // Doc shape at `rsvps/{eventId}`:
 //
 //   {
-//     entries:        { [userId]: RsvpEntry },
+//     entries:        { [entryKey]: RsvpEntry },
 //     confirmedCount: number,
 //     waitlistCount:  number,
 //     updatedAt:      number
 //   }
+//
+// entryKey format:
+//   - `firebase:${uid}`                — authenticated user
+//   - `guest:${sha256(email)[0..32]}`  — anonymous submission
 
+import { createHash } from 'crypto';
 import { adminDb } from '../config/firebase';
-import type { Event, RsvpConfig, RsvpDoc, RsvpEntry, RsvpStatus, RsvpSummary } from '../types';
+import type {
+  Event,
+  RsvpAuthMode,
+  RsvpConfig,
+  RsvpDoc,
+  RsvpEntry,
+  RsvpStatus,
+  RsvpSummary,
+} from '../types';
 
 const COLLECTION = 'rsvps';
+
+// ── entryKey helpers ─────────────────────────────────────────────────
+
+export type SubmitRsvpInput =
+  | {
+      type: 'firebase';
+      uid: string;
+      email: string;
+      displayName: string;
+      plusOne?: boolean;
+      plusOneName?: string;
+    }
+  | {
+      type: 'guest';
+      email: string;
+      displayName: string;
+      plusOne?: boolean;
+      plusOneName?: string;
+    };
+
+export function buildEntryKey(
+  input: { type: 'firebase'; uid: string } | { type: 'guest'; email: string },
+): string {
+  if (input.type === 'firebase') return `firebase:${input.uid}`;
+  const hash = createHash('sha256')
+    .update(input.email.toLowerCase().trim())
+    .digest('hex')
+    .slice(0, 32);
+  return `guest:${hash}`;
+}
 
 function emptyDoc(): RsvpDoc {
   return { entries: {}, confirmedCount: 0, waitlistCount: 0, updatedAt: 0 };
@@ -36,12 +79,12 @@ function isWindowOpen(config: RsvpConfig): boolean {
 }
 
 /** Find the oldest waitlisted entry. */
-function oldestWaitlisted(doc: RsvpDoc): { userId: string; entry: RsvpEntry } | null {
-  let oldest: { userId: string; entry: RsvpEntry } | null = null;
-  for (const [userId, entry] of Object.entries(doc.entries)) {
+function oldestWaitlisted(doc: RsvpDoc): { entryKey: string; entry: RsvpEntry } | null {
+  let oldest: { entryKey: string; entry: RsvpEntry } | null = null;
+  for (const [key, entry] of Object.entries(doc.entries)) {
     if (entry.status !== 'waitlisted') continue;
     if (!oldest || entry.createdAt < oldest.entry.createdAt) {
-      oldest = { userId, entry };
+      oldest = { entryKey: key, entry };
     }
   }
   return oldest;
@@ -58,26 +101,48 @@ export async function getRsvpSummary(eventId: string): Promise<RsvpSummary> {
   const event = eventSnap.exists ? (eventSnap.data() as Event) : null;
   const doc = rsvpSnap.exists ? (rsvpSnap.data() as RsvpDoc) : emptyDoc();
 
-  // Fetch avatars for confirmed users (first 8)
-  const confirmedIds = Object.entries(doc.entries)
+  // Fetch avatars for confirmed users (first 8). Only firebase entries have
+  // a user doc to join against — guests contribute displayName directly.
+  const confirmed = Object.entries(doc.entries)
     .filter(([, e]) => e.status === 'confirmed')
     .sort((a, b) => a[1].createdAt - b[1].createdAt)
-    .slice(0, 8)
-    .map(([id]) => id);
+    .slice(0, 8);
 
   const avatars: RsvpSummary['confirmedAvatars'] = [];
-  if (confirmedIds.length > 0) {
+  const firebaseUidsToJoin: string[] = [];
+  const orderedKeys: string[] = [];
+  for (const [key, entry] of confirmed) {
+    orderedKeys.push(key);
+    if (key.startsWith('firebase:')) {
+      firebaseUidsToJoin.push(key.slice('firebase:'.length));
+    }
+    avatars.push({
+      id: key,
+      displayName: entry.displayName || 'anônimo',
+      avatarUrl: null,
+    });
+  }
+
+  if (firebaseUidsToJoin.length > 0) {
     const userSnaps = await Promise.all(
-      confirmedIds.map((id) => adminDb.collection('users').doc(id).get()),
+      firebaseUidsToJoin.map((id) => adminDb.collection('users').doc(id).get()),
     );
+    const userMap = new Map<string, { displayName?: string; avatarUrl?: string | null }>();
     for (const snap of userSnaps) {
       if (!snap.exists) continue;
-      const u = snap.data() as { displayName?: string; avatarUrl?: string | null };
-      avatars.push({
-        id: snap.id,
-        displayName: u.displayName ?? 'anônimo',
+      userMap.set(snap.id, snap.data() as { displayName?: string; avatarUrl?: string | null });
+    }
+    for (let i = 0; i < avatars.length; i++) {
+      const key = orderedKeys[i]!;
+      if (!key.startsWith('firebase:')) continue;
+      const uid = key.slice('firebase:'.length);
+      const u = userMap.get(uid);
+      if (!u) continue;
+      avatars[i] = {
+        id: key,
+        displayName: u.displayName ?? avatars[i]!.displayName,
         avatarUrl: u.avatarUrl ?? null,
-      });
+      };
     }
   }
 
@@ -91,27 +156,48 @@ export async function getRsvpSummary(eventId: string): Promise<RsvpSummary> {
 
 export async function getUserRsvp(
   eventId: string,
-  userId: string,
+  entryKey: string,
 ): Promise<RsvpEntry | null> {
   const snap = await adminDb.collection(COLLECTION).doc(eventId).get();
   if (!snap.exists) return null;
   const doc = snap.data() as RsvpDoc;
-  return doc.entries[userId] ?? null;
+  return doc.entries[entryKey] ?? null;
 }
 
 // ── Writes (transactional) ──────────────────────────────────────────
 
 export interface SubmitRsvpResult {
   entry: RsvpEntry;
+  entryKey: string;
+}
+
+/** Returns true if any existing (non-cancelled/rejected) entry in the doc matches the given email. */
+function hasEmailCollision(doc: RsvpDoc, email: string, selfKey: string): boolean {
+  const norm = email.toLowerCase().trim();
+  if (!norm) return false;
+  for (const [key, entry] of Object.entries(doc.entries)) {
+    if (key === selfKey) continue;
+    if (entry.status === 'cancelled' || entry.status === 'rejected') continue;
+    if ((entry.email ?? '').toLowerCase().trim() === norm) return true;
+  }
+  return false;
 }
 
 export async function submitRsvp(
   eventId: string,
-  userId: string,
-  opts: { plusOne?: boolean; plusOneName?: string },
+  input: SubmitRsvpInput,
 ): Promise<SubmitRsvpResult> {
   const eventRef = adminDb.collection('events').doc(eventId);
   const rsvpRef = adminDb.collection(COLLECTION).doc(eventId);
+
+  const entryKey = buildEntryKey(
+    input.type === 'firebase'
+      ? { type: 'firebase', uid: input.uid }
+      : { type: 'guest', email: input.email },
+  );
+  const authMode: RsvpAuthMode = input.type;
+  const email = input.email.trim();
+  const displayName = input.displayName.trim() || 'anônimo';
 
   const result = await adminDb.runTransaction(async (tx) => {
     const [eventSnap, rsvpSnap] = await Promise.all([
@@ -127,12 +213,44 @@ export async function submitRsvp(
 
     const doc: RsvpDoc = rsvpSnap.exists ? (rsvpSnap.data() as RsvpDoc) : emptyDoc();
 
-    const existing = doc.entries[userId];
+    // Claim flow: a logged-in user submitting with an email that matches a
+    // pre-existing guest entry inherits that entry instead of erroring out.
+    // Preserves status/+1/timestamps so Maria-as-guest becomes Maria-as-account
+    // with no loss of position in the waitlist or confirmation.
+    if (input.type === 'firebase') {
+      const guestKey = buildEntryKey({ type: 'guest', email });
+      const guestEntry = doc.entries[guestKey];
+      if (
+        guestEntry &&
+        guestEntry.status !== 'cancelled' &&
+        guestEntry.status !== 'rejected'
+      ) {
+        const claimedAt = Date.now();
+        const claimed: RsvpEntry = {
+          ...guestEntry,
+          authMode: 'firebase',
+          email,
+          displayName: displayName || guestEntry.displayName,
+          updatedAt: claimedAt,
+        };
+        delete doc.entries[guestKey];
+        doc.entries[entryKey] = claimed;
+        doc.updatedAt = claimedAt;
+        tx.set(rsvpRef, doc);
+        return { entry: claimed, entryKey };
+      }
+    }
+
+    const existing = doc.entries[entryKey];
     if (existing && existing.status !== 'cancelled' && existing.status !== 'rejected') {
       throw new Error('already_rsvped');
     }
 
-    const wantsPlusOne = config.plusOneAllowed && !!opts.plusOne;
+    if (hasEmailCollision(doc, email, entryKey)) {
+      throw new Error('email_already_rsvped');
+    }
+
+    const wantsPlusOne = config.plusOneAllowed && !!input.plusOne;
     const seatsNeeded = wantsPlusOne ? 2 : 1;
     const now = Date.now();
 
@@ -150,30 +268,33 @@ export async function submitRsvp(
     const entry: RsvpEntry = {
       status,
       plusOne: wantsPlusOne,
-      plusOneName: wantsPlusOne ? (opts.plusOneName?.trim() || null) : null,
+      plusOneName: wantsPlusOne ? (input.plusOneName?.trim() || null) : null,
+      email,
+      displayName,
+      authMode,
       createdAt: now,
       updatedAt: now,
     };
 
-    doc.entries[userId] = entry;
+    doc.entries[entryKey] = entry;
     if (status === 'confirmed') doc.confirmedCount += wantsPlusOne ? 2 : 1;
     if (status === 'waitlisted') doc.waitlistCount += 1;
     doc.updatedAt = now;
 
     tx.set(rsvpRef, doc);
-    return { entry };
+    return { entry, entryKey };
   });
 
   return result;
 }
 
 export interface CancelRsvpResult {
-  promotedUserId: string | null;
+  promotedEntryKey: string | null;
 }
 
 export async function cancelRsvp(
   eventId: string,
-  userId: string,
+  entryKey: string,
 ): Promise<CancelRsvpResult> {
   const rsvpRef = adminDb.collection(COLLECTION).doc(eventId);
 
@@ -182,15 +303,17 @@ export async function cancelRsvp(
     if (!snap.exists) throw new Error('no_rsvp');
     const doc = snap.data() as RsvpDoc;
 
-    const entry = doc.entries[userId];
+    const entry = doc.entries[entryKey];
     if (!entry || entry.status === 'cancelled') throw new Error('not_rsvped');
 
     const wasConfirmed = entry.status === 'confirmed';
     const wasWaitlisted = entry.status === 'waitlisted';
 
-    entry.status = 'cancelled';
-    entry.updatedAt = Date.now();
-    doc.entries[userId] = entry;
+    doc.entries[entryKey] = {
+      ...entry,
+      status: 'cancelled',
+      updatedAt: Date.now(),
+    };
 
     if (wasConfirmed) {
       const seats = entry.plusOne ? 2 : 1;
@@ -199,22 +322,24 @@ export async function cancelRsvp(
     if (wasWaitlisted) doc.waitlistCount = Math.max(0, doc.waitlistCount - 1);
 
     // Auto-promote from waitlist if a confirmed spot opened
-    let promotedUserId: string | null = null;
+    let promotedEntryKey: string | null = null;
     if (wasConfirmed) {
       const next = oldestWaitlisted(doc);
       if (next) {
-        next.entry.status = 'confirmed';
-        next.entry.updatedAt = Date.now();
-        doc.entries[next.userId] = next.entry;
+        doc.entries[next.entryKey] = {
+          ...next.entry,
+          status: 'confirmed',
+          updatedAt: Date.now(),
+        };
         doc.confirmedCount += next.entry.plusOne ? 2 : 1;
         doc.waitlistCount = Math.max(0, doc.waitlistCount - 1);
-        promotedUserId = next.userId;
+        promotedEntryKey = next.entryKey;
       }
     }
 
     doc.updatedAt = Date.now();
     tx.set(rsvpRef, doc);
-    return { promotedUserId };
+    return { promotedEntryKey };
   });
 
   return result;
@@ -222,7 +347,7 @@ export async function cancelRsvp(
 
 export async function updatePlusOne(
   eventId: string,
-  userId: string,
+  entryKey: string,
   plusOne: boolean,
   plusOneName: string | null,
 ): Promise<RsvpEntry> {
@@ -233,7 +358,7 @@ export async function updatePlusOne(
     if (!snap.exists) throw new Error('no_rsvp');
     const doc = snap.data() as RsvpDoc;
 
-    const entry = doc.entries[userId];
+    const entry = doc.entries[entryKey];
     if (!entry || entry.status === 'cancelled' || entry.status === 'rejected') {
       throw new Error('not_rsvped');
     }
@@ -249,20 +374,23 @@ export async function updatePlusOne(
     }
 
     const hadPlusOne = entry.plusOne;
-    entry.plusOne = plusOne;
-    entry.plusOneName = plusOne ? (plusOneName?.trim() || null) : null;
-    entry.updatedAt = Date.now();
-    doc.entries[userId] = entry;
+    const updated: RsvpEntry = {
+      ...entry,
+      plusOne,
+      plusOneName: plusOne ? (plusOneName?.trim() || null) : null,
+      updatedAt: Date.now(),
+    };
+    doc.entries[entryKey] = updated;
 
     // Adjust confirmedCount when +1 changes on a confirmed entry
-    if (entry.status === 'confirmed') {
+    if (updated.status === 'confirmed') {
       if (plusOne && !hadPlusOne) doc.confirmedCount += 1;
       if (!plusOne && hadPlusOne) doc.confirmedCount = Math.max(0, doc.confirmedCount - 1);
     }
 
     doc.updatedAt = Date.now();
     tx.set(rsvpRef, doc);
-    return entry;
+    return updated;
   });
 
   return result;
@@ -272,7 +400,7 @@ export async function updatePlusOne(
 
 export async function approveOrReject(
   eventId: string,
-  targetUserId: string,
+  targetEntryKey: string,
   newStatus: 'confirmed' | 'rejected',
 ): Promise<RsvpEntry> {
   const rsvpRef = adminDb.collection(COLLECTION).doc(eventId);
@@ -282,7 +410,7 @@ export async function approveOrReject(
     if (!snap.exists) throw new Error('no_rsvp');
     const doc = snap.data() as RsvpDoc;
 
-    const entry = doc.entries[targetUserId];
+    const entry = doc.entries[targetEntryKey];
     if (!entry) throw new Error('entry_not_found');
 
     // Only allow transitions from pending_approval or waitlisted
@@ -292,9 +420,12 @@ export async function approveOrReject(
 
     const wasWaitlisted = entry.status === 'waitlisted';
 
-    entry.status = newStatus;
-    entry.updatedAt = Date.now();
-    doc.entries[targetUserId] = entry;
+    const updated: RsvpEntry = {
+      ...entry,
+      status: newStatus,
+      updatedAt: Date.now(),
+    };
+    doc.entries[targetEntryKey] = updated;
 
     if (newStatus === 'confirmed') {
       doc.confirmedCount += 1;
@@ -305,16 +436,15 @@ export async function approveOrReject(
 
     doc.updatedAt = Date.now();
     tx.set(rsvpRef, doc);
-    return entry;
+    return updated;
   });
 
   return result;
 }
 
 export interface AdminRsvpEntry extends RsvpEntry {
-  userId: string;
-  displayName: string;
-  email: string | null;
+  entryKey: string;
+  userId: string; // legacy alias: bare uid for firebase entries, entryKey otherwise
   avatarUrl: string | null;
 }
 
@@ -323,29 +453,61 @@ export async function getAdminList(eventId: string): Promise<AdminRsvpEntry[]> {
   if (!snap.exists) return [];
   const doc = snap.data() as RsvpDoc;
 
-  const userIds = Object.keys(doc.entries);
-  if (!userIds.length) return [];
+  const keys = Object.keys(doc.entries);
+  if (!keys.length) return [];
 
-  const userSnaps = await Promise.all(
-    userIds.map((id) => adminDb.collection('users').doc(id).get()),
-  );
-
-  const userMap = new Map<string, { displayName: string; email: string | null; avatarUrl: string | null }>();
-  for (const uSnap of userSnaps) {
-    if (!uSnap.exists) continue;
-    const u = uSnap.data() as { displayName?: string; email?: string | null; avatarUrl?: string | null };
-    userMap.set(uSnap.id, {
-      displayName: u.displayName ?? 'anônimo',
-      email: u.email ?? null,
-      avatarUrl: u.avatarUrl ?? null,
-    });
+  // Collect firebase uids that still need a user-doc join (for avatar).
+  const firebaseUids: string[] = [];
+  for (const key of keys) {
+    const entry = doc.entries[key]!;
+    if (entry.authMode === 'firebase' && key.startsWith('firebase:')) {
+      firebaseUids.push(key.slice('firebase:'.length));
+    }
   }
 
-  return userIds
-    .map((userId) => {
-      const entry = doc.entries[userId]!;
-      const user = userMap.get(userId) ?? { displayName: 'anônimo', email: null, avatarUrl: null };
-      return { ...entry, userId, ...user };
+  const userMap = new Map<
+    string,
+    { displayName?: string; email?: string | null; avatarUrl?: string | null }
+  >();
+  if (firebaseUids.length) {
+    const userSnaps = await Promise.all(
+      firebaseUids.map((id) => adminDb.collection('users').doc(id).get()),
+    );
+    for (const uSnap of userSnaps) {
+      if (!uSnap.exists) continue;
+      userMap.set(uSnap.id, uSnap.data() as {
+        displayName?: string;
+        email?: string | null;
+        avatarUrl?: string | null;
+      });
+    }
+  }
+
+  return keys
+    .map<AdminRsvpEntry>((key) => {
+      const entry = doc.entries[key]!;
+      let displayName = entry.displayName || 'anônimo';
+      let email: string = entry.email || '';
+      let avatarUrl: string | null = null;
+
+      if (entry.authMode === 'firebase' && key.startsWith('firebase:')) {
+        const uid = key.slice('firebase:'.length);
+        const user = userMap.get(uid);
+        if (user) {
+          displayName = user.displayName ?? displayName;
+          email = email || user.email || '';
+          avatarUrl = user.avatarUrl ?? null;
+        }
+      }
+
+      return {
+        ...entry,
+        displayName,
+        email,
+        entryKey: key,
+        userId: key.startsWith('firebase:') ? key.slice('firebase:'.length) : key,
+        avatarUrl,
+      };
     })
     .sort((a, b) => a.createdAt - b.createdAt);
 }
@@ -358,7 +520,7 @@ function csvField(value: string): string {
 }
 
 export function exportCsv(entries: AdminRsvpEntry[]): string {
-  const header = 'nome,email,status,plus_one,nome_acompanhante,data_rsvp';
+  const header = 'nome,email,status,plus_one,nome_acompanhante,auth_mode,data_rsvp';
   const rows = entries.map((e) => {
     const date = new Date(e.createdAt).toISOString();
     return [
@@ -367,6 +529,7 @@ export function exportCsv(entries: AdminRsvpEntry[]): string {
       e.status,
       e.plusOne ? 'sim' : 'não',
       csvField(e.plusOneName ?? ''),
+      e.authMode,
       date,
     ].join(',');
   });

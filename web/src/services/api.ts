@@ -638,6 +638,7 @@ export async function fetchEmailLimits(idToken: string): Promise<EmailLimits> {
 
 export interface EmailConfig {
   autoEventEmail: boolean;
+  pauseAllTransactional: boolean;
 }
 
 export async function fetchEmailConfig(idToken: string): Promise<EmailConfig> {
@@ -1059,7 +1060,7 @@ export async function submitRsvp(
   eventId: string,
   idToken: string,
   opts?: { plusOne?: boolean; plusOneName?: string },
-): Promise<{ entry: RsvpEntry }> {
+): Promise<{ entry: RsvpEntry; entryKey: string }> {
   const res = await fetch(`${API_URL}/events/${encodeURIComponent(eventId)}/rsvp`, {
     method: 'POST',
     headers: {
@@ -1072,7 +1073,68 @@ export async function submitRsvp(
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `POST rsvp failed: ${res.status}`);
   }
-  return (await res.json()) as { entry: RsvpEntry };
+  return (await res.json()) as { entry: RsvpEntry; entryKey: string };
+}
+
+export async function submitRsvpGuest(
+  eventId: string,
+  payload: {
+    email: string;
+    displayName: string;
+    plusOne?: boolean;
+    plusOneName?: string;
+  },
+): Promise<{ entry: RsvpEntry; entryKey: string }> {
+  const res = await fetch(`${API_URL}/events/${encodeURIComponent(eventId)}/rsvp`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `POST rsvp (guest) failed: ${res.status}`);
+  }
+  return (await res.json()) as { entry: RsvpEntry; entryKey: string };
+}
+
+export async function cancelEvent(
+  idToken: string,
+  eventId: string,
+  reason?: string,
+): Promise<{ event: Event }> {
+  const res = await fetch(
+    `${API_URL}/events/${encodeURIComponent(eventId)}/cancel`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify({ reason }),
+    },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `POST events/cancel failed: ${res.status}`);
+  }
+  return (await res.json()) as { event: Event };
+}
+
+export async function broadcastToEvent(
+  idToken: string,
+  eventId: string,
+  input: { subject: string; body: string; filter: 'confirmed' | 'waitlisted' | 'all' },
+): Promise<{ sentCount: number }> {
+  const res = await fetch(
+    `${API_URL}/events/${encodeURIComponent(eventId)}/broadcast`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+      body: JSON.stringify(input),
+    },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `POST events/broadcast failed: ${res.status}`);
+  }
+  return (await res.json()) as { sentCount: number };
 }
 
 export async function cancelRsvp(
@@ -1121,19 +1183,19 @@ export async function fetchAdminRsvpList(
 
 export async function approveRejectRsvp(
   eventId: string,
-  userId: string,
+  entryKey: string,
   status: 'confirmed' | 'rejected',
   idToken: string,
 ): Promise<{ entry: RsvpEntry }> {
   const res = await fetch(
-    `${API_URL}/events/${encodeURIComponent(eventId)}/rsvp/admin/${encodeURIComponent(userId)}`,
+    `${API_URL}/events/${encodeURIComponent(eventId)}/rsvp/admin/${encodeURIComponent(entryKey)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
       body: JSON.stringify({ status }),
     },
   );
-  if (!res.ok) throw new Error(`PUT rsvp/admin/${userId} failed: ${res.status}`);
+  if (!res.ok) throw new Error(`PUT rsvp/admin/${entryKey} failed: ${res.status}`);
   return (await res.json()) as { entry: RsvpEntry };
 }
 
@@ -1194,4 +1256,35 @@ export async function trackProfileVisit(username: string, idToken: string | null
   } catch {
     /* fire-and-forget */
   }
+}
+
+// ── Chat Config ──────────────────────────────────────────────────────
+
+export async function getChatConfig(
+  idToken?: string,
+): Promise<{ pauseAll: boolean }> {
+  const res = await fetch(`${API_URL}/chat/config`, {
+    headers: idToken ? { Authorization: `Bearer ${idToken}` } : {},
+  });
+  if (!res.ok) throw new Error(`GET /chat/config failed: ${res.status}`);
+  return (await res.json()) as { pauseAll: boolean };
+}
+
+export async function updateChatConfig(
+  idToken: string,
+  input: { pauseAll: boolean },
+): Promise<{ pauseAll: boolean }> {
+  const res = await fetch(`${API_URL}/chat/config`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `PUT /chat/config failed: ${res.status}`);
+  }
+  return (await res.json()) as { pauseAll: boolean };
 }

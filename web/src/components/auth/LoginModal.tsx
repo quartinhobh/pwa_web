@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import Modal from '@/components/common/Modal';
 import Button from '@/components/common/Button';
 import { useAuth } from '@/hooks/useAuth';
+import { auth } from '@/services/firebase';
 
 export interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type Mode = 'pick' | 'email-login' | 'email-signup';
+type Mode = 'pick' | 'email-login' | 'email-signup' | 'forgot';
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   const {
@@ -23,6 +25,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forgotSent, setForgotSent] = useState(false);
 
   function reset() {
     setMode('pick');
@@ -30,6 +33,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     setPassword('');
     setError(null);
     setBusy(false);
+    setForgotSent(false);
   }
 
   function handleClose() {
@@ -48,6 +52,66 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await sendPasswordResetEmail(auth, email, {
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: false,
+      });
+      setForgotSent(true);
+      setTimeout(() => {
+        setForgotSent(false);
+        setMode('email-login');
+      }, 3000);
+    } catch (err) {
+      console.error('[LoginModal] password reset failed', err);
+      setError('não foi possível enviar agora, tente de novo');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (mode === 'forgot') {
+    return (
+      <Modal isOpen={isOpen} onClose={handleClose} title="Recuperar senha">
+        <form onSubmit={handleForgot} className="flex flex-col gap-3">
+          <input
+            type="email"
+            placeholder="Email"
+            aria-label="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
+          />
+          {forgotSent && (
+            <p role="status" className="font-body text-sm text-zine-burntOrange">
+              se o email existir, um link foi enviado
+            </p>
+          )}
+          {error && !forgotSent && (
+            <p role="alert" className="font-body text-sm text-zine-burntOrange">
+              {error}
+            </p>
+          )}
+          <Button type="submit" disabled={busy || forgotSent}>
+            {busy ? 'enviando…' : 'enviar link de recuperação'}
+          </Button>
+          <button
+            type="button"
+            onClick={() => { setError(null); setForgotSent(false); setMode('email-login'); }}
+            className="font-body text-sm text-zine-burntOrange/60 text-center"
+          >
+            ← voltar
+          </button>
+        </form>
+      </Modal>
+    );
   }
 
   if (mode === 'email-login' || mode === 'email-signup') {
@@ -92,6 +156,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
           <Button type="submit" disabled={busy}>
             {busy ? 'entrando…' : isSignup ? 'criar conta' : 'entrar'}
           </Button>
+          {!isSignup && (
+            <button
+              type="button"
+              onClick={() => { setError(null); setPassword(''); setMode('forgot'); }}
+              className="font-body text-sm text-zine-burntOrange hover:underline text-center"
+            >
+              esqueceu a senha?
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setMode(isSignup ? 'email-login' : 'email-signup')}

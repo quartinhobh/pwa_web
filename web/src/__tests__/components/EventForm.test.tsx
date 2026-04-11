@@ -87,6 +87,27 @@ describe('EventForm', () => {
     expect(onSaved).toHaveBeenCalled();
   });
 
+  it('submits chat config fields (enabled + opensAt + closesAt) as ms epoch in payload', async () => {
+    createMock.mockResolvedValue({ ...baseEvent, id: 'new' });
+    render(<EventForm mode="create" idToken="tok" />);
+
+    await userEvent.type(screen.getByLabelText('title'), 'Chat Window Night');
+    await userEvent.click(screen.getByRole('button', { name: /^chat/i }));
+
+    const opensInput = screen.getByLabelText('chat-opens-at') as HTMLInputElement;
+    const closesInput = screen.getByLabelText('chat-closes-at') as HTMLInputElement;
+    await userEvent.type(opensInput, '2026-04-15T19:00');
+    await userEvent.type(closesInput, '2026-04-15T23:00');
+
+    await userEvent.click(screen.getByRole('button', { name: /criar/i }));
+
+    await waitFor(() => expect(createMock).toHaveBeenCalled());
+    const [payload] = createMock.mock.calls[0]!;
+    expect(payload.chatEnabled).toBe(true);
+    expect(payload.chatOpensAt).toBe(new Date('2026-04-15T19:00').getTime());
+    expect(payload.chatClosesAt).toBe(new Date('2026-04-15T23:00').getTime());
+  });
+
   it('submit in edit mode calls updateEvent with event id', async () => {
     updateMock.mockResolvedValue({ ...baseEvent, title: 'Edited' });
     render(<EventForm mode="edit" initial={baseEvent} idToken="tok" />);

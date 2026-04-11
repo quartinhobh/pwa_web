@@ -2,7 +2,14 @@
 // Owner: feature-builder. Pure domain; no HTTP concerns.
 
 import { adminDb } from '../config/firebase';
-import type { Event, EventAlbumSnapshot, EventCreatePayload, EventStatus } from '../types';
+import type {
+  Event,
+  EventAlbumSnapshot,
+  EventCreatePayload,
+  EventStatus,
+  RsvpDoc,
+  RsvpEntry,
+} from '../types';
 import { fetchAlbum } from './musicbrainzService';
 import { generateBlurPlaceholder } from './blurPlaceholder';
 import { computeEventStatus, withDerivedStatus } from './eventStatus';
@@ -83,12 +90,56 @@ export async function createEvent(
     album,
     extras: payload.extras,
     spotifyPlaylistUrl: payload.spotifyPlaylistUrl,
+    chatEnabled: payload.chatEnabled ?? true,
+    chatOpensAt: payload.chatOpensAt ?? null,
+    chatClosesAt: payload.chatClosesAt ?? null,
     createdBy,
     createdAt: now,
     updatedAt: now,
   };
   await ref.set(event);
   return event;
+}
+
+export async function cancelEvent(
+  id: string,
+  reason?: string,
+): Promise<Event | null> {
+  const ref = adminDb.collection(EVENTS).doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) return null;
+  const patch = {
+    status: 'cancelled' as EventStatus,
+    cancelledAt: Date.now(),
+    cancelledReason: reason?.trim() ? reason.trim() : null,
+    updatedAt: Date.now(),
+  };
+  await ref.update(patch);
+  const updated = await ref.get();
+  return updated.data() as Event;
+}
+
+/** List of {email,displayName} for RSVP entries matching a status filter. */
+export async function getRsvpEmailsByFilter(
+  eventId: string,
+  filter: 'confirmed' | 'waitlisted' | 'all',
+): Promise<{ email: string; displayName: string }[]> {
+  const snap = await adminDb.collection('rsvps').doc(eventId).get();
+  if (!snap.exists) return [];
+  const doc = snap.data() as RsvpDoc;
+  const out: { email: string; displayName: string }[] = [];
+  const seen = new Set<string>();
+  for (const entry of Object.values(doc.entries) as RsvpEntry[]) {
+    if (entry.status === 'cancelled' || entry.status === 'rejected') continue;
+    if (filter === 'confirmed' && entry.status !== 'confirmed') continue;
+    if (filter === 'waitlisted' && entry.status !== 'waitlisted') continue;
+    const email = (entry.email ?? '').trim().toLowerCase();
+    if (!email) continue;
+    if (seen.has(email)) continue;
+    seen.add(email);
+    out.push({ email, displayName: entry.displayName || 'amigo' });
+  }
+  return out;
 }
 
 export async function updateEvent(

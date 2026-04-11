@@ -15,6 +15,10 @@ const TEMPLATE_NAMES: Record<EmailTemplateKey, string> = {
   reminder: 'Lembrete (dia anterior)',
   venue_reveal: 'Revelação do endereço',
   rejected: 'Inscrição recusada',
+  role_invite: 'Convite de admin/moderador',
+  role_promotion: 'Promoção a admin/moderador',
+  event_cancelled: 'Evento cancelado',
+  event_broadcast: 'Mensagem em massa (broadcast)',
 };
 
 const TEMPLATE_DESCRIPTIONS: Record<EmailTemplateKey, string> = {
@@ -22,8 +26,12 @@ const TEMPLATE_DESCRIPTIONS: Record<EmailTemplateKey, string> = {
   waitlist: 'Enviado quando entra na fila de espera',
   promotion: 'Enviado quando sai da fila e entra',
   reminder: 'Enviado 24h antes do evento',
-  venue_reveal: 'Enviado 3 dias antes com o endereço',
+  venue_reveal: 'Enviado N dias antes com o endereço (N configurado no evento)',
   rejected: 'Enviado quando admin recusa alguém',
+  role_invite: 'Enviado quando admin convida alguém por email pra ser admin/moderador',
+  role_promotion: 'Enviado quando admin promove um usuário existente a admin/moderador',
+  event_cancelled: 'Enviado quando admin cancela um evento (broadcast aos RSVPs)',
+  event_broadcast: 'Wrapper da mensagem em massa admin-authored pros RSVPs',
 };
 
 // Variables available per template
@@ -31,6 +39,16 @@ const BASE_VARS = ['{nome}', '{evento}', '{data}', '{horario}'];
 const EXTRA_VARS: Partial<Record<EmailTemplateKey, string[]>> = {
   reminder: ['{local}'],
   venue_reveal: ['{local}'],
+  role_invite: ['{role}', '{link}'],
+  role_promotion: ['{role}', '{link}'],
+  event_cancelled: ['{motivo}'],
+  event_broadcast: ['{assunto}', '{corpo}'],
+};
+const OVERRIDE_VARS: Partial<Record<EmailTemplateKey, string[]>> = {
+  role_invite: ['{nome}', '{role}', '{link}'],
+  role_promotion: ['{nome}', '{role}', '{link}'],
+  event_cancelled: ['{nome}', '{evento}', '{data}', '{motivo}'],
+  event_broadcast: ['{nome}', '{evento}', '{assunto}', '{corpo}'],
 };
 
 // Sample data for live preview
@@ -40,6 +58,8 @@ const SAMPLE: Record<string, string> = {
   data: '15/05/2026',
   horario: '19h',
   local: 'Rua Exemplo, 123',
+  role: 'administrador',
+  link: 'https://quartinho.exemplo/admin',
 };
 
 function interpolate(str: string): string {
@@ -82,8 +102,9 @@ const TemplateEditor: React.FC<{
   template: EmailTemplate;
   onBack: () => void;
   onSaved: (t: EmailTemplate) => void;
+  onToggle: (enabled: boolean) => Promise<void>;
   idToken: string | null;
-}> = ({ template, onBack, onSaved, idToken }) => {
+}> = ({ template, onBack, onSaved, onToggle, idToken }) => {
   const [subject, setSubject] = useState(template.subject);
   const [body, setBody] = useState(template.body);
   const [saving, setSaving] = useState(false);
@@ -91,7 +112,7 @@ const TemplateEditor: React.FC<{
 
   const isDirty = subject !== template.subject || body !== template.body;
 
-  const vars = [...BASE_VARS, ...(EXTRA_VARS[template.key] ?? [])];
+  const vars = OVERRIDE_VARS[template.key] ?? [...BASE_VARS, ...(EXTRA_VARS[template.key] ?? [])];
 
   function handleBack() {
     if (isDirty && !confirm('Há alterações não salvas. Sair mesmo assim?')) return;
@@ -165,6 +186,21 @@ const TemplateEditor: React.FC<{
         <p className="font-body text-xs text-zine-burntOrange/60 mb-3">
           {TEMPLATE_DESCRIPTIONS[template.key]}
         </p>
+
+        {!template.enabled && (
+          <div className="bg-zine-cream/50 border-2 border-dashed border-zine-burntOrange/30 px-3 py-2 mb-3 flex items-center justify-between gap-2 flex-wrap">
+            <span className="font-body text-sm text-zine-burntOrange/60">
+              este modelo está desativado — edições são salvas mas nada é enviado
+            </span>
+            <button
+              type="button"
+              onClick={() => void onToggle(true)}
+              className="font-body text-sm text-zine-burntOrange underline shrink-0"
+            >
+              ativar
+            </button>
+          </div>
+        )}
 
         <HelperBox>
           Edite o assunto e o corpo do email. Use as variáveis entre chaves para inserir dados do evento. Clique numa variável pra copiar no campo de texto.
@@ -258,6 +294,11 @@ const TemplateList: React.FC<{
             <p className="font-body text-xs text-zine-burntOrange/60 mt-0.5">
               {TEMPLATE_DESCRIPTIONS[t.key]}
             </p>
+            {!t.enabled && (
+              <span className="inline-block mt-1 bg-zine-cream/50 border border-zine-burntOrange/30 text-zine-burntOrange/60 font-body text-xs px-2 py-0.5 rounded">
+                desativado — não envia
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <Toggle
@@ -284,7 +325,8 @@ const TemplateList: React.FC<{
 export const EmailTemplatesPanel: React.FC<{
   idToken: string | null;
   initialTemplates?: EmailTemplate[];
-}> = ({ idToken, initialTemplates }) => {
+  onTemplatesChange?: (next: EmailTemplate[]) => void;
+}> = ({ idToken, initialTemplates, onTemplatesChange }) => {
   const [templates, setTemplates] = useState<EmailTemplate[]>(initialTemplates ?? []);
   const [loading, setLoading] = useState(!initialTemplates);
   const [error, setError] = useState<string | null>(null);
@@ -292,7 +334,10 @@ export const EmailTemplatesPanel: React.FC<{
   const [toggling, setToggling] = useState<string | null>(null);
 
   useEffect(() => {
-    if (initialTemplates) return;
+    if (initialTemplates) {
+      setTemplates(initialTemplates);
+      return;
+    }
     if (!idToken) return;
     void fetchEmailTemplates(idToken)
       .then((t) => {
@@ -305,12 +350,21 @@ export const EmailTemplatesPanel: React.FC<{
       });
   }, [idToken, initialTemplates]);
 
+  function applyUpdate(updated: EmailTemplate) {
+    setTemplates((prev) => {
+      const next = prev.map((x) => (x.key === updated.key ? updated : x));
+      onTemplatesChange?.(next);
+      return next;
+    });
+  }
+
   async function handleToggle(t: EmailTemplate, enabled: boolean) {
     if (!idToken) return;
     setToggling(t.key);
     try {
       const updated = await updateEmailTemplate(t.key, { enabled }, idToken);
-      setTemplates((prev) => prev.map((x) => (x.key === t.key ? updated : x)));
+      applyUpdate(updated);
+      if (editing?.key === updated.key) setEditing(updated);
     } catch (err) {
       alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -319,7 +373,7 @@ export const EmailTemplatesPanel: React.FC<{
   }
 
   function handleSaved(updated: EmailTemplate) {
-    setTemplates((prev) => prev.map((x) => (x.key === updated.key ? updated : x)));
+    applyUpdate(updated);
     setEditing(updated);
   }
 
@@ -332,6 +386,7 @@ export const EmailTemplatesPanel: React.FC<{
         template={editing}
         onBack={() => setEditing(null)}
         onSaved={handleSaved}
+        onToggle={(v) => handleToggle(editing, v)}
         idToken={idToken}
       />
     );
