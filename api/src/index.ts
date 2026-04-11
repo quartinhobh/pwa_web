@@ -22,9 +22,10 @@ const PORT = Number(process.env.PORT) || 3001;
 
 // Trust proxy for Render/reverse-proxy deployments (required by express-rate-limit).
 app.set('trust proxy', 1);
+// TODO: quando colocar em produção será necessário mudar isso, provavelmente é melhor receber de ENV.
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? ['https://teste-qbh.web.app', 'https://teste-qbh.firebaseapp.com']
+    ? ['https://teste-qbh.web.app', 'https://teste-qbh.firebaseapp.com', 'https://pwa-web-njxj.onrender.com']
     : true,
   credentials: true,
 }));
