@@ -76,3 +76,27 @@
     animation: none;
   }
 }
+
+/* Confetti burst animation */
+.confetti-particle {
+  width: var(--confetti-size);
+  height: var(--confetti-size);
+  background: var(--confetti-color);
+  border-radius: 2px;
+  animation: confetti-fly 1s ease-out forwards;
+  transform-origin: center;
+}
+
+@keyframes confetti-fly {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(0deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+      calc(-50% + cos(var(--confetti-angle)) * var(--confetti-velocity) * 15%),
+      calc(-50% + sin(var(--confetti-angle)) * var(--confetti-velocity) * 15% + 20%))
+    ) rotate(var(--confetti-rotation)) scale(0.5);
+  }
+}

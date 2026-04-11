@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
 import { useIdToken } from '@/hooks/useIdToken';
@@ -175,6 +176,15 @@ export const UsersPanel: React.FC = () => {
                   <span className="font-body text-xs text-zine-burntOrange/70">
                     {u.email ?? 'sem email'} · {ROLE_LABELS[u.role]}
                   </span>
+                  {u.username && (
+                    <Link
+                      to={`/u/${u.username}`}
+                      target="_blank"
+                      className="font-body text-xs text-zine-burntOrange underline hover:opacity-70"
+                    >
+                      Ver perfil →
+                    </Link>
+                  )}
                 </div>
                 <select
                   value={u.role}

@@ -19,6 +19,12 @@ vi.mock('@/services/api', () => ({
   trackStickerClick: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Mock confetti to avoid issues with createParticles not being defined
+vi.mock('@/components/common/Confetti', () => ({
+  useConfettiBurst: () => ({ particles: [], burst: vi.fn() }),
+  ConfettiLayer: () => null,
+}));
+
 // Reset the persisted apiCache between tests so a stale stickerConfig from
 // a previous run can't change the timing.
 beforeEach(() => {

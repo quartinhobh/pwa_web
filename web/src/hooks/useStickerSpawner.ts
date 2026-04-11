@@ -150,8 +150,8 @@ export function useStickerSpawner(): {
               cooldownUntil: null,
             };
           }
-          writeCooldown(cooldownRef.current);
-          return [...curr, next];
+            writeCooldown(cooldownRef.current);
+            return [...curr, next];
         });
         schedule();
       }, delay);
