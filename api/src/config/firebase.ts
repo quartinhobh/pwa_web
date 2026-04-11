@@ -49,6 +49,7 @@ function buildApp(): App {
         clientEmail: sa.client_email,
         privateKey: sa.private_key,
       }),
+      databaseURL: `https://${sa.project_id}-default-rtdb.firebaseio.com`,
     });
   }
 
