@@ -869,13 +869,13 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ eventId, idToken, onClose }) =>
       }
     }
     void load();
-  }, [eventId]);
+  }, [eventId, idToken]);
 
   const confirmed = entries.filter((e) => e.status === 'confirmed');
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:hidden">
         <div className="bg-zine-cream dark:bg-zine-surface-dark border-4 border-zine-burntOrange p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <p className="font-body text-zine-burntOrange dark:text-zine-cream">carregando…</p>
         </div>
@@ -884,10 +884,10 @@ const PdfPreview: React.FC<PdfPreviewProps> = ({ eventId, idToken, onClose }) =>
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-zine-cream dark:bg-zine-surface-dark border-4 border-zine-burntOrange p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 print:fixed print:inset-0 print:bg-white print:p-0 print:flex print:items-start print:justify-start">
+      <div className="bg-zine-cream dark:bg-zine-surface-dark border-4 border-zine-burntOrange p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto print:border-0 print:bg-white print:text-black print:max-w-full print:max-h-none print:p-0">
         {/* Print-friendly content */}
-        <div className="print:p-0 print:border-0 print:bg-white print:text-black">
+        <div>
           {/* Header */}
           <div className="mb-6 pb-4 border-b-2 border-zine-burntOrange print:border-gray-300">
             <h1 className="font-display text-2xl text-zine-burntOrange print:text-black mb-1">
