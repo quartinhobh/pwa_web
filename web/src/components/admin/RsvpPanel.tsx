@@ -13,7 +13,7 @@ import {
   moveRsvpToWaitlist,
   fetchEvents,
 } from '@/services/api';
-import type { AdminRsvpEntry, RsvpStatus, Event } from '@/types';
+import type { AdminRsvpEntry, RsvpStatus } from '@/types';
 
 export interface RsvpPanelProps {
   eventId: string;
