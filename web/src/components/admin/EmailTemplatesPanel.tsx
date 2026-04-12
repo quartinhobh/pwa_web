@@ -3,7 +3,7 @@ import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
 import HelperBox from '@/components/admin/HelperBox';
-import { fetchEmailTemplates, updateEmailTemplate, restoreEmailTemplate } from '@/services/api';
+import { fetchEmailTemplates, updateEmailTemplate, restoreEmailTemplate, sendTestEmail } from '@/services/api';
 import type { EmailTemplate, EmailTemplateKey } from '@/types';
 
 // ─── Static metadata ─────────────────────────────────────────────────
@@ -108,6 +108,9 @@ const TemplateEditor: React.FC<{
   const [subject, setSubject] = useState(template.subject);
   const [body, setBody] = useState(template.body);
   const [saving, setSaving] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [testStatus, setTestStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [testError, setTestError] = useState<string | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   const isDirty = subject !== template.subject || body !== template.body;
@@ -163,6 +166,25 @@ const TemplateEditor: React.FC<{
       alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSendTest() {
+    if (!idToken) return;
+    setTestStatus('sending');
+    setTestError(null);
+    try {
+      await sendTestEmail(idToken, template.key, {
+        email: testEmail.trim() || undefined,
+        subjectOverride: subject,
+        bodyOverride: body,
+      });
+      setTestStatus('sent');
+      window.setTimeout(() => setTestStatus('idle'), 4000);
+    } catch (err) {
+      setTestStatus('error');
+      setTestError(err instanceof Error ? err.message : String(err));
+      window.setTimeout(() => setTestStatus('idle'), 4000);
     }
   }
 
@@ -266,6 +288,38 @@ const TemplateEditor: React.FC<{
           >
             Restaurar padrão
           </button>
+        </div>
+
+        {/* Send test email */}
+        <div className="mt-4 border-t-2 border-dashed border-zine-burntOrange/30 pt-3 flex flex-col gap-2">
+          <p className="font-body text-xs text-zine-burntOrange/70">
+            Envie um teste deste template (com o texto atual, mesmo não salvo) pro seu email.
+          </p>
+          <div className="flex gap-2 flex-wrap items-center">
+            <input
+              type="email"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              placeholder="(deixe em branco pra usar seu email)"
+              className="font-body px-2 py-1 text-xs border-2 border-dashed border-zine-burntOrange/40 bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange flex-1 min-w-[200px]"
+            />
+            <button
+              type="button"
+              onClick={() => void handleSendTest()}
+              disabled={testStatus === 'sending' || !idToken}
+              className="font-body text-sm text-zine-burntOrange border-2 border-dashed border-zine-burntOrange/60 px-3 py-1 hover:bg-zine-burntOrange/10 disabled:opacity-50"
+            >
+              {testStatus === 'sending' ? 'enviando...' : 'enviar teste pro meu email'}
+            </button>
+          </div>
+          {testStatus === 'sent' && (
+            <p className="font-body text-xs text-zine-mint">enviado ✓ verifica sua caixa</p>
+          )}
+          {testStatus === 'error' && (
+            <p className="font-body text-xs text-zine-burntOrange">
+              não foi possível enviar{testError ? ` — ${testError}` : ''}
+            </p>
+          )}
         </div>
       </ZineFrame>
     </div>

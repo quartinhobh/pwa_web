@@ -7,15 +7,24 @@ vi.mock('@/services/api', () => ({
   fetchAdminRsvpList: vi.fn(),
   approveRejectRsvp: vi.fn(),
   exportRsvpCsv: vi.fn(),
+  adminCancelRsvp: vi.fn(),
+  moveRsvpToWaitlist: vi.fn(),
 }));
 
 import { RsvpPanel } from '@/components/admin/RsvpPanel';
-import { fetchAdminRsvpList, approveRejectRsvp } from '@/services/api';
+import {
+  fetchAdminRsvpList,
+  approveRejectRsvp,
+  adminCancelRsvp,
+  moveRsvpToWaitlist,
+} from '@/services/api';
 import type { AdminRsvpEntry } from '@/types';
 
 const makeMocks = () => ({
   fetchAdminRsvpList: fetchAdminRsvpList as Mock,
   approveRejectRsvp: approveRejectRsvp as Mock,
+  adminCancelRsvp: adminCancelRsvp as Mock,
+  moveRsvpToWaitlist: moveRsvpToWaitlist as Mock,
 });
 
 const confirmedEntry: AdminRsvpEntry = {
@@ -53,7 +62,7 @@ beforeEach(() => {
 describe('RsvpPanel', () => {
   it('shows loading state initially, then renders entries after fetch', async () => {
     const { fetchAdminRsvpList: mockFetch } = makeMocks();
-    mockFetch.mockResolvedValue({ entries: [confirmedEntry] });
+    mockFetch.mockResolvedValue({ entries: [confirmedEntry], capacity: null });
 
     render(<RsvpPanel eventId="evt1" idToken="tok" />);
 
@@ -65,7 +74,7 @@ describe('RsvpPanel', () => {
 
   it('shows "Nenhum registro." when no entries', async () => {
     const { fetchAdminRsvpList: mockFetch } = makeMocks();
-    mockFetch.mockResolvedValue({ entries: [] });
+    mockFetch.mockResolvedValue({ entries: [], capacity: null });
 
     render(<RsvpPanel eventId="evt1" idToken="tok" />);
 
@@ -74,7 +83,7 @@ describe('RsvpPanel', () => {
 
   it('filter tabs work — clicking "Confirmados" filters to confirmed only', async () => {
     const { fetchAdminRsvpList: mockFetch } = makeMocks();
-    mockFetch.mockResolvedValue({ entries: [confirmedEntry, pendingEntry] });
+    mockFetch.mockResolvedValue({ entries: [confirmedEntry, pendingEntry], capacity: null });
 
     render(<RsvpPanel eventId="evt1" idToken="tok" />);
 
@@ -97,7 +106,7 @@ describe('RsvpPanel', () => {
       authMode: 'guest',
     };
     const { fetchAdminRsvpList: mockFetch } = makeMocks();
-    mockFetch.mockResolvedValue({ entries: [confirmedEntry, guestEntry] });
+    mockFetch.mockResolvedValue({ entries: [confirmedEntry, guestEntry], capacity: null });
 
     render(<RsvpPanel eventId="evt1" idToken="tok" />);
 
@@ -108,7 +117,7 @@ describe('RsvpPanel', () => {
 
   it('shows approve/reject buttons for pending_approval entries', async () => {
     const { fetchAdminRsvpList: mockFetch } = makeMocks();
-    mockFetch.mockResolvedValue({ entries: [pendingEntry] });
+    mockFetch.mockResolvedValue({ entries: [pendingEntry], capacity: null });
 
     render(<RsvpPanel eventId="evt1" idToken="tok" />);
 
@@ -119,7 +128,7 @@ describe('RsvpPanel', () => {
 
   it('calls approveRejectRsvp when approve button clicked', async () => {
     const { fetchAdminRsvpList: mockFetch, approveRejectRsvp: mockAction } = makeMocks();
-    mockFetch.mockResolvedValue({ entries: [pendingEntry] });
+    mockFetch.mockResolvedValue({ entries: [pendingEntry], capacity: null });
     mockAction.mockResolvedValue({ entry: { ...pendingEntry, status: 'confirmed' } });
 
     render(<RsvpPanel eventId="evt1" idToken="tok" />);
@@ -129,7 +138,112 @@ describe('RsvpPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: /aprovar/i }));
 
     await waitFor(() =>
-      expect(mockAction).toHaveBeenCalledWith('evt1', 'u2', 'confirmed', 'tok'),
+      expect(mockAction).toHaveBeenCalledWith('evt1', 'firebase:u2', 'confirmed', 'tok'),
     );
+  });
+
+  it('search filters entries by name (case-insensitive substring)', async () => {
+    const { fetchAdminRsvpList: mockFetch } = makeMocks();
+    const maria: AdminRsvpEntry = {
+      ...confirmedEntry,
+      entryKey: 'firebase:u3',
+      userId: 'u3',
+      displayName: 'Maria',
+      email: 'maria@example.com',
+    };
+    mockFetch.mockResolvedValue({
+      entries: [confirmedEntry, pendingEntry, maria],
+      capacity: null,
+    });
+
+    render(<RsvpPanel eventId="evt1" idToken="tok" />);
+
+    await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
+
+    await userEvent.type(screen.getByPlaceholderText(/buscar/i), 'ma');
+
+    expect(screen.getByText('Maria')).toBeInTheDocument();
+    expect(screen.queryByText('Alice')).not.toBeInTheDocument();
+    expect(screen.queryByText('Bruno')).not.toBeInTheDocument();
+  });
+
+  it('clicking Nome header toggles sort direction', async () => {
+    const { fetchAdminRsvpList: mockFetch } = makeMocks();
+    const alice: AdminRsvpEntry = { ...confirmedEntry, displayName: 'Alice', createdAt: 1 };
+    const zelda: AdminRsvpEntry = {
+      ...confirmedEntry,
+      entryKey: 'firebase:u9',
+      userId: 'u9',
+      displayName: 'Zelda',
+      createdAt: 2,
+    };
+    mockFetch.mockResolvedValue({ entries: [alice, zelda], capacity: null });
+
+    render(<RsvpPanel eventId="evt1" idToken="tok" />);
+
+    await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
+
+    const header = screen.getByText(/Nome/i);
+    await userEvent.click(header);
+    expect(header.textContent).toContain('▲');
+    await userEvent.click(header);
+    expect(header.textContent).toContain('▼');
+  });
+
+  it('bulk approve calls approveRejectRsvp for each selected approvable entry', async () => {
+    const { fetchAdminRsvpList: mockFetch, approveRejectRsvp: mockAction } = makeMocks();
+    const p1: AdminRsvpEntry = { ...pendingEntry, entryKey: 'firebase:a', userId: 'a', displayName: 'A' };
+    const p2: AdminRsvpEntry = { ...pendingEntry, entryKey: 'firebase:b', userId: 'b', displayName: 'B' };
+    mockFetch.mockResolvedValue({ entries: [p1, p2], capacity: null });
+    mockAction.mockResolvedValue({ entry: { ...pendingEntry, status: 'confirmed' } });
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+
+    render(<RsvpPanel eventId="evt1" idToken="tok" />);
+
+    await waitFor(() => expect(screen.getByText('A')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByLabelText('selecionar A'));
+    await userEvent.click(screen.getByLabelText('selecionar B'));
+
+    const bulkBtn = screen.getByRole('button', { name: /aprovar 2/i });
+    await userEvent.click(bulkBtn);
+
+    await waitFor(() => expect(mockAction).toHaveBeenCalledTimes(2));
+    expect(mockAction).toHaveBeenCalledWith('evt1', 'firebase:a', 'confirmed', 'tok');
+    expect(mockAction).toHaveBeenCalledWith('evt1', 'firebase:b', 'confirmed', 'tok');
+  });
+
+  it('remover confirmed calls adminCancelRsvp after confirm', async () => {
+    const { fetchAdminRsvpList: mockFetch, adminCancelRsvp: mockCancel } = makeMocks();
+    mockFetch.mockResolvedValue({ entries: [confirmedEntry], capacity: null });
+    mockCancel.mockResolvedValue({ promotedEntryKey: null });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<RsvpPanel eventId="evt1" idToken="tok" />);
+
+    await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: /remover/i }));
+
+    await waitFor(() =>
+      expect(mockCancel).toHaveBeenCalledWith('tok', 'evt1', 'firebase:u1'),
+    );
+  });
+
+  it('renders counter with N/capacity and progress bar width', async () => {
+    const { fetchAdminRsvpList: mockFetch } = makeMocks();
+    // 1 confirmed (no plus-one) + capacity 10 → 10% width
+    mockFetch.mockResolvedValue({ entries: [confirmedEntry], capacity: 10 });
+
+    render(<RsvpPanel eventId="evt1" idToken="tok" />);
+
+    await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
+
+    const counter = screen.getByTestId('rsvp-counter');
+    expect(counter.textContent).toContain('1');
+    expect(counter.textContent).toContain('/ 10');
+
+    const bar = screen.getByTestId('rsvp-progress-bar') as HTMLElement;
+    expect(bar.style.width).toBe('10%');
   });
 });

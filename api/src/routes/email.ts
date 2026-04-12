@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/roleCheck';
 import { sendEmail, sendBulk, wrapTemplate, getLimitsInfo, verifyUnsubscribeToken, DAILY_SEND_LIMIT, MONTHLY_SEND_LIMIT, MAX_GROUP_SIZE } from '../services/emailService';
-import { getAllTemplates, updateTemplate } from '../services/emailTemplateService';
+import { getAllTemplates, updateTemplate, buildRawTemplate, interpolate, ALL_KEYS } from '../services/emailTemplateService';
 import type { EmailTemplateKey } from '../types';
 import { adminDb } from '../config/firebase';
 
@@ -540,8 +540,7 @@ emailRouter.put(
   requireRole('admin'),
   async (req: Request, res: Response) => {
     const key = req.params.key as EmailTemplateKey;
-    const validKeys: EmailTemplateKey[] = ['confirmation', 'waitlist', 'promotion', 'reminder', 'venue_reveal', 'rejected', 'role_invite', 'role_promotion'];
-    if (!validKeys.includes(key)) {
+    if (!ALL_KEYS.includes(key)) {
       res.status(400).json({ error: 'invalid_key' });
       return;
     }
@@ -564,8 +563,7 @@ emailRouter.delete(
   requireRole('admin'),
   async (req: Request, res: Response) => {
     const key = req.params.key as EmailTemplateKey;
-    const validKeys: EmailTemplateKey[] = ['confirmation', 'waitlist', 'promotion', 'reminder', 'venue_reveal', 'rejected', 'role_invite', 'role_promotion'];
-    if (!validKeys.includes(key)) {
+    if (!ALL_KEYS.includes(key)) {
       res.status(400).json({ error: 'invalid_key' });
       return;
     }
@@ -578,6 +576,80 @@ emailRouter.delete(
     } catch (err) {
       console.error('[email/templates DELETE]', err);
       res.status(500).json({ error: 'restore_template_failed' });
+    }
+  },
+);
+
+/** POST /email/templates/:key/test — send a test render of a template to the admin */
+emailRouter.post(
+  '/templates/:key/test',
+  requireAuth,
+  requireRole('admin'),
+  async (req: Request, res: Response) => {
+    const key = req.params.key as EmailTemplateKey;
+    if (!ALL_KEYS.includes(key)) {
+      res.status(400).json({ error: 'invalid_key' });
+      return;
+    }
+    const { email, subjectOverride, bodyOverride } = req.body as {
+      email?: string;
+      subjectOverride?: string;
+      bodyOverride?: string;
+    };
+
+    // Determine recipient — body > admin email from token > nothing.
+    const recipient = (email?.trim()) || req.user?.email || null;
+    if (!recipient) {
+      res.status(400).json({ error: 'no_recipient' });
+      return;
+    }
+
+    // Sample variables in pt-BR so previews look realistic for every template key.
+    const sampleVars: Record<string, string> = {
+      nome: 'Você (teste)',
+      evento: 'Quartinho #42 — Pink Floyd / Animals',
+      data: 'qui, 24 de abril',
+      horario: '20h00',
+      local: 'rua do teste, 123 — bairro teste',
+      role: 'moderador',
+      link: 'https://teste-qbh.web.app/admin',
+      assunto: 'Este é um envio de teste',
+      corpo: 'Corpo do email de teste com quebra de linha.\n\nSegunda linha.',
+      motivo: 'chuva forte prevista',
+    };
+
+    try {
+      let subject: string;
+      let bodyText: string;
+
+      if (typeof subjectOverride === 'string' || typeof bodyOverride === 'string') {
+        // If either override is supplied, use them; fall back to stored template for the other.
+        const fallback = await buildRawTemplate(key, sampleVars);
+        subject =
+          typeof subjectOverride === 'string'
+            ? interpolate(subjectOverride, sampleVars)
+            : fallback?.subject ?? '';
+        bodyText =
+          typeof bodyOverride === 'string'
+            ? interpolate(bodyOverride, sampleVars)
+            : fallback?.bodyText ?? '';
+      } else {
+        const built = await buildRawTemplate(key, sampleVars);
+        if (!built) {
+          res.status(404).json({ error: 'template_not_found' });
+          return;
+        }
+        subject = built.subject;
+        bodyText = built.bodyText;
+      }
+
+      const html = wrapTemplate(`<p>${bodyText.replace(/\n/g, '<br>')}</p>`);
+      await sendEmail(recipient, `[TESTE] ${subject}`, html);
+
+      res.json({ sentTo: recipient, sentAt: Date.now() });
+    } catch (err) {
+      console.error('[email/templates/test]', err);
+      res.status(500).json({ error: 'send_failed' });
     }
   },
 );

@@ -6,6 +6,8 @@ import userEvent from '@testing-library/user-event';
 vi.mock('@/services/api', () => ({
   fetchEmailTemplates: vi.fn(),
   updateEmailTemplate: vi.fn(),
+  restoreEmailTemplate: vi.fn(),
+  sendTestEmail: vi.fn(),
 }));
 
 // HelperBox reads from HelperContext — mock so helper text is always visible
@@ -16,7 +18,7 @@ vi.mock('@/components/admin/HelperContext', () => ({
 
 import React from 'react';
 import { EmailTemplatesPanel } from '@/components/admin/EmailTemplatesPanel';
-import { fetchEmailTemplates, updateEmailTemplate } from '@/services/api';
+import { fetchEmailTemplates, updateEmailTemplate, sendTestEmail } from '@/services/api';
 import type { EmailTemplate } from '@/types';
 
 const makeMocks = () => ({
@@ -250,6 +252,49 @@ describe('EmailTemplatesPanel', () => {
 
     expect(confirmSpy).toHaveBeenCalled();
     confirmSpy.mockRestore();
+  });
+
+  it('"enviar teste pro meu email" calls sendTestEmail with current subject/body overrides', async () => {
+    const { fetchEmailTemplates: mockFetch } = makeMocks();
+    const mockSend = sendTestEmail as Mock;
+    mockFetch.mockResolvedValue([
+      makeTemplate('confirmation', { subject: 'subj', body: 'body text' }),
+    ]);
+    mockSend.mockResolvedValue({ sentTo: 'admin@test.com', sentAt: 123 });
+
+    render(<EmailTemplatesPanel idToken="tok" />);
+
+    await waitFor(() => expect(screen.getByText('Confirmação de presença')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: 'editar' }));
+
+    await userEvent.click(screen.getByRole('button', { name: /enviar teste pro meu email/i }));
+
+    await waitFor(() =>
+      expect(mockSend).toHaveBeenCalledWith('tok', 'confirmation', {
+        email: undefined,
+        subjectOverride: 'subj',
+        bodyOverride: 'body text',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText(/verifica sua caixa/i)).toBeInTheDocument(),
+    );
+  });
+
+  it('send test shows error message when api fails', async () => {
+    const { fetchEmailTemplates: mockFetch } = makeMocks();
+    const mockSend = sendTestEmail as Mock;
+    mockFetch.mockResolvedValue([makeTemplate('confirmation')]);
+    mockSend.mockRejectedValue(new Error('boom'));
+
+    render(<EmailTemplatesPanel idToken="tok" />);
+
+    await waitFor(() => expect(screen.getByText('Confirmação de presença')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: 'editar' }));
+    await userEvent.click(screen.getByRole('button', { name: /enviar teste pro meu email/i }));
+
+    await waitFor(() => expect(screen.getByText(/não foi possível enviar/i)).toBeInTheDocument());
   });
 
   it('does not fetch when idToken is null', () => {

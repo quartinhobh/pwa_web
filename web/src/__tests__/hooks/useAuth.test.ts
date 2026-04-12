@@ -9,6 +9,7 @@ vi.mock('firebase/auth', () => {
     signInWithPopup: vi.fn(),
     signInWithEmailAndPassword: vi.fn(),
     createUserWithEmailAndPassword: vi.fn(),
+    sendEmailVerification: vi.fn(() => Promise.resolve()),
     signOut: vi.fn(),
     connectAuthEmulator: vi.fn(),
     onAuthStateChanged: vi.fn(() => () => {}),
@@ -18,6 +19,8 @@ vi.mock('firebase/auth', () => {
 import * as firebaseAuth from 'firebase/auth';
 const signInWithPopupMock = firebaseAuth.signInWithPopup as unknown as ReturnType<typeof vi.fn>;
 const signOutMock = firebaseAuth.signOut as unknown as ReturnType<typeof vi.fn>;
+const createUserMock = firebaseAuth.createUserWithEmailAndPassword as unknown as ReturnType<typeof vi.fn>;
+const sendVerifyMock = firebaseAuth.sendEmailVerification as unknown as ReturnType<typeof vi.fn>;
 
 vi.mock('@/services/firebase', () => ({
   firebaseApp: {},
@@ -127,6 +130,42 @@ describe('useAuth', () => {
       expect(state.email).toBe('admin@quartinho.test');
       expect(state.displayName).toBe('Gustavo');
     });
+  });
+
+  it('signUpWithEmail calls sendEmailVerification with origin url', async () => {
+    const fakeUser = {
+      uid: 'new-uid',
+      getIdToken: vi.fn().mockResolvedValue('idtok-new'),
+    };
+    createUserMock.mockResolvedValueOnce({ user: fakeUser });
+    sendVerifyMock.mockResolvedValueOnce(undefined);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, firebaseUid: 'new-uid' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          userId: 'new-uid',
+          email: 'new@b.com',
+          displayName: 'New',
+          role: 'user',
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() => useAuth());
+    await act(async () => {
+      await result.current.signUpWithEmail('new@b.com', 'abcdefgh');
+    });
+
+    expect(createUserMock).toHaveBeenCalled();
+    expect(sendVerifyMock).toHaveBeenCalledWith(
+      fakeUser,
+      expect.objectContaining({ handleCodeInApp: false }),
+    );
   });
 
   it('signOut clears firebaseUid in the store', async () => {

@@ -19,6 +19,8 @@ import {
   updatePlusOne,
   getAdminList,
   approveOrReject,
+  adminCancelRsvp,
+  moveToWaitlist,
   exportCsv,
   buildEntryKey,
   type SubmitRsvpInput,
@@ -266,10 +268,74 @@ rsvpRouter.get(
   requireRole('admin'),
   async (req: Request, res: Response) => {
     try {
-      const entries = await getAdminList(req.params.eventId!);
-      res.status(200).json({ entries });
+      const eventId = req.params.eventId!;
+      const [entries, eventSnap] = await Promise.all([
+        getAdminList(eventId),
+        adminDb.collection('events').doc(eventId).get(),
+      ]);
+      const event = eventSnap.exists
+        ? (eventSnap.data() as { rsvp?: { capacity?: number | null } })
+        : null;
+      const capacity = event?.rsvp?.capacity ?? null;
+      res.status(200).json({ entries, capacity });
     } catch {
       res.status(500).json({ error: 'admin_list_failed' });
+    }
+  },
+);
+
+// PUT /events/:eventId/rsvp/admin/:entryKey/move-to-waitlist — move confirmed → waitlist
+rsvpRouter.put(
+  '/admin/:entryKey/move-to-waitlist',
+  writeLimiter,
+  requireAuth,
+  requireRole('admin'),
+  async (req: Request, res: Response) => {
+    try {
+      const eventId = req.params.eventId!;
+      const targetEntryKey = req.params.entryKey!;
+      const result = await moveToWaitlist(eventId, targetEntryKey);
+      res.status(200).json({ promotedEntryKey: result.promotedEntryKey });
+
+      if (result.promotedEntryKey) {
+        const eventSnap = await adminDb.collection('events').doc(eventId).get();
+        const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string } | undefined;
+        void sendRsvpEmail('promotion', eventId, result.promotedEntryKey, {
+          evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '',
+        });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'move_failed';
+      const status = msg === 'invalid_transition' || msg === 'entry_not_found' ? 400 : 500;
+      res.status(status).json({ error: msg });
+    }
+  },
+);
+
+// DELETE /events/:eventId/rsvp/admin/:entryKey — admin cancels any entry
+rsvpRouter.delete(
+  '/admin/:entryKey',
+  writeLimiter,
+  requireAuth,
+  requireRole('admin'),
+  async (req: Request, res: Response) => {
+    try {
+      const eventId = req.params.eventId!;
+      const targetEntryKey = req.params.entryKey!;
+      const result = await adminCancelRsvp(eventId, targetEntryKey);
+      res.status(200).json({ promotedEntryKey: result.promotedEntryKey });
+
+      if (result.promotedEntryKey) {
+        const eventSnap = await adminDb.collection('events').doc(eventId).get();
+        const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string } | undefined;
+        void sendRsvpEmail('promotion', eventId, result.promotedEntryKey, {
+          evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '',
+        });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'cancel_failed';
+      const status = msg === 'not_rsvped' || msg === 'no_rsvp' ? 400 : 500;
+      res.status(status).json({ error: msg });
     }
   },
 );

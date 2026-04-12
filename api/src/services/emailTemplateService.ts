@@ -65,6 +65,11 @@ const DEFAULTS: Record<EmailTemplateKey, TemplateDefault> = {
   },
 };
 
+/** Simple `{var}` interpolation used by email templates. */
+export function interpolate(str: string, variables: Record<string, string>): string {
+  return str.replace(/\{(\w+)\}/g, (_, v: string) => variables[v] ?? `{${v}}`);
+}
+
 export const EMAIL_TEMPLATE_DESCRIPTIONS: Record<EmailTemplateKey, string> = Object.fromEntries(
   (Object.keys(DEFAULTS) as EmailTemplateKey[]).map((k) => [k, DEFAULTS[k].description]),
 ) as Record<EmailTemplateKey, string>;
@@ -172,12 +177,25 @@ export async function buildRsvpEmail(
   if (!(await isTemplateSendable(key))) return null;
   const template = await getEffectiveTemplate(key);
 
-  function interpolate(str: string): string {
-    return str.replace(/\{(\w+)\}/g, (_, v: string) => variables[v] ?? `{${v}}`);
-  }
-
   return {
-    subject: interpolate(template.subject),
-    bodyText: interpolate(template.body),
+    subject: interpolate(template.subject, variables),
+    bodyText: interpolate(template.body, variables),
+  };
+}
+
+/**
+ * Build a template identical to buildRsvpEmail but bypasses isTemplateSendable
+ * (master switch + enabled flag). Used for admin "send test" flows — always renders.
+ * Returns null only if the key has no template at all (shouldn't happen for ALL_KEYS).
+ */
+export async function buildRawTemplate(
+  key: EmailTemplateKey,
+  variables: Record<string, string>,
+): Promise<{ subject: string; bodyText: string } | null> {
+  const template = await getEffectiveTemplate(key);
+  if (!template) return null;
+  return {
+    subject: interpolate(template.subject, variables),
+    bodyText: interpolate(template.body, variables),
   };
 }

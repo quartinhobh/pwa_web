@@ -38,8 +38,8 @@ export const ResetPassword: React.FC = () => {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (password.length < 6) {
-      setError('senha precisa ter pelo menos 6 caracteres');
+    if (password.length < 8) {
+      setError('senha precisa ter pelo menos 8 caracteres');
       return;
     }
     if (password !== confirm) {
@@ -105,7 +105,7 @@ export const ResetPassword: React.FC = () => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={6}
+            minLength={8}
             className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
           />
           <input
@@ -115,9 +115,15 @@ export const ResetPassword: React.FC = () => {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             required
-            minLength={6}
+            minLength={8}
             className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
           />
+          {password.length >= 8 &&
+            !(/[0-9]/.test(password) && /[a-zA-Z]/.test(password)) && (
+              <p className="font-body text-xs text-zine-burntOrange/50">
+                dica: mistura letras e números pra uma senha mais forte
+              </p>
+            )}
           {error && (
             <p role="alert" className="font-body text-sm text-zine-burntOrange">
               {error}

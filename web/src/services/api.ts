@@ -4,6 +4,7 @@ import type {
   Banner,
   BannerRoute,
   EmailTemplate,
+  EmailTemplateKey,
   Event,
   EventExtras,
   EventStatus,
@@ -1172,13 +1173,14 @@ export async function updateRsvpPlusOne(
 export async function fetchAdminRsvpList(
   eventId: string,
   idToken: string,
-): Promise<{ entries: AdminRsvpEntry[] }> {
+): Promise<{ entries: AdminRsvpEntry[]; capacity: number | null }> {
   const res = await fetch(
     `${API_URL}/events/${encodeURIComponent(eventId)}/rsvp/admin`,
     { headers: { Authorization: `Bearer ${idToken}` } },
   );
   if (!res.ok) throw new Error(`GET rsvp/admin failed: ${res.status}`);
-  return (await res.json()) as { entries: AdminRsvpEntry[] };
+  const body = (await res.json()) as { entries: AdminRsvpEntry[]; capacity?: number | null };
+  return { entries: body.entries, capacity: body.capacity ?? null };
 }
 
 export async function approveRejectRsvp(
@@ -1287,4 +1289,47 @@ export async function updateChatConfig(
     throw new Error(body.error ?? `PUT /chat/config failed: ${res.status}`);
   }
   return (await res.json()) as { pauseAll: boolean };
+}
+
+export async function adminCancelRsvp(
+  idToken: string,
+  eventId: string,
+  entryKey: string,
+): Promise<{ promotedEntryKey: string | null }> {
+  const res = await fetch(
+    `${API_URL}/events/${encodeURIComponent(eventId)}/rsvp/admin/${encodeURIComponent(entryKey)}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${idToken}` } },
+  );
+  if (!res.ok) throw new Error(`DELETE rsvp/admin/${entryKey} failed: ${res.status}`);
+  return (await res.json()) as { promotedEntryKey: string | null };
+}
+
+export async function moveRsvpToWaitlist(
+  idToken: string,
+  eventId: string,
+  entryKey: string,
+): Promise<{ promotedEntryKey: string | null }> {
+  const res = await fetch(
+    `${API_URL}/events/${encodeURIComponent(eventId)}/rsvp/admin/${encodeURIComponent(entryKey)}/move-to-waitlist`,
+    { method: 'PUT', headers: { Authorization: `Bearer ${idToken}` } },
+  );
+  if (!res.ok) throw new Error(`PUT rsvp/admin/${entryKey}/move-to-waitlist failed: ${res.status}`);
+  return (await res.json()) as { promotedEntryKey: string | null };
+}
+
+export async function sendTestEmail(
+  idToken: string,
+  key: EmailTemplateKey,
+  input?: { email?: string; subjectOverride?: string; bodyOverride?: string },
+): Promise<{ sentTo: string; sentAt: number }> {
+  const res = await fetch(`${API_URL}/email/templates/${encodeURIComponent(key)}/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+    body: JSON.stringify(input ?? {}),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `POST /email/templates/${key}/test failed: ${res.status}`);
+  }
+  return (await res.json()) as { sentTo: string; sentAt: number };
 }

@@ -64,18 +64,19 @@ describe('ResetPassword page', () => {
     const submit = screen.getByRole('button', { name: /redefinir senha/i });
 
     // Mismatch
-    fireEvent.change(newPw, { target: { value: 'abcdef' } });
-    fireEvent.change(confirmPw, { target: { value: 'ghijkl' } });
+    fireEvent.change(newPw, { target: { value: 'abcdefgh' } });
+    fireEvent.change(confirmPw, { target: { value: 'ghijklmn' } });
     fireEvent.click(submit);
     expect(await screen.findByText(/não batem/i)).toBeInTheDocument();
     expect(confirmMock).not.toHaveBeenCalled();
 
     // Successful
-    fireEvent.change(confirmPw, { target: { value: 'abcdef' } });
+    fireEvent.change(confirmPw, { target: { value: 'abcdefgh' } });
     fireEvent.click(submit);
 
     await waitFor(() => {
-      expect(confirmMock).toHaveBeenCalledWith(expect.anything(), 'good', 'abcdef');
+      expect(confirmMock).toHaveBeenCalledWith(expect.anything(), 'good', 'abcdefgh');
+      // Submitted with 8-char matching password.
     });
     expect(await screen.findByText(/senha redefinida/i)).toBeInTheDocument();
   });

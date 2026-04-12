@@ -22,7 +22,7 @@ const PLATFORMS: { key: SocialPlatform; label: string; placeholder: string }[] =
 
 export const Profile: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user, emailVerified, resendVerificationEmail } = useAuth();
   const store = useSessionStore();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -60,8 +60,40 @@ export const Profile: React.FC = () => {
 
   const isEmailUser = user?.providerData?.some((p) => p.providerId === 'password') ?? false;
 
+  // Verification banner state
+  const [verifyResending, setVerifyResending] = useState(false);
+  const [verifyCooldownUntil, setVerifyCooldownUntil] = useState<number>(0);
+  const [verifyMsg, setVerifyMsg] = useState<string | null>(null);
+  const [nowTs, setNowTs] = useState(Date.now());
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (verifyCooldownUntil <= Date.now()) return;
+    const id = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [verifyCooldownUntil]);
+  const cooldownRemaining = Math.max(0, Math.ceil((verifyCooldownUntil - nowTs) / 1000));
+
+  const handleResendVerification = async () => {
+    if (cooldownRemaining > 0) return;
+    setVerifyResending(true);
+    setVerifyMsg(null);
+    try {
+      await resendVerificationEmail();
+      setVerifyMsg('email enviado. confere sua caixa.');
+      setVerifyCooldownUntil(Date.now() + 60_000);
+      setNowTs(Date.now());
+    } catch (err) {
+      console.error('[Profile] resend verification failed', err);
+      setVerifyMsg('não foi possível reenviar agora, tenta de novo em um minuto.');
+    } finally {
+      setVerifyResending(false);
+    }
+  };
+
+  // Intentionally uses firebaseUid directly (not useAuth.isAuthenticated) so
+  // unverified-email password users can still reach /profile to verify.
+  const signedIn = store.firebaseUid !== null || !!user;
+  useEffect(() => {
+    if (!signedIn) {
       navigate('/');
       return;
     }
@@ -88,7 +120,7 @@ export const Profile: React.FC = () => {
       }
     };
     void load();
-  }, [isAuthenticated, navigate, user]);
+  }, [signedIn, navigate, user]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -252,6 +284,31 @@ export const Profile: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      {isEmailUser && !emailVerified && (
+        <div
+          role="alert"
+          className="border-4 border-zine-burntOrange bg-zine-cream dark:bg-zine-surface-dark p-3 flex flex-wrap items-center gap-3"
+        >
+          <span className="font-body text-sm text-zine-burntOrange dark:text-zine-cream">
+            verifica seu email: confirma o link que te enviamos pra liberar todas as ações.
+          </span>
+          <button
+            type="button"
+            onClick={() => void handleResendVerification()}
+            disabled={verifyResending || cooldownRemaining > 0}
+            className="font-body text-sm text-zine-burntOrange underline disabled:opacity-40"
+          >
+            {verifyResending
+              ? 'enviando…'
+              : cooldownRemaining > 0
+                ? `reenviar (${cooldownRemaining}s)`
+                : 'reenviar'}
+          </button>
+          {verifyMsg && (
+            <span className="font-body text-xs text-zine-burntOrange/70">{verifyMsg}</span>
+          )}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <h2 className="font-display text-2xl text-zine-burntOrange dark:text-zine-burntOrange-bright">
           Meu perfil

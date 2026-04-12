@@ -3,7 +3,7 @@
 // POST /auth/link   — links a guest session to an authenticated user (Bearer ID token).
 
 import { Router, type Request, type Response } from 'express';
-import { requireAuth } from '../middleware/auth';
+import { requireAuthAllowUnverified } from '../middleware/auth';
 import { authGuestLimiter } from '../middleware/rateLimit';
 import { adminDb } from '../config/firebase';
 import {
@@ -33,7 +33,7 @@ authRouter.post(
 
 authRouter.post(
   '/link',
-  requireAuth,
+  requireAuthAllowUnverified,
   async (req: Request, res: Response) => {
     if (!req.user) {
       res.status(401).json({ error: 'unauthenticated' });
@@ -68,7 +68,7 @@ authRouter.post(
 // /auth/link), returns a safe default with role='guest'.
 authRouter.get(
   '/me',
-  requireAuth,
+  requireAuthAllowUnverified,
   async (req: Request, res: Response) => {
     if (!req.user) {
       res.status(401).json({ error: 'unauthenticated' });

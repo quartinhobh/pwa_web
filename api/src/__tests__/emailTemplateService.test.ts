@@ -46,7 +46,9 @@ import {
   getEffectiveTemplate,
   updateTemplate,
   buildRsvpEmail,
+  buildRawTemplate,
   isTemplateSendable,
+  interpolate,
 } from '../services/emailTemplateService';
 import type { EmailTemplateKey } from '../types';
 
@@ -323,6 +325,45 @@ describe('buildRsvpEmail', () => {
     expect(result).not.toBeNull();
     expect(typeof result?.subject).toBe('string');
     expect(typeof result?.bodyText).toBe('string');
+  });
+});
+
+// ── interpolate — standalone exported helper ────────────────────────────
+
+describe('interpolate', () => {
+  it('replaces {var} from map', () => {
+    expect(interpolate('oi {nome}!', { nome: 'Ana' })).toBe('oi Ana!');
+  });
+  it('leaves unknown vars in place', () => {
+    expect(interpolate('oi {nome}, local: {local}', { nome: 'Ana' })).toBe('oi Ana, local: {local}');
+  });
+});
+
+// ── buildRawTemplate — bypasses master switch + enabled flag ─────────────
+
+describe('buildRawTemplate', () => {
+  it('renders even when template is disabled', async () => {
+    wireTemplateAndConfig({ templateEnabled: false, pauseAllTransactional: true });
+    const result = await buildRawTemplate('confirmation', {
+      nome: 'Teste',
+      evento: 'E',
+      data: 'D',
+      horario: 'H',
+    });
+    expect(result).not.toBeNull();
+    expect(result?.bodyText).toContain('Teste');
+  });
+
+  it('interpolates sample variables in subject and body', async () => {
+    mockDocGet.mockReturnValue({ exists: false, data: () => undefined });
+    const result = await buildRawTemplate('confirmation', {
+      nome: 'Você',
+      evento: 'Quartinho #42',
+      data: 'qui',
+      horario: '20h',
+    });
+    expect(result?.subject).toContain('Quartinho #42');
+    expect(result?.bodyText).toContain('Você');
   });
 });
 

@@ -10,7 +10,47 @@ export interface LoginModalProps {
   onClose: () => void;
 }
 
-type Mode = 'pick' | 'email-login' | 'email-signup' | 'forgot';
+type Mode = 'pick' | 'email-login' | 'email-signup' | 'forgot' | 'verify-sent';
+
+/**
+ * Maps Firebase auth error codes to user-facing messages.
+ * Never leaks raw codes. Login errors stay generic to avoid user enumeration.
+ */
+export function mapAuthError(code: string, mode: 'signin' | 'signup'): string {
+  if (mode === 'signin') {
+    return 'email ou senha incorretos';
+  }
+  if (code === 'auth/weak-password') {
+    return 'senha precisa ter pelo menos 8 caracteres';
+  }
+  if (code === 'auth/invalid-email') {
+    return 'email inválido';
+  }
+  return 'não foi possível criar conta com esses dados';
+}
+
+function extractErrorCode(err: unknown): string {
+  if (err && typeof err === 'object' && 'code' in err && typeof (err as { code: unknown }).code === 'string') {
+    return (err as { code: string }).code;
+  }
+  if (err instanceof Error) {
+    // Firebase errors sometimes embed the code in the message.
+    const match = err.message.match(/auth\/[a-z-]+/);
+    if (match) return match[0];
+  }
+  return '';
+}
+
+function hasLetterAndDigit(pw: string): boolean {
+  let hasLetter = false;
+  let hasDigit = false;
+  for (const ch of pw) {
+    if (ch >= '0' && ch <= '9') hasDigit = true;
+    else if (ch.toLowerCase() !== ch.toUpperCase()) hasLetter = true;
+    if (hasLetter && hasDigit) return true;
+  }
+  return false;
+}
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   const {
@@ -19,6 +59,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     signInWithEmail,
     signUpWithEmail,
   } = useAuth();
+  // signInWithApple is exported by useAuth but not wired in the UI yet.
+
+  type WrapMode = 'signin' | 'signup' | 'oauth';
 
   const [mode, setMode] = useState<Mode>('pick');
   const [email, setEmail] = useState('');
@@ -41,14 +84,24 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     onClose();
   }
 
-  async function wrap(fn: () => Promise<void>) {
+  async function wrap(fn: () => Promise<void>, wrapMode: WrapMode) {
     setBusy(true);
     setError(null);
     try {
       await fn();
+      if (wrapMode === 'signup') {
+        // Don't close — show verification-sent screen instead.
+        setMode('verify-sent');
+        setPassword('');
+        setBusy(false);
+        return;
+      }
       handleClose();
     } catch (err) {
-      setError((err as Error).message ?? 'erro desconhecido');
+      console.error('[LoginModal] auth failed', err);
+      const code = extractErrorCode(err);
+      const mappingMode: 'signin' | 'signup' = wrapMode === 'signup' ? 'signup' : 'signin';
+      setError(mapAuthError(code, mappingMode));
     } finally {
       setBusy(false);
     }
@@ -114,17 +167,40 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     );
   }
 
+  if (mode === 'verify-sent') {
+    return (
+      <Modal isOpen={isOpen} onClose={handleClose} title="Verifica seu email">
+        <div className="flex flex-col gap-3">
+          <p role="status" className="font-body text-sm text-zine-burntOrange">
+            enviamos um link de verificação pro seu email. confirma lá pra continuar.
+          </p>
+          <Button type="button" onClick={handleClose}>
+            fechar
+          </Button>
+        </div>
+      </Modal>
+    );
+  }
+
   if (mode === 'email-login' || mode === 'email-signup') {
     const isSignup = mode === 'email-signup';
+    const showWeakHint =
+      isSignup && password.length >= 8 && !hasLetterAndDigit(password);
     return (
       <Modal isOpen={isOpen} onClose={handleClose} title={isSignup ? 'Criar conta' : 'Entrar com email'}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            void wrap(() =>
-              isSignup
-                ? signUpWithEmail(email, password)
-                : signInWithEmail(email, password),
+            if (isSignup && password.length < 8) {
+              setError('senha precisa ter pelo menos 8 caracteres');
+              return;
+            }
+            void wrap(
+              () =>
+                isSignup
+                  ? signUpWithEmail(email, password)
+                  : signInWithEmail(email, password),
+              isSignup ? 'signup' : 'signin',
             );
           }}
           className="flex flex-col gap-3"
@@ -145,9 +221,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={6}
+            minLength={isSignup ? 8 : 6}
             className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
           />
+          {showWeakHint && (
+            <p className="font-body text-xs text-zine-burntOrange/50">
+              dica: mistura letras e números pra uma senha mais forte
+            </p>
+          )}
           {error && (
             <p role="alert" className="font-body text-sm text-zine-burntOrange">
               {error}
@@ -188,7 +269,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Entrar no Quartinho">
       <div className="flex flex-col gap-3">
-        <Button onClick={() => void wrap(signInWithGoogle)} disabled={busy}>
+        <Button onClick={() => void wrap(signInWithGoogle, 'oauth')} disabled={busy}>
           Entrar com Google
         </Button>
 <Button onClick={() => setMode('email-login')} disabled={busy}>

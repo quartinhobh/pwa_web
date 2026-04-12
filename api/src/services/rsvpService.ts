@@ -442,6 +442,70 @@ export async function approveOrReject(
   return result;
 }
 
+/** Admin-initiated cancel for any entryKey. Mirrors cancelRsvp's auto-promote. */
+export async function adminCancelRsvp(
+  eventId: string,
+  entryKey: string,
+): Promise<CancelRsvpResult> {
+  return cancelRsvp(eventId, entryKey);
+}
+
+/** Move a confirmed entry to the waitlist and auto-promote the oldest waitlisted entry. */
+export async function moveToWaitlist(
+  eventId: string,
+  entryKey: string,
+): Promise<{ promotedEntryKey: string | null }> {
+  const rsvpRef = adminDb.collection(COLLECTION).doc(eventId);
+
+  const result = await adminDb.runTransaction(async (tx) => {
+    const snap = await tx.get(rsvpRef);
+    if (!snap.exists) throw new Error('no_rsvp');
+    const doc = snap.data() as RsvpDoc;
+
+    const entry = doc.entries[entryKey];
+    if (!entry) throw new Error('entry_not_found');
+    if (entry.status !== 'confirmed') throw new Error('invalid_transition');
+
+    const seats = entry.plusOne ? 2 : 1;
+    const now = Date.now();
+
+    doc.entries[entryKey] = {
+      ...entry,
+      status: 'waitlisted',
+      updatedAt: now,
+    };
+    doc.confirmedCount = Math.max(0, doc.confirmedCount - seats);
+    doc.waitlistCount += 1;
+
+    // Auto-promote oldest waitlisted (skipping the one we just moved).
+    let promotedEntryKey: string | null = null;
+    let oldest: { entryKey: string; entry: RsvpEntry } | null = null;
+    for (const [key, e] of Object.entries(doc.entries)) {
+      if (key === entryKey) continue;
+      if (e.status !== 'waitlisted') continue;
+      if (!oldest || e.createdAt < oldest.entry.createdAt) {
+        oldest = { entryKey: key, entry: e };
+      }
+    }
+    if (oldest) {
+      doc.entries[oldest.entryKey] = {
+        ...oldest.entry,
+        status: 'confirmed',
+        updatedAt: now,
+      };
+      doc.confirmedCount += oldest.entry.plusOne ? 2 : 1;
+      doc.waitlistCount = Math.max(0, doc.waitlistCount - 1);
+      promotedEntryKey = oldest.entryKey;
+    }
+
+    doc.updatedAt = now;
+    tx.set(rsvpRef, doc);
+    return { promotedEntryKey };
+  });
+
+  return result;
+}
+
 export interface AdminRsvpEntry extends RsvpEntry {
   entryKey: string;
   userId: string; // legacy alias: bare uid for firebase entries, entryKey otherwise

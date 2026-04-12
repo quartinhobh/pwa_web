@@ -3,6 +3,7 @@ import {
   GoogleAuthProvider,
   OAuthProvider,
   onAuthStateChanged,
+  sendEmailVerification,
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -87,7 +88,25 @@ export function useAuth() {
   const signUpWithEmail = async (email: string, password: string) => {
     signingIn.current = true;
     const result = await createUserWithEmailAndPassword(auth, email, password);
+    // Fire verification email. Don't block signup flow on failure — logged
+    // for diagnostics but swallowed so the caller still gets a success.
+    try {
+      await sendEmailVerification(result.user, {
+        url: `${window.location.origin}/`,
+        handleCodeInApp: false,
+      });
+    } catch (err) {
+      console.error('[useAuth] sendEmailVerification failed', err);
+    }
     await afterSignIn(result);
+  };
+
+  const resendVerificationEmail = async () => {
+    if (!auth.currentUser) throw new Error('not_signed_in');
+    await sendEmailVerification(auth.currentUser, {
+      url: `${window.location.origin}/`,
+      handleCodeInApp: false,
+    });
   };
 
   const signOut = async () => {
@@ -97,13 +116,24 @@ export function useAuth() {
     clear();
   };
 
+  // OAuth providers (Google, Apple) always return verified emails.
+  // For password provider, require Firebase-side verification.
+  const isOAuthProvider =
+    user?.providerData?.some(
+      (p) => p.providerId === 'google.com' || p.providerId === 'apple.com',
+    ) ?? false;
+  const emailVerified = user?.emailVerified ?? false;
+
   return {
     user,
-    isAuthenticated: firebaseUid !== null || !!user,
+    emailVerified,
+    isAuthenticated:
+      firebaseUid !== null && (user?.emailVerified !== false || isOAuthProvider),
     signInWithGoogle,
     signInWithApple,
     signInWithEmail,
     signUpWithEmail,
+    resendVerificationEmail,
     signOut,
   };
 }
