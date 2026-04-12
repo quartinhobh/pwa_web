@@ -1,6 +1,9 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useState, useContext, useCallback } from 'react';
 
+// Context files legitimately export both components (provider) and hooks (useGuestUpsell).
+// The hook has no separate implementation and must be in the same file for proper encapsulation.
+
 export interface GuestUpsellModalData {
   email: string;
   displayName: string;

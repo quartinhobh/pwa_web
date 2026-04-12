@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { read, utils, writeFile } from 'xlsx';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
@@ -73,7 +73,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
   const [importPreview, setImportPreview] = useState<Array<{ displayName: string; email: string }> | null>(null);
   const [importBusy, setImportBusy] = useState(false);
 
-  async function load(): Promise<void> {
+  const load = useCallback(async (): Promise<void> => {
     setLoading(true);
     setError(null);
     try {
@@ -86,12 +86,11 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
     } finally {
       setLoading(false);
     }
-  }
+  }, [eventId, idToken]);
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
+  }, [load]);
 
   async function handleAction(entryKey: string, status: 'confirmed' | 'rejected'): Promise<void> {
     setActionBusy(entryKey + status);
