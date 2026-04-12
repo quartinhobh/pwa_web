@@ -124,6 +124,9 @@ export interface EventCreatePayload {
   venueRevealDaysBefore?: number;
   extras: EventExtras;
   spotifyPlaylistUrl: string | null;
+  chatEnabled?: boolean;
+  chatOpensAt?: number | null;
+  chatClosesAt?: number | null;
 }
 
 export async function createEvent(

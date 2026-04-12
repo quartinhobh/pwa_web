@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { utils, writeFile } from 'xlsx';
+import { read, utils, writeFile } from 'xlsx';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
 import HelperBox from '@/components/admin/HelperBox';
@@ -43,6 +43,16 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
 function seatsOf(entry: AdminRsvpEntry): number {
   return entry.plusOne ? 2 : 1;
 }
+
+type RawImportRow = Record<string, unknown> & {
+  displayName?: unknown;
+  nome?: unknown;
+  email?: unknown;
+  EMAIL?: unknown;
+  Email?: unknown;
+  NAME?: unknown;
+  Nome?: unknown;
+};
 
 export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
   const [entries, setEntries] = useState<AdminRsvpEntry[]>([]);
@@ -176,21 +186,21 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
   async function handleImportFile(file: File): Promise<void> {
     try {
       const text = await file.text();
-      let parsed: Array<{ displayName?: string; nome?: string; email: string }> = [];
+      let parsed: RawImportRow[] = [];
 
       if (file.name.endsWith('.xlsx') || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
         const data = await file.arrayBuffer();
-        const workbook = utils.read(data);
+        const workbook = read(data);
         const sheet = workbook.Sheets[workbook.SheetNames[0]!];
         if (!sheet) throw new Error('Sheet not found');
-        parsed = utils.sheet_to_json(sheet);
+        parsed = utils.sheet_to_json(sheet) as RawImportRow[];
       } else {
         // CSV: simple RFC-4180 parser (handles quoted fields)
         const lines = text.trim().split('\n');
         const headers = parseCSVLine(lines[0]!);
         parsed = lines.slice(1).map((line) => {
           const cols = parseCSVLine(line);
-          return Object.fromEntries(headers.map((h, i) => [h.toLowerCase().trim(), cols[i]?.trim() ?? '']));
+          return Object.fromEntries(headers.map((h, i) => [h.toLowerCase().trim(), cols[i]?.trim() ?? ''])) as RawImportRow;
         });
       }
 
@@ -215,20 +225,20 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
     setImportBusy(true);
     try {
       const text = await importFile.text();
-      let parsed: Array<{ displayName?: string; nome?: string; email: string }> = [];
+      let parsed: RawImportRow[] = [];
 
       if (importFile.name.endsWith('.xlsx')) {
         const data = await importFile.arrayBuffer();
-        const workbook = utils.read(data);
+        const workbook = read(data);
         const sheet = workbook.Sheets[workbook.SheetNames[0]!];
         if (!sheet) throw new Error('Sheet not found');
-        parsed = utils.sheet_to_json(sheet);
+        parsed = utils.sheet_to_json(sheet) as RawImportRow[];
       } else {
         const lines = text.trim().split('\n');
         const headers = parseCSVLine(lines[0]!);
         parsed = lines.slice(1).map((line) => {
           const cols = parseCSVLine(line);
-          return Object.fromEntries(headers.map((h, i) => [h.toLowerCase().trim(), cols[i]?.trim() ?? '']));
+          return Object.fromEntries(headers.map((h, i) => [h.toLowerCase().trim(), cols[i]?.trim() ?? ''])) as RawImportRow;
         });
       }
 

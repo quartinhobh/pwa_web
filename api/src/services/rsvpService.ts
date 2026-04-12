@@ -610,7 +610,7 @@ export async function bulkImportRsvp(
   entries: Array<{ displayName: string; email: string; plusOne?: boolean; plusOneName?: string | null }>,
 ): Promise<{ imported: number; skipped: number }> {
   const snap = await adminDb.collection('rsvps').doc(eventId).get();
-  const doc = snap.exists ? (snap.data() as RsvpDoc) : { entries: {} };
+  const doc = snap.exists ? (snap.data() as RsvpDoc) : { entries: {} as Record<string, RsvpEntry> };
 
   let imported = 0;
   let skipped = 0;
