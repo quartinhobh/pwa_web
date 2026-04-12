@@ -221,15 +221,20 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
           'Samuel Costa', 'Tatiana Alves', 'Ulisses Gomes', 'Vanessa Ferreira', 'Wagner Mendes'
         ];
         const plusOneNames = ['Sofia Mendes', 'Camila Rocha', 'Isabela Costa', 'Mariana Silva', 'Fernanda Dias', 'Beatrice Santos'];
-        confirmed = testNames.map((name, idx) => ({
+        const now = Date.now();
+        confirmed = testNames.map((name, idx): AdminRsvpEntry => ({
           entryKey: `test-${idx}`,
+          userId: `test-user-${idx}`,
+          avatarUrl: null,
+          authMode: 'guest',
           displayName: name,
           email: `${name.toLowerCase().replace(/\s+/g, '.')}@test.com`,
-          status: 'confirmed' as const,
+          status: 'confirmed',
           plusOne: idx % 5 === 0,
-          plusOneName: idx % 5 === 0 ? plusOneNames[idx % plusOneNames.length] : undefined,
-          createdAt: new Date().toISOString(),
-        })) as AdminRsvpEntry[];
+          plusOneName: idx % 5 === 0 ? plusOneNames[idx % plusOneNames.length] : null,
+          createdAt: now,
+          updatedAt: now,
+        }));
       }
 
       // Calcula total de lugares (contando +1)
@@ -284,9 +289,9 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
       const options = {
         margin: 10,
         filename: `Presença - ${event.title}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2 },
-        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
+        jsPDF: { orientation: 'portrait' as const, unit: 'mm' as const, format: 'a4' as const },
       };
 
       html2pdf().set(options).from(element).save();
