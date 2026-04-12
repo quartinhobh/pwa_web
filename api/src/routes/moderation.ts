@@ -9,6 +9,7 @@ import { writeLimiter } from '../middleware/rateLimit';
 import { adminDb } from '../config/firebase';
 import {
   banUser,
+  clearEventChat,
   deleteMessage,
   listBans,
   listLogs,
@@ -47,6 +48,21 @@ moderationRouter.post(
       res.status(200).json({ ok: true });
     } catch {
       res.status(500).json({ error: 'delete_failed' });
+    }
+  },
+);
+
+moderationRouter.post(
+  '/chat/:eventId/clear',
+  writeLimiter,
+  requireAuth,
+  requireRole('moderator', 'admin'),
+  async (req: Request, res: Response) => {
+    try {
+      await clearEventChat(req.params.eventId!, req.user!.uid);
+      res.status(200).json({ ok: true });
+    } catch {
+      res.status(500).json({ error: 'clear_failed' });
     }
   },
 );

@@ -98,6 +98,31 @@ export async function unbanUser(
   });
 }
 
+export async function clearEventChat(
+  eventId: string,
+  performedBy: string,
+): Promise<void> {
+  const path = `chats/${eventId}/messages`;
+  const snap = await adminRtdb.ref(path).get();
+  const messages = snap.val() ?? {};
+  const messageIds = Object.keys(messages);
+
+  // Mark all messages as deleted
+  for (const messageId of messageIds) {
+    await adminRtdb.ref(`${path}/${messageId}/isDeleted`).set(true);
+  }
+
+  // Log the action
+  await writeLog({
+    action: 'delete_message',
+    targetUserId: 'system',
+    performedBy,
+    eventId,
+    messageId: null,
+    reason: `Cleared ${messageIds.length} message(s)`,
+  });
+}
+
 export async function listBans(): Promise<Ban[]> {
   const snap = await adminDb.collection(BANS).get();
   const now = Date.now();

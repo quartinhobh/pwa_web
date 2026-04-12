@@ -5,7 +5,7 @@ import Button from '@/components/common/Button';
 import HelperBox from '@/components/admin/HelperBox';
 import { useModeration } from '@/hooks/useModeration';
 import { useIdToken } from '@/hooks/useIdToken';
-import { fetchModerationUserProfile, fetchEvents, updateEvent } from '@/services/api';
+import { fetchModerationUserProfile, fetchEvents, updateEvent, clearChat } from '@/services/api';
 import type { Event } from '@/types';
 
 export interface ModerationPanelProps {
@@ -61,6 +61,7 @@ export const ModerationPanel: React.FC<ModerationPanelProps> = () => {
   const [chatClosesAt, setChatClosesAt] = useState<string>('');
   const [chatSaving, setChatSaving] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [clearingChat, setClearingChat] = useState(false);
 
   useEffect(() => {
     void fetchEvents().then((list) => {
@@ -97,6 +98,21 @@ export const ModerationPanel: React.FC<ModerationPanelProps> = () => {
       setChatError(err instanceof Error ? err.message : 'Erro ao salvar');
     } finally {
       setChatSaving(false);
+    }
+  }
+
+  async function handleClearChat() {
+    if (!idToken || !selectedEventId) return;
+    if (!confirm('Tem certeza que quer apagar TODAS as mensagens do chat? Isso não pode ser desfeito.')) return;
+    setClearingChat(true);
+    setChatError(null);
+    try {
+      await clearChat(selectedEventId, idToken);
+      alert('Chat apagado com sucesso.');
+    } catch (err) {
+      setChatError(err instanceof Error ? err.message : 'Erro ao apagar chat');
+    } finally {
+      setClearingChat(false);
     }
   }
 
@@ -156,9 +172,14 @@ export const ModerationPanel: React.FC<ModerationPanelProps> = () => {
             </p>
           )}
 
-          <Button onClick={() => void handleSaveChat()} disabled={chatSaving}>
-            {chatSaving ? 'a guardar…' : 'guardar config'}
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button onClick={() => void handleSaveChat()} disabled={chatSaving || clearingChat}>
+              {chatSaving ? 'a guardar…' : 'guardar config'}
+            </Button>
+            <Button onClick={() => void handleClearChat()} disabled={clearingChat || chatSaving} className="bg-zine-burntOrange/20 border-zine-burntOrange">
+              {clearingChat ? 'a apagar…' : 'apagar chat'}
+            </Button>
+          </div>
         </div>
       </ZineFrame>
 

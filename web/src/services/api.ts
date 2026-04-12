@@ -365,6 +365,23 @@ export async function deleteChatMessage(
   if (!res.ok) throw new Error(`POST moderation/delete failed: ${res.status}`);
 }
 
+export async function clearChat(
+  eventId: string,
+  idToken: string,
+): Promise<void> {
+  const res = await fetch(
+    `${API_URL}/moderation/chat/${encodeURIComponent(eventId)}/clear`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
+      },
+    },
+  );
+  if (!res.ok) throw new Error(`POST moderation/clear failed: ${res.status}`);
+}
+
 export async function banUser(
   userId: string,
   idToken: string,
