@@ -12,6 +12,8 @@ interface RsvpButtonProps {
   eventId?: string;
 }
 
+type FormState = 'closed' | 'open';
+
 function isWindowOpen(config: RsvpConfig): boolean {
   const now = Date.now();
   if (config.opensAt && now < config.opensAt) return false;
@@ -32,6 +34,7 @@ export const RsvpButton: React.FC<RsvpButtonProps> = ({
   const [showPlusOne, setShowPlusOne] = useState(false);
   const [plusOneName, setPlusOneName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [formState, setFormState] = useState<FormState>('closed');
 
   const activeEntry = userEntry && userEntry.status !== 'cancelled' && userEntry.status !== 'rejected'
     ? userEntry
@@ -132,7 +135,23 @@ export const RsvpButton: React.FC<RsvpButtonProps> = ({
         </div>
       );
     }
-    return <RsvpForm eventId={eventId} />;
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setFormState('open')}
+          className="w-full font-body font-bold italic text-center bg-zine-burntYellow dark:bg-zine-burntYellow-bright text-zine-cream dark:text-zine-surface-dark px-4 py-3 border-4 border-zine-cream dark:border-zine-cream/30 hover:bg-zine-burntOrange disabled:opacity-50"
+        >
+          confirmar presença
+        </button>
+        <RsvpForm
+          eventId={eventId}
+          isOpen={formState === 'open'}
+          onClose={() => setFormState('closed')}
+          onSuccess={() => setFormState('closed')}
+        />
+      </>
+    );
   }
 
   // Window not open yet

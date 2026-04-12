@@ -30,7 +30,7 @@ describe('RsvpForm', () => {
   });
 
   it('renders required inputs and submit button', () => {
-    render(<RsvpForm eventId="e1" />);
+    render(<RsvpForm eventId="e1" isOpen onClose={() => {}} />);
     expect(screen.getByLabelText('nome')).toBeInTheDocument();
     expect(screen.getByLabelText('email')).toBeInTheDocument();
     expect(screen.getByLabelText(/levar \+1/i)).toBeInTheDocument();
@@ -38,7 +38,7 @@ describe('RsvpForm', () => {
   });
 
   it('shows +1 name input only when +1 checked', () => {
-    render(<RsvpForm eventId="e1" />);
+    render(<RsvpForm eventId="e1" isOpen onClose={() => {}} />);
     expect(screen.queryByLabelText(/nome do acompanhante/i)).toBeNull();
     fireEvent.click(screen.getByLabelText(/levar \+1/i));
     expect(screen.getByLabelText(/nome do acompanhante/i)).toBeInTheDocument();
@@ -59,7 +59,7 @@ describe('RsvpForm', () => {
       entryKey: 'guest:hash',
     });
 
-    render(<RsvpForm eventId="e1" />);
+    render(<RsvpForm eventId="e1" isOpen onClose={() => {}} />);
     fillAndSubmit();
 
     await waitFor(() => {
@@ -86,7 +86,7 @@ describe('RsvpForm', () => {
       },
       entryKey: 'guest:abc',
     });
-    render(<RsvpForm eventId="e1" />);
+    render(<RsvpForm eventId="e1" isOpen onClose={() => {}} />);
     fillAndSubmit();
     expect(await screen.findByText(/tá na fila/i)).toBeInTheDocument();
   });
@@ -94,7 +94,7 @@ describe('RsvpForm', () => {
   it('maps event_full error to friendly message', async () => {
     submitMock.mockRejectedValue(new Error('event_full'));
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(<RsvpForm eventId="e1" />);
+    render(<RsvpForm eventId="e1" isOpen onClose={() => {}} />);
     fillAndSubmit();
     expect(await screen.findByText(/evento lotou/i)).toBeInTheDocument();
     errSpy.mockRestore();
@@ -103,7 +103,7 @@ describe('RsvpForm', () => {
   it('maps email_already_rsvped to friendly message', async () => {
     submitMock.mockRejectedValue(new Error('email_already_rsvped'));
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(<RsvpForm eventId="e1" />);
+    render(<RsvpForm eventId="e1" isOpen onClose={() => {}} />);
     fillAndSubmit();
     expect(await screen.findByText(/esse email já confirmou/i)).toBeInTheDocument();
     errSpy.mockRestore();
@@ -112,7 +112,7 @@ describe('RsvpForm', () => {
   it('shows generic message on unknown error', async () => {
     submitMock.mockRejectedValue(new Error('weird_backend_error'));
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    render(<RsvpForm eventId="e1" />);
+    render(<RsvpForm eventId="e1" isOpen onClose={() => {}} />);
     fillAndSubmit();
     expect(await screen.findByText(/não foi possível confirmar/i)).toBeInTheDocument();
     errSpy.mockRestore();
@@ -133,7 +133,7 @@ describe('RsvpForm', () => {
       entryKey: 'guest:abc',
     });
     const onSuccess = vi.fn();
-    render(<RsvpForm eventId="e1" onSuccess={onSuccess} />);
+    render(<RsvpForm eventId="e1" isOpen onClose={() => {}} onSuccess={onSuccess} />);
     fillAndSubmit();
     await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
   });

@@ -583,6 +583,15 @@ function csvField(value: string): string {
   return value;
 }
 
+/**
+ * Export RSVP entries as CSV.
+ * Status values:
+ *   - confirmed: RSVP confirmado
+ *   - waitlisted: Aguardando lugar, na fila de espera
+ *   - pending_approval: Aguardando aprovação manual
+ *   - rejected: RSVP recusado
+ *   - cancelled: RSVP cancelado
+ */
 export function exportCsv(entries: AdminRsvpEntry[]): string {
   const header = 'nome,email,status,plus_one,nome_acompanhante,auth_mode,data_rsvp';
   const rows = entries.map((e) => {
@@ -590,11 +599,11 @@ export function exportCsv(entries: AdminRsvpEntry[]): string {
     return [
       csvField(e.displayName),
       csvField(e.email ?? ''),
-      e.status,
-      e.plusOne ? 'sim' : 'não',
+      csvField(e.status),
+      csvField(e.plusOne ? 'sim' : 'não'),
       csvField(e.plusOneName ?? ''),
-      e.authMode,
-      date,
+      csvField(e.authMode),
+      csvField(date),
     ].join(',');
   });
   return [header, ...rows].join('\n');

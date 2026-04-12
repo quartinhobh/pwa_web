@@ -72,7 +72,7 @@ export default function App() {
       <div className="min-h-screen flex flex-col font-body text-zine-burntOrange overflow-x-hidden">
         <Header />
         <Suspense fallback={null}><BannerDisplay /></Suspense>
-        <main className="flex-1 mx-auto w-full max-w-[640px] px-4 py-3">
+        <main className="flex-1 mx-auto w-full max-w-[640px] md:max-w-[1280px] px-4 py-3">
           <Suspense fallback={<PageFallback />}>
             <Routes>
               <Route path="/" element={<Listen />} />

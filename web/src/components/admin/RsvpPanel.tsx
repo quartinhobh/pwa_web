@@ -11,8 +11,9 @@ import {
   importRsvp,
   adminCancelRsvp,
   moveRsvpToWaitlist,
+  fetchEvents,
 } from '@/services/api';
-import type { AdminRsvpEntry, RsvpStatus } from '@/types';
+import type { AdminRsvpEntry, RsvpStatus, Event } from '@/types';
 
 export interface RsvpPanelProps {
   eventId: string;
@@ -65,6 +66,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
   const [sortKey, setSortKey] = useState<SortKey>('createdAt');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -94,11 +96,15 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
 
   async function handleAction(entryKey: string, status: 'confirmed' | 'rejected'): Promise<void> {
     setActionBusy(entryKey + status);
+    // Optimistic update
+    setEntries((prev) =>
+      prev.map((e) => (e.entryKey === entryKey ? { ...e, status } : e))
+    );
     try {
       await approveRejectRsvp(eventId, entryKey, status, idToken);
-      await load();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao atualizar');
+      await load();
     } finally {
       setActionBusy(null);
     }
@@ -107,11 +113,16 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
   async function handleRemove(entryKey: string): Promise<void> {
     if (!window.confirm('tem certeza?')) return;
     setActionBusy(entryKey + 'remove');
+    // Optimistic update
+    const removed = entries.find((e) => e.entryKey === entryKey);
+    setEntries((prev) => prev.filter((e) => e.entryKey !== entryKey));
     try {
       await adminCancelRsvp(idToken, eventId, entryKey);
-      await load();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao remover');
+      if (removed) {
+        setEntries((prev) => [...prev, removed]);
+      }
     } finally {
       setActionBusy(null);
     }
@@ -120,11 +131,15 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
   async function handleMoveToWaitlist(entryKey: string): Promise<void> {
     if (!window.confirm('tem certeza?')) return;
     setActionBusy(entryKey + 'waitlist');
+    // Optimistic update
+    setEntries((prev) =>
+      prev.map((e) => (e.entryKey === entryKey ? { ...e, status: 'waitlisted' } : e))
+    );
     try {
       await moveRsvpToWaitlist(idToken, eventId, entryKey);
-      await load();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao mover');
+      await load();
     } finally {
       setActionBusy(null);
     }
@@ -181,6 +196,11 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao exportar JSON');
     }
+  }
+
+  function handleExportPdf(): void {
+    setShowPdfPreview(true);
+    setShowExportMenu(false);
   }
 
   async function handleImportFile(file: File): Promise<void> {
@@ -370,6 +390,11 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
     if (!selectedApprovable.length) return;
     if (overCapacity && !window.confirm('excede capacidade. continuar?')) return;
     setBulkBusy(true);
+    // Optimistic update
+    const entryKeysToUpdate = new Set(selectedApprovable.map((e) => e.entryKey));
+    setEntries((prev) =>
+      prev.map((e) => (entryKeysToUpdate.has(e.entryKey) ? { ...e, status: 'confirmed' } : e))
+    );
     let ok = 0;
     for (const entry of selectedApprovable) {
       try {
@@ -379,9 +404,13 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
         // swallow; we'll surface count at the end
       }
     }
+    // If some failed, reload to get accurate state
+    if (ok < selectedApprovable.length) {
+      await load();
+    }
     setBulkBusy(false);
+    setSelected(new Set());
     alert(`${ok}/${selectedApprovable.length} aprovados`);
-    await load();
   }
 
   const allVisibleSelected =
@@ -434,14 +463,23 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
                 >
                   JSON
                 </button>
+                <button
+                  type="button"
+                  onClick={() => handleExportPdf()}
+                  className="block w-full text-left px-3 py-2 font-body text-sm text-zine-burntOrange hover:bg-zine-burntYellow/20 border-t border-zine-burntOrange/20"
+                >
+                  PDF (confirmados)
+                </button>
               </div>
             )}
           </div>
         </div>
       </div>
 
+      {showPdfPreview && <PdfPreview eventId={eventId} idToken={idToken} onClose={() => setShowPdfPreview(false)} />}
+
       {capacity !== null && (
-        <div className="w-full h-3 bg-zine-cream border-2 border-zine-burntOrange mb-4 overflow-hidden">
+        <div className="w-full h-3 bg-zine-cream dark:bg-zine-surface-dark border-2 border-zine-burntOrange mb-4 overflow-hidden">
           <div
             data-testid="rsvp-progress-bar"
             className={`h-full ${barColor} transition-all`}
@@ -459,8 +497,8 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
             onClick={() => setFilter(key)}
             className={`font-body text-xs px-3 py-1.5 border-2 border-zine-burntYellow transition-colors ${
               filter === key
-                ? 'bg-zine-burntYellow text-zine-cream'
-                : 'bg-zine-cream text-zine-burntOrange hover:bg-zine-burntYellow/20'
+                ? 'bg-zine-burntYellow dark:bg-zine-burntYellow-bright text-zine-cream dark:text-zine-surface-dark'
+                : 'bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream hover:bg-zine-burntYellow/20 dark:hover:bg-zine-burntYellow-bright/20'
             }`}
           >
             {label}
@@ -473,7 +511,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
         placeholder="buscar por nome ou email"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full font-body text-sm px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream text-zine-burntOrange placeholder:text-zine-burntOrange/50 mb-4"
+        className="w-full font-body text-sm px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream placeholder:text-zine-burntOrange/50 dark:placeholder:text-zine-cream/50 mb-4"
       />
 
       {loading && <p className="font-body italic text-zine-burntOrange/60">carregando…</p>}
@@ -487,9 +525,9 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
         <>
           {/* Desktop table (md+) */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full font-body text-sm text-zine-burntOrange border-collapse">
+            <table className="w-full font-body text-sm text-zine-burntOrange dark:text-zine-cream border-collapse">
               <thead>
-                <tr className="border-b-2 border-zine-burntYellow">
+                <tr className="border-b-2 border-zine-burntYellow dark:border-zine-burntYellow-bright">
                   <th className="py-2 pr-3 w-6">
                     <input
                       type="checkbox"
@@ -513,7 +551,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
                 {visible.map((entry) => (
                   <tr
                     key={entry.entryKey}
-                    className="border-b border-zine-burntOrange/20 hover:bg-zine-burntYellow/10"
+                    className="border-b border-zine-burntOrange/20 dark:border-zine-cream/20 hover:bg-zine-burntYellow/10 dark:hover:bg-zine-burntYellow-bright/20"
                   >
                     <td className="py-2 pr-3">
                       <input
@@ -524,28 +562,28 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
                       />
                     </td>
                     <td className="py-2 pr-3 font-bold">{entry.displayName}</td>
-                    <td className="py-2 pr-3 text-zine-burntOrange/70">{entry.email ?? '—'}</td>
+                    <td className="py-2 pr-3 text-zine-burntOrange/70 dark:text-zine-cream/70">{entry.email ?? '—'}</td>
                     <td className="py-2 pr-3">
                       <span
                         data-testid={`authmode-badge-${entry.userId}`}
                         className={`inline-block px-2 py-0.5 text-xs border font-body ${
                           entry.authMode === 'firebase'
-                            ? 'border-zine-burntOrange bg-zine-burntOrange/20 text-zine-burntOrange'
-                            : 'border-zine-mint bg-zine-mint/30 text-zine-burntOrange'
+                            ? 'border-zine-burntOrange dark:border-zine-burntOrange-bright bg-zine-burntOrange/20 dark:bg-zine-burntOrange-bright/20 text-zine-burntOrange dark:text-zine-burntOrange-bright'
+                            : 'border-zine-mint dark:border-zine-mint-dark bg-zine-mint/30 dark:bg-zine-mint-dark/30 text-zine-burntOrange dark:text-zine-mint'
                         }`}
                       >
                         {entry.authMode === 'firebase' ? 'conta' : 'convidado'}
                       </span>
                     </td>
                     <td className="py-2 pr-3">
-                      <span className={`inline-block px-2 py-0.5 text-xs border ${
+                      <span className={`inline-block px-2 py-0.5 text-xs border font-body ${
                         entry.status === 'confirmed'
-                          ? 'border-zine-mint bg-zine-mint/20'
+                          ? 'border-zine-mint dark:border-zine-mint-dark bg-zine-mint/20 dark:bg-zine-mint-dark/30 text-zine-burntOrange dark:text-zine-mint'
                           : entry.status === 'waitlisted'
-                            ? 'border-zine-burntYellow bg-zine-burntYellow/20'
+                            ? 'border-zine-burntYellow dark:border-zine-burntYellow-bright bg-zine-burntYellow/20 dark:bg-zine-burntYellow-bright/20 text-zine-burntOrange dark:text-zine-burntYellow-bright'
                             : entry.status === 'pending_approval'
-                              ? 'border-zine-periwinkle bg-zine-periwinkle/20'
-                              : 'border-zine-burntOrange/40 bg-zine-burntOrange/10'
+                              ? 'border-zine-periwinkle dark:border-zine-periwinkle-dark bg-zine-periwinkle/20 dark:bg-zine-periwinkle-dark/30 text-zine-burntOrange dark:text-zine-periwinkle'
+                              : 'border-zine-burntOrange/40 dark:border-zine-cream/30 bg-zine-burntOrange/10 dark:bg-zine-cream/10 text-zine-burntOrange dark:text-zine-cream'
                       }`}>
                         {STATUS_LABELS[entry.status]}
                       </span>
@@ -553,7 +591,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
                     <td className="py-2 pr-3">
                       {entry.plusOne ? (entry.plusOneName ?? 'sim') : '—'}
                     </td>
-                    <td className="py-2 pr-3 text-zine-burntOrange/60">
+                    <td className="py-2 pr-3 text-zine-burntOrange/60 dark:text-zine-cream/60">
                       {new Date(entry.createdAt).toLocaleDateString('pt-BR')}
                     </td>
                     <td className="py-2">
@@ -800,6 +838,107 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
         </div>
       )}
     </ZineFrame>
+  );
+};
+
+interface PdfPreviewProps {
+  eventId: string;
+  idToken: string;
+  onClose: () => void;
+}
+
+const PdfPreview: React.FC<PdfPreviewProps> = ({ eventId, idToken, onClose }) => {
+  const [entries, setEntries] = useState<AdminRsvpEntry[]>([]);
+  const [event, setEvent] = useState<Event | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load(): Promise<void> {
+      try {
+        const [entriesRes, eventsRes] = await Promise.all([
+          fetchAdminRsvpList(eventId, idToken),
+          fetchEvents(),
+        ]);
+        setEntries(entriesRes.entries.filter((e) => e.status === 'confirmed'));
+        const evt = (eventsRes ?? []).find((e) => e.id === eventId);
+        setEvent(evt ?? null);
+      } catch {
+        setEntries([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    void load();
+  }, [eventId]);
+
+  const confirmed = entries.filter((e) => e.status === 'confirmed');
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="bg-zine-cream dark:bg-zine-surface-dark border-4 border-zine-burntOrange p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <p className="font-body text-zine-burntOrange dark:text-zine-cream">carregando…</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-zine-cream dark:bg-zine-surface-dark border-4 border-zine-burntOrange p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Print-friendly content */}
+        <div className="print:p-0 print:border-0 print:bg-white print:text-black">
+          {/* Header */}
+          <div className="mb-6 pb-4 border-b-2 border-zine-burntOrange print:border-gray-300">
+            <h1 className="font-display text-2xl text-zine-burntOrange print:text-black mb-1">
+              {event?.title}
+            </h1>
+            <div className="font-body text-sm text-zine-burntOrange/70 print:text-gray-600">
+              {event?.date} · {event?.location ?? 'Local não informado'}
+            </div>
+            <div className="font-body text-sm text-zine-burntOrange/70 print:text-gray-600 mt-2">
+              Confirmados: {confirmed.length}
+            </div>
+          </div>
+
+          {/* List */}
+          <div className="space-y-2">
+            {confirmed.map((entry) => (
+              <div
+                key={entry.entryKey}
+                className="border-b border-zine-burntOrange/20 print:border-gray-200 pb-2 print:pb-1"
+              >
+                <div className="font-body text-sm text-zine-burntOrange print:text-black">
+                  <span className="font-bold">{entry.displayName}</span>
+                  {entry.plusOne && <span className="text-xs opacity-70"> (+1)</span>}
+                </div>
+                <div className="font-body text-xs text-zine-burntOrange/70 print:text-gray-600">
+                  {entry.email}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Controls (hidden when printing) */}
+        <div className="flex gap-2 justify-end mt-4 print:hidden">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="font-body px-3 py-2 border-2 border-zine-burntOrange text-zine-burntOrange hover:bg-zine-burntOrange/10"
+          >
+            imprimir/PDF
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="font-body px-3 py-2 border-2 border-zine-burntOrange text-zine-burntOrange hover:bg-zine-burntOrange/10"
+          >
+            fechar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
