@@ -34,7 +34,8 @@ vi.mock('@/hooks/useAuth', () => ({
 }));
 
 import * as firebaseAuth from 'firebase/auth';
-import { LoginModal, mapAuthError } from '@/components/auth/LoginModal';
+import { LoginModal } from '@/components/auth/LoginModal';
+import { mapAuthError } from '@/components/auth/authUtils';
 
 const sendResetMock = firebaseAuth.sendPasswordResetEmail as unknown as ReturnType<typeof vi.fn>;
 

@@ -32,13 +32,21 @@ async function resolveToken(hookToken: string | null): Promise<string | null> {
   if (hookToken) return hookToken;
   return auth.currentUser ? auth.currentUser.getIdToken() : null;
 }
-import type { Event, Photo } from '@/types';
+import type { Event, Photo, PhotoCategory } from '@/types';
 
 export interface AdminPanelProps {
   idToken?: string | null;
 }
 
 type Tab = 'guia' | 'events' | 'photos' | 'moderation' | 'lojinha' | 'pix' | 'users' | 'email' | 'chat' | 'linktree' | 'banners' | 'stickers' | 'presenca';
+
+function getCategoryLabel(category: PhotoCategory): string {
+  const labels: Record<PhotoCategory, string> = {
+    category1: 'Fotos do evento',
+    category2: 'Playlist',
+  };
+  return labels[category];
+}
 
 /**
  * AdminPanel — three-tab admin dashboard:
@@ -639,11 +647,36 @@ const PhotosTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
               <li
                 key={p.id}
                 data-testid={`photo-row-${p.id}`}
-                className={`flex items-center justify-between gap-3 ${isDeleting ? 'opacity-50 pointer-events-none' : ''}`}
+                className={`flex items-center justify-between gap-3 group relative ${isDeleting ? 'opacity-50 pointer-events-none' : ''}`}
               >
-                <span className="font-body text-zine-burntOrange text-sm">
-                  {p.category} — {p.id}
-                </span>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {/* Thumbnail preview */}
+                  <div className="relative flex-shrink-0">
+                    <img
+                      src={p.url}
+                      alt="photo thumbnail"
+                      className="w-10 h-10 object-cover border-2 border-zine-burntYellow opacity-70 group-hover:opacity-100 transition-opacity"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </div>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="font-body text-zine-burntOrange text-sm font-bold">
+                      {getCategoryLabel(p.category)}
+                    </span>
+                    <span className="font-body text-zine-burntOrange/60 text-xs truncate">
+                      {p.id}
+                    </span>
+                  </div>
+                  {/* Hover preview overlay */}
+                  <div className="absolute left-0 top-full mt-1 hidden group-hover:block z-50">
+                    <img
+                      src={p.url}
+                      alt="photo preview"
+                      className="max-w-xs max-h-64 object-cover border-4 border-zine-burntOrange shadow-lg"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  </div>
+                </div>
                 <Button onClick={() => void handleDelete(p)} disabled={isDeleting}>
                   {isDeleting ? 'apagando...' : 'apagar'}
                 </Button>

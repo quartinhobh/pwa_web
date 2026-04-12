@@ -4,6 +4,7 @@ import Modal from '@/components/common/Modal';
 import Button from '@/components/common/Button';
 import { useAuth } from '@/hooks/useAuth';
 import { auth } from '@/services/firebase';
+import { mapAuthError } from './authUtils';
 
 export interface LoginModalProps {
   isOpen: boolean;
@@ -11,23 +12,6 @@ export interface LoginModalProps {
 }
 
 type Mode = 'pick' | 'email-login' | 'email-signup' | 'forgot' | 'verify-sent';
-
-/**
- * Maps Firebase auth error codes to user-facing messages.
- * Never leaks raw codes. Login errors stay generic to avoid user enumeration.
- */
-export function mapAuthError(code: string, mode: 'signin' | 'signup'): string {
-  if (mode === 'signin') {
-    return 'email ou senha incorretos';
-  }
-  if (code === 'auth/weak-password') {
-    return 'senha precisa ter pelo menos 8 caracteres';
-  }
-  if (code === 'auth/invalid-email') {
-    return 'email inválido';
-  }
-  return 'não foi possível criar conta com esses dados';
-}
 
 function extractErrorCode(err: unknown): string {
   if (err && typeof err === 'object' && 'code' in err && typeof (err as { code: unknown }).code === 'string') {
