@@ -40,6 +40,10 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true,
 }));
+app.use((req: Request, res: Response, next: Function) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  next();
+});
 app.use(express.json());
 app.use(globalLimiter);
 
