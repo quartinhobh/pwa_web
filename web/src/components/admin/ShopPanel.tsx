@@ -38,8 +38,8 @@ export interface ShopPanelProps {
   mode?: 'products' | 'pix' | 'all';
 }
 
-export const ShopPanel: React.FC<ShopPanelProps> = ({ mode = 'all' }) => {
-  const { products, pix, refresh } = useShopData(null);
+export const ShopPanel: React.FC<ShopPanelProps> = ({ idToken, mode = 'all' }) => {
+  const { products, pix, refresh } = useShopData(idToken);
   const [pixLocal, setPixLocal] = useState(pix);
   const [pixSaved, setPixSaved] = useState(false);
 
