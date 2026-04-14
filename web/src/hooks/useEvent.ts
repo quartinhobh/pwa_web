@@ -106,7 +106,7 @@ export function useEvent(eventId: string | null): UseEventResult {
     return () => {
       cancelled = true;
     };
-  }, [eventId, cacheKey, cached]);
+  }, [eventId, cacheKey]);
 
   return {
     event: data?.event ?? null,
