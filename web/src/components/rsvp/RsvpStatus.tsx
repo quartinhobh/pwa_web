@@ -29,17 +29,6 @@ export const RsvpStatus: React.FC<RsvpStatusProps> = ({ summary, isAdmin = false
         </div>
       )}
 
-      {/* Status message for non-admins */}
-      {!isAdmin && hasCapacity && spotsLeft !== null && (
-        <div className="font-body text-sm text-zine-burntOrange">
-          {spotsLeft > 0 ? (
-            <span>ainda tem vaga!</span>
-          ) : (
-            <span className="font-bold italic">esgotado</span>
-          )}
-        </div>
-      )}
-
       {/* Progress bar — only admins see it */}
       {isAdmin && hasCapacity && (
         <div className="h-2 bg-zine-cream dark:bg-zine-cream/20 border-2 border-zine-burntOrange/30 overflow-hidden">
