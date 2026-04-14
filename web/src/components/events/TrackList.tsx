@@ -166,7 +166,7 @@ export const TrackList: React.FC<TrackListProps> = ({
                 </div>
 
                 {isOpen && (
-                  <div className="mt-1 mb-2 ml-9">
+                  <div className="mt-1 mb-2 ml-4">
                     <TrackLyrics track={t} artistCredit={artistCredit ?? null} />
                   </div>
                 )}
