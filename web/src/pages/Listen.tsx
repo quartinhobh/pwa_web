@@ -5,6 +5,7 @@ import { useVotes } from '@/hooks/useVotes';
 import { useRsvp } from '@/hooks/useRsvp';
 import { useAuth } from '@/hooks/useAuth';
 import { useIdToken } from '@/hooks/useIdToken';
+import { useSessionStore } from '@/store/sessionStore';
 import { AlbumDisplay } from '@/components/events/AlbumDisplay';
 import { TrackList } from '@/components/events/TrackList';
 import { RsvpButton } from '@/components/rsvp/RsvpButton';
@@ -28,6 +29,7 @@ export const Listen: React.FC = () => {
 
   const { user } = useAuth();
   const idToken = useIdToken();
+  const { role } = useSessionStore();
 
   const { userVote, submitVote } = useVotes(
     event?.id ?? null,
@@ -132,7 +134,7 @@ export const Listen: React.FC = () => {
         <ZineFrame bg="cream" borderColor="burntYellow">
           <div className="flex flex-col gap-3">
             {rsvpSummary ? (
-              <RsvpStatus summary={rsvpSummary} isAdmin={user?.role === 'admin' || user?.role === 'moderator'} />
+              <RsvpStatus summary={rsvpSummary} isAdmin={role === 'admin' || role === 'moderator'} />
             ) : (
               <div className="font-body text-sm text-zine-burntOrange/60 italic text-center py-2">
                 carregando lista…
