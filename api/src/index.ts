@@ -40,7 +40,7 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true,
 }));
-app.use((req: Request, res: Response, next: NextFunction) => {
+app.use((_req: Request, res: Response, next: NextFunction) => {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   next();
 });
