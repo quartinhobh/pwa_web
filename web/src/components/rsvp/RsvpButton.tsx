@@ -12,6 +12,7 @@ interface RsvpButtonProps {
   eventId?: string;
   showFormDirectly?: boolean;
   eventLocation?: string;
+  isLive?: boolean;
 }
 
 type FormState = 'closed' | 'open';
@@ -33,6 +34,7 @@ export const RsvpButton: React.FC<RsvpButtonProps> = ({
   eventId,
   showFormDirectly = false,
   eventLocation,
+  isLive = false,
 }) => {
   const [submitting, setSubmitting] = useState(false);
   const [showPlusOne, setShowPlusOne] = useState(false);
@@ -149,6 +151,7 @@ export const RsvpButton: React.FC<RsvpButtonProps> = ({
           onSuccess={() => setFormState('closed')}
           useModal={false}
           eventLocation={eventLocation}
+          isLive={isLive}
         />
       );
     }
@@ -168,6 +171,7 @@ export const RsvpButton: React.FC<RsvpButtonProps> = ({
           onClose={() => setFormState('closed')}
           onSuccess={() => setFormState('closed')}
           eventLocation={eventLocation}
+          isLive={isLive}
         />
       </>
     );

@@ -9,6 +9,7 @@ export interface RsvpFormProps {
   onSuccess?: () => void;
   useModal?: boolean;
   eventLocation?: string;
+  isLive?: boolean;
 }
 
 type SuccessState = {
@@ -35,7 +36,7 @@ function successText(status: SuccessState['status']): string {
   return 'inscrição recebida — aguardando aprovação';
 }
 
-export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onClose = () => {}, onSuccess, useModal = false, eventLocation }) => {
+export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onClose = () => {}, onSuccess, useModal = false, eventLocation, isLive = false }) => {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [instagram, setInstagram] = useState('');
@@ -104,10 +105,10 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
         <p className="font-display text-xl text-zine-burntOrange mb-2">
           {successText(success.status)}
         </p>
-        <p className="font-body text-sm text-zine-burntOrange/70 mb-4">
+        <p className="font-body text-sm text-zine-burntOrange/70 mb-3">
           te mandamos um email com os detalhes
         </p>
-        {eventLocation && (
+        {!isLive && success.status === 'confirmed' && eventLocation && (
           <div className="font-body text-sm text-zine-burntOrange">
             <p className="font-bold mb-1">local do evento:</p>
             <p className="italic">{eventLocation}</p>

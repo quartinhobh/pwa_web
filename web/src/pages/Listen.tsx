@@ -151,6 +151,7 @@ export const Listen: React.FC = () => {
               onCancel={rsvpCancel}
               showFormDirectly
               eventLocation={event.location ?? undefined}
+              isLive={isLive}
             />
           )}
         </>
