@@ -704,15 +704,15 @@ export async function exportPdf(
   const contentWidth = pageWidth - 2 * margin;
   let yPos = margin;
 
-  // ─── Title ───────────────────────────────────────
-  doc.setFont('Helvetica', 'bold');
-  doc.setFontSize(24);
-  doc.setTextColor(51, 51, 51);
+  // ─── Title (Alfa Slab One equivalent) ────────────
+  doc.setFont('courier', 'bold');
+  doc.setFontSize(26);
+  doc.setTextColor(40, 40, 40);
   doc.text(eventTitle, margin, yPos);
-  yPos += 14;
+  yPos += 16;
 
-  // ─── Header Info ─────────────────────────────────
-  doc.setFont('Helvetica', 'normal');
+  // ─── Header Info (Bitter equivalent) ──────────────
+  doc.setFont('times', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(100, 100, 100);
   doc.text(`${eventDate} · Quartinho`, margin, yPos);
@@ -730,16 +730,15 @@ export async function exportPdf(
   doc.line(margin, yPos, pageWidth - margin, yPos);
   yPos += 10;
 
-  // ─── Attendees List ──────────────────────────────
-  const listStartY = yPos;
+  // ─── Attendees List (Bitter equivalent) ──────────
   const lineHeight = 6.5;
-  const plusOneIndent = 8;
 
-  doc.setFont('Helvetica', 'normal');
+  doc.setFont('times', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(40, 40, 40);
 
-  confirmed.forEach((entry, idx) => {
+  let attendeeNumber = 1;
+  confirmed.forEach((entry) => {
     // Check page break
     if (yPos + lineHeight > pageHeight - margin - 15) {
       doc.addPage();
@@ -747,25 +746,28 @@ export async function exportPdf(
     }
 
     // Attendee name with number
-    const nameText = `${idx + 1}. ${entry.displayName}`;
+    const nameText = `${attendeeNumber}. ${entry.displayName}`;
     doc.text(nameText, margin + 2, yPos);
     yPos += lineHeight;
+    attendeeNumber++;
 
-    // Plus-one if exists
+    // Plus-one if exists (as separate numbered entry)
     if (entry.plusOneName) {
       if (yPos + lineHeight > pageHeight - margin - 15) {
         doc.addPage();
         yPos = margin;
       }
 
-      doc.setFont('Helvetica', 'italic');
+      doc.setFont('times', 'italic');
       doc.setFontSize(9);
-      doc.setTextColor(120, 120, 120);
-      doc.text(`  +1: ${entry.plusOneName}`, margin + plusOneIndent, yPos);
+      doc.setTextColor(100, 100, 100);
+      const plusOneText = `${attendeeNumber}. ${entry.plusOneName}`;
+      doc.text(plusOneText, margin + 2, yPos);
       yPos += lineHeight - 0.5;
-      doc.setFont('Helvetica', 'normal');
+      doc.setFont('times', 'normal');
       doc.setFontSize(10);
       doc.setTextColor(40, 40, 40);
+      attendeeNumber++;
     }
   });
 
