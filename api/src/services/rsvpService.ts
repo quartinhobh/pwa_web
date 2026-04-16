@@ -701,7 +701,6 @@ export async function exportPdf(
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 16;
-  const contentWidth = pageWidth - 2 * margin;
   let yPos = margin;
 
   // ─── Title (Alfa Slab One equivalent) ────────────

@@ -19,6 +19,13 @@ import { getFirestore } from 'firebase-admin/firestore';
 const API_URL = 'http://localhost:3001';
 const PROJECT_ID = 'quartinho-dev';
 
+type SignInWithCustomTokenResponse = {
+  idToken: string;
+  refreshToken?: string;
+  expiresIn?: string;
+  isNewUser?: boolean;
+};
+
 // Initialize Firebase Admin SDK against emulator
 initializeApp({
   projectId: PROJECT_ID,
@@ -134,14 +141,14 @@ async function testPdfExport() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: customToken, returnSecureToken: true }),
-      } as any
+      }
     );
 
     if (!tokenResponse.ok) {
       throw new Error(`Token exchange failed: ${tokenResponse.status}`);
     }
 
-    const tokenData = (await tokenResponse.json()) as any;
+    const tokenData = (await tokenResponse.json()) as SignInWithCustomTokenResponse;
     const idToken = tokenData.idToken;
     console.log('   ✓ ID token obtained');
 
@@ -154,7 +161,7 @@ async function testPdfExport() {
         headers: {
           'Authorization': `Bearer ${idToken}`,
         },
-      } as any
+      }
     );
 
     if (!pdfResponse.ok) {
