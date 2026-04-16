@@ -100,17 +100,17 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
 
   if (success) {
     const successContent = (
-      <div className="bg-zine-mint dark:bg-zine-mint-dark px-4 py-4 text-center">
-        <p className="font-display text-xl text-zine-cream mb-1">
+      <div className="text-center py-4">
+        <p className="font-display text-xl text-zine-burntOrange mb-2">
           {successText(success.status)}
         </p>
-        <p className="font-body text-sm text-zine-cream/80 mb-3">
+        <p className="font-body text-sm text-zine-burntOrange/70 mb-4">
           te mandamos um email com os detalhes
         </p>
         {eventLocation && (
-          <div className="font-body text-sm text-zine-cream bg-zine-mint-dark/50 px-3 py-2 rounded">
+          <div className="font-body text-sm text-zine-burntOrange">
             <p className="font-bold mb-1">local do evento:</p>
-            <p>{eventLocation}</p>
+            <p className="italic">{eventLocation}</p>
           </div>
         )}
       </div>

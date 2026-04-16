@@ -134,8 +134,8 @@ export const Listen: React.FC = () => {
           )}
         </div>
 
-      {/* RSVP — show form directly without button for upcoming events */}
-      {rsvpEnabled && event.rsvp && isUpcoming && rsvpSummary && (
+      {/* RSVP — show form for upcoming and live events to capture emails */}
+      {rsvpEnabled && event.rsvp && (isUpcoming || isLive) && rsvpSummary && (
         <>
             <div className="flex flex-col gap-3">
               <RsvpStatus summary={rsvpSummary} isAdmin={role === 'admin' || role === 'moderator'} data-testid="rsvp-status" />
