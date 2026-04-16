@@ -700,7 +700,7 @@ export async function exportPdf(
   // Page dimensions
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 20;
+  const margin = 16;
   const contentWidth = pageWidth - 2 * margin;
   let yPos = margin;
 
@@ -709,7 +709,7 @@ export async function exportPdf(
   doc.setFontSize(26);
   doc.setTextColor(40, 40, 40);
   doc.text(eventTitle, margin, yPos);
-  yPos += 16;
+  yPos += 10;
 
   // ─── Header Info (Bitter equivalent) ──────────────
   doc.setFont('times', 'normal');
@@ -720,16 +720,16 @@ export async function exportPdf(
     margin,
     yPos,
   );
-  yPos += 8;
+  yPos += 5;
 
   // ─── Divider Line ────────────────────────────────
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.5);
   doc.line(margin, yPos, pageWidth - margin, yPos);
-  yPos += 7;
+  yPos += 5;
 
   // ─── Attendees List (Bitter equivalent) ──────────
-  const lineHeight = 6.5;
+  const lineHeight = 5.5;
 
   doc.setFont('times', 'normal');
   doc.setFontSize(10);
@@ -764,7 +764,7 @@ export async function exportPdf(
   });
 
   // ─── Footer ──────────────────────────────────────
-  yPos = pageHeight - margin - 8;
+  yPos = pageHeight - 10;
   doc.setFont('Helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(150, 150, 150);
