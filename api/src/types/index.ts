@@ -338,6 +338,7 @@ export interface RsvpEntry {
   plusOneName: string | null;
   email: string;
   displayName: string;
+  instagram?: string | null;
   authMode: RsvpAuthMode;
   createdAt: number;
   updatedAt: number;

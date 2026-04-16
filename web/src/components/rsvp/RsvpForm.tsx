@@ -37,7 +37,8 @@ function successText(status: SuccessState['status']): string {
 }
 
 export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onClose = () => {}, onSuccess, useModal = false, eventLocation, isLive = false }) => {
-  const [displayName, setDisplayName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [instagram, setInstagram] = useState('');
   const [plusOne, setPlusOne] = useState(false);
@@ -47,7 +48,8 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
   const [success, setSuccess] = useState<SuccessState | null>(null);
 
   function handleClose() {
-    setDisplayName('');
+    setFirstName('');
+    setLastName('');
     setEmail('');
     setInstagram('');
     setPlusOne(false);
@@ -59,13 +61,18 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const firstNameTrimmed = firstName.trim();
+    const lastNameTrimmed = lastName.trim();
     const emailTrimmed = email.trim();
     const instagramTrimmed = instagram.trim().replace(/^@/, '');
-    const displayNameTrimmed = displayName.trim();
 
-    // Validate: name and email required
-    if (!displayNameTrimmed) {
+    // Validate: both names and email required
+    if (!firstNameTrimmed) {
       setError('preencha seu nome');
+      return;
+    }
+    if (!lastNameTrimmed) {
+      setError('preencha seu sobrenome');
       return;
     }
     if (!emailTrimmed) {
@@ -76,10 +83,11 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
     setLoading(true);
     setError(null);
     try {
+      const displayName = `${firstNameTrimmed} ${lastNameTrimmed}`;
       const res = await submitRsvpGuest(eventId, {
         email: emailTrimmed,
         instagram: instagramTrimmed || undefined,
-        displayName: displayNameTrimmed,
+        displayName,
         plusOne,
         plusOneName: plusOne ? plusOneName.trim() || undefined : undefined,
       });
@@ -135,8 +143,17 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
         type="text"
         placeholder="seu nome"
         aria-label="nome"
-        value={displayName}
-        onChange={(e) => setDisplayName(e.target.value)}
+        value={firstName}
+        onChange={(e) => setFirstName(e.target.value)}
+        required
+        className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
+      />
+      <input
+        type="text"
+        placeholder="seu sobrenome"
+        aria-label="sobrenome"
+        value={lastName}
+        onChange={(e) => setLastName(e.target.value)}
         required
         className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
       />

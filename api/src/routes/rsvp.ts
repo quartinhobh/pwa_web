@@ -120,6 +120,7 @@ rsvpRouter.post(
       const body = (req.body ?? {}) as {
         email?: string;
         displayName?: string;
+        instagram?: string;
         plusOne?: boolean;
         plusOneName?: string;
       };
@@ -139,6 +140,7 @@ rsvpRouter.post(
           uid: req.user.uid,
           email,
           displayName,
+          instagram: body.instagram?.trim() || undefined,
           plusOne: body.plusOne,
           plusOneName: body.plusOneName,
         };
@@ -157,6 +159,7 @@ rsvpRouter.post(
           type: 'guest',
           email,
           displayName,
+          instagram: body.instagram?.trim() || undefined,
           plusOne: body.plusOne,
           plusOneName: body.plusOneName,
         };

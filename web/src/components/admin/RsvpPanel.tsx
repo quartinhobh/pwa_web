@@ -560,6 +560,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
                     Nome {sortKey === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
                   </th>
                   <th className="text-left py-2 pr-3">Email</th>
+                  <th className="text-left py-2 pr-3">Instagram</th>
                   <th className="text-left py-2 pr-3">Origem</th>
                   <th className="text-left py-2 pr-3">Status</th>
                   <th className="text-left py-2 pr-3">+1</th>
@@ -583,6 +584,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
                     </td>
                     <td className="py-2 pr-3 font-bold">{entry.displayName}</td>
                     <td className="py-2 pr-3 text-zine-burntOrange/70 dark:text-zine-cream/70">{entry.email ?? '—'}</td>
+                    <td className="py-2 pr-3 text-zine-burntOrange/70 dark:text-zine-cream/70">{entry.instagram ? `@${entry.instagram}` : '—'}</td>
                     <td className="py-2 pr-3">
                       <span
                         data-testid={`authmode-badge-${entry.userId}`}
@@ -690,6 +692,11 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
                       <p className="font-body text-xs text-zine-burntOrange/70 truncate">
                         {entry.email ?? '—'}
                       </p>
+                      {entry.instagram && (
+                        <p className="font-body text-xs text-zine-burntOrange/70 truncate">
+                          @{entry.instagram}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

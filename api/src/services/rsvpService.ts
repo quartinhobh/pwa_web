@@ -35,6 +35,7 @@ export type SubmitRsvpInput =
       uid: string;
       email: string;
       displayName: string;
+      instagram?: string;
       plusOne?: boolean;
       plusOneName?: string;
     }
@@ -42,6 +43,7 @@ export type SubmitRsvpInput =
       type: 'guest';
       email: string;
       displayName: string;
+      instagram?: string;
       plusOne?: boolean;
       plusOneName?: string;
     };
@@ -272,6 +274,7 @@ export async function submitRsvp(
       plusOneName: wantsPlusOne ? (input.plusOneName?.trim() || null) : null,
       email,
       displayName,
+      instagram: input.instagram?.trim() || null,
       authMode,
       createdAt: now,
       updatedAt: now,
@@ -729,6 +732,7 @@ export async function exportPdf(
 
   // ─── Attendees List (Bitter equivalent) ──────────
   const lineHeight = 5.5;
+  const subLineHeight = 4.5;
 
   doc.setFont('times', 'normal');
   doc.setFontSize(10);
@@ -736,25 +740,53 @@ export async function exportPdf(
 
   let attendeeNumber = 1;
   confirmed.forEach((entry) => {
+    // Calculate height needed for this entry (name + email + instagram + newlines)
+    const extraLines = (entry.email ? 1 : 0) + (entry.instagram ? 1 : 0);
+    const entryHeight = lineHeight + extraLines * subLineHeight;
+
     // Check page break
-    if (yPos + lineHeight > pageHeight - margin - 15) {
+    if (yPos + entryHeight > pageHeight - margin - 15) {
       doc.addPage();
       yPos = margin;
     }
 
     // Attendee name with number
+    doc.setFont('times', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(40, 40, 40);
     const nameText = `${attendeeNumber}. ${entry.displayName}`;
     doc.text(nameText, margin + 2, yPos);
     yPos += lineHeight;
     attendeeNumber++;
 
-    // Plus-one if exists (as separate numbered entry, same font)
+    // Email if present
+    if (entry.email) {
+      doc.setFont('times', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text(entry.email, margin + 6, yPos);
+      yPos += subLineHeight;
+    }
+
+    // Instagram if present
+    if (entry.instagram) {
+      doc.setFont('times', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text(`@${entry.instagram}`, margin + 6, yPos);
+      yPos += subLineHeight;
+    }
+
+    // Plus-one if exists (as separate numbered entry)
     if (entry.plusOneName) {
       if (yPos + lineHeight > pageHeight - margin - 15) {
         doc.addPage();
         yPos = margin;
       }
 
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(40, 40, 40);
       const plusOneText = `${attendeeNumber}. ${entry.plusOneName}`;
       doc.text(plusOneText, margin + 2, yPos);
       yPos += lineHeight;
