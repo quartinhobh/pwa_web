@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { submitRsvpGuest } from '@/services/api';
 import Modal from '@/components/common/Modal';
-import { useGuestUpsell } from '@/contexts/GuestUpsellContext';
 
 export interface RsvpFormProps {
   eventId: string;
@@ -9,6 +8,8 @@ export interface RsvpFormProps {
   onClose?: () => void;
   onSuccess?: () => void;
   useModal?: boolean;
+  eventLocation?: string;
+  isLive?: boolean;
 }
 
 type SuccessState = {
@@ -35,7 +36,7 @@ function successText(status: SuccessState['status']): string {
   return 'inscrição recebida — aguardando aprovação';
 }
 
-export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onClose = () => {}, onSuccess, useModal = false }) => {
+export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onClose = () => {}, onSuccess, useModal = false, eventLocation, isLive = false }) => {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [instagram, setInstagram] = useState('');
@@ -44,7 +45,6 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<SuccessState | null>(null);
-  const { openModal } = useGuestUpsell();
 
   function handleClose() {
     setDisplayName('');
@@ -61,10 +61,15 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
     e.preventDefault();
     const emailTrimmed = email.trim();
     const instagramTrimmed = instagram.trim().replace(/^@/, '');
+    const displayNameTrimmed = displayName.trim();
 
-    // Validate: at least email or instagram required
-    if (!emailTrimmed && !instagramTrimmed) {
-      setError('preencha email ou instagram');
+    // Validate: name and email required
+    if (!displayNameTrimmed) {
+      setError('preencha seu nome');
+      return;
+    }
+    if (!emailTrimmed) {
+      setError('preencha seu email');
       return;
     }
 
@@ -72,9 +77,9 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
     setError(null);
     try {
       const res = await submitRsvpGuest(eventId, {
-        email: emailTrimmed || undefined,
+        email: emailTrimmed,
         instagram: instagramTrimmed || undefined,
-        displayName: displayName.trim(),
+        displayName: displayNameTrimmed,
         plusOne,
         plusOneName: plusOne ? plusOneName.trim() || undefined : undefined,
       });
@@ -84,7 +89,6 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
         return;
       }
       setSuccess({ status, entryKey: res.entryKey });
-      openModal({ email: emailTrimmed || undefined, instagram: instagramTrimmed || undefined, displayName: displayName.trim() });
       onSuccess?.();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'unknown';
@@ -97,13 +101,19 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
 
   if (success) {
     const successContent = (
-      <div className="bg-zine-mint dark:bg-zine-mint-dark border-4 border-zine-cream dark:border-zine-cream/30 px-4 py-4 text-center">
-        <p className="font-display text-xl text-zine-cream mb-1">
+      <div className="text-center py-4">
+        <p className="font-display text-xl text-zine-burntOrange mb-2">
           {successText(success.status)}
         </p>
-        <p className="font-body text-sm text-zine-cream/80">
-          {email ? 'te mandamos um email com os detalhes' : 'entraremos em contato pelo instagram'}
+        <p className="font-body text-sm text-zine-burntOrange/70 mb-3">
+          te mandamos um email com os detalhes
         </p>
+        {!isLive && success.status === 'confirmed' && eventLocation && (
+          <div className="font-body text-sm text-zine-burntOrange">
+            <p className="font-bold mb-1">local do evento:</p>
+            <p className="italic">{eventLocation}</p>
+          </div>
+        )}
       </div>
     );
 
@@ -130,14 +140,20 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
         required
         className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
       />
-      <input
-        type="email"
-        placeholder="seu email (opcional)"
-        aria-label="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
-      />
+      <div>
+        <input
+          type="email"
+          placeholder="seu email"
+          aria-label="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange w-full"
+        />
+        <p className="font-body text-xs text-zine-burntOrange/70 italic mt-1">
+          vamos te enviar o local por e-mail
+        </p>
+      </div>
       <input
         type="text"
         placeholder="seu instagram (opcional)"
@@ -187,7 +203,7 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
       {formContent}
     </Modal>
   ) : isOpen ? (
-    <div className="flex flex-col gap-3 bg-zine-cream dark:bg-zine-surface-dark border-4 border-zine-burntYellow p-4">
+    <div className="flex flex-col gap-3 bg-transparent p-4">
       {formContent}
     </div>
   ) : null;

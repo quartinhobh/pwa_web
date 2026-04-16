@@ -36,6 +36,7 @@ const PublicProfile = lazy(() => import('@/pages/PublicProfile'));
 const Links = lazy(() => import('@/pages/Links'));
 const UserRedirect = lazy(() => import('@/pages/UserRedirect'));
 const DevLogin = lazy(() => import('@/pages/DevLogin'));
+const AdminLogin = lazy(() => import('@/pages/AdminLogin'));
 const ResetPassword = lazy(() => import('@/pages/ResetPassword'));
 const BannerDisplay = lazy(() => import('@/components/layout/BannerDisplay'));
 
@@ -79,6 +80,7 @@ function MainContent({ idToken }: { idToken: string | null }) {
           <Route path="/links" element={<Links />} />
           <Route path="/u/:username" element={<PublicProfile />} />
           <Route path="/user/:id" element={<UserRedirect />} />
+          <Route path="/admin-login" element={<AdminLogin />} />
           <Route path="/admin" element={<Admin idToken={idToken} />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           {import.meta.env.DEV && (

@@ -12,7 +12,6 @@ import { RsvpButton } from '@/components/rsvp/RsvpButton';
 import { RsvpStatus } from '@/components/rsvp/RsvpStatus';
 import { EventDetailSkeleton } from '@/components/common/LoadingState';
 import ZineFrame from '@/components/common/ZineFrame';
-import { isChatAvailable, chatStatusText } from '@/utils/chatAvailability';
 
 const DEFAULT_LOCATION_REVEAL_DAYS = 7;
 
@@ -84,6 +83,13 @@ export const Listen: React.FC = () => {
 
   return (
     <main className="flex flex-col gap-4 p-4">
+      {/* Introductory text with border */}
+      <ZineFrame bg="cream" borderColor="burntYellow">
+        <p className="font-body text-zine-burntOrange text-center leading-relaxed">
+          se você ainda não conhece o quartinho, somos um evento mensal que ouve discos de música brasileira por belo horizonte. o evento é gratuito, e pra participar é só confirmar sua presença abaixo e saber o local!
+        </p>
+      </ZineFrame>
+
       {/* Status badge */}
       {isLive && (
         <div className="flex justify-center">
@@ -103,7 +109,7 @@ export const Listen: React.FC = () => {
       <AlbumDisplay event={event} album={album} coverUrl={event.album?.coverUrl} />
 
       {/* Date + time + location */}
-      <ZineFrame bg="cream" borderColor="burntYellow">
+      <ZineFrame bg="cream">
         <div className="flex flex-col gap-1 text-center font-body text-zine-burntOrange">
           <span className="font-bold">
             {new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', {
@@ -121,39 +127,37 @@ export const Listen: React.FC = () => {
           )}
           {isUpcoming && event.location && !showLocation && (
             <span className="text-zine-burntOrange/60 text-sm italic mt-1">
-              local revelado {revealDays} dias antes
+              {rsvpEnabled
+                ? 'confirme sua presença para saber onde'
+                : `local revelado ${revealDays} dias antes`}
             </span>
           )}
         </div>
+
+      {/* RSVP — show form for upcoming and live events to capture emails */}
+      {rsvpEnabled && event.rsvp && (isUpcoming || isLive) && rsvpSummary && (
+        <>
+            <div className="flex flex-col gap-3">
+              <RsvpStatus summary={rsvpSummary} isAdmin={role === 'admin' || role === 'moderator'} data-testid="rsvp-status" />
+            </div>
+          {!rsvpEntry && (
+            <RsvpButton
+              eventId={event.id}
+              config={event.rsvp}
+              summary={rsvpSummary}
+              userEntry={rsvpEntry}
+              isAuthenticated={!!idToken}
+              onSubmit={rsvpSubmit}
+              onCancel={rsvpCancel}
+              showFormDirectly
+              eventLocation={event.location ?? undefined}
+              isLive={isLive}
+            />
+          )}
+        </>
+      )}
       </ZineFrame>
 
-      {/* RSVP — render the frame as soon as we know RSVP is enabled, even
-          before the summary lands. The frame keeps its slot in the layout so
-          the page doesn't shift when counts arrive a moment later. */}
-      {rsvpEnabled && event.rsvp && (isUpcoming || isLive) && (
-        <ZineFrame bg="cream" borderColor="burntYellow">
-          <div className="flex flex-col gap-3">
-            {rsvpSummary ? (
-              <RsvpStatus summary={rsvpSummary} isAdmin={role === 'admin' || role === 'moderator'} />
-            ) : (
-              <div className="font-body text-sm text-zine-burntOrange/60 italic text-center py-2">
-                carregando lista…
-              </div>
-            )}
-            {isUpcoming && rsvpSummary && (
-              <RsvpButton
-                eventId={event.id}
-                config={event.rsvp}
-                summary={rsvpSummary}
-                userEntry={rsvpEntry}
-                isAuthenticated={!!idToken}
-                onSubmit={rsvpSubmit}
-                onCancel={rsvpCancel}
-              />
-            )}
-          </div>
-        </ZineFrame>
-      )}
 
       {/* Event links — Spotify, extras */}
       {(event.spotifyPlaylistUrl || event.extras.links.length > 0) && (
@@ -196,26 +200,6 @@ export const Listen: React.FC = () => {
       {/* Upcoming: tracklist preview, no voting */}
       {isUpcoming && tracks.length > 0 && (
         <TrackList tracks={tracks} artistCredit={album?.artistCredit} />
-      )}
-
-      {/* Chat link — gated by chatEnabled + window */}
-      {event.chatEnabled !== false && (
-        isChatAvailable(event) ? (
-          <Link
-            to={`/chat/${event.id}`}
-            className="font-body font-bold text-center bg-zine-burntYellow dark:bg-zine-burntYellow-bright text-zine-cream dark:text-zine-surface-dark px-4 py-3 border-4 border-zine-cream dark:border-zine-cream/30 hover:bg-zine-burntOrange block"
-          >
-            💬 entrar no chat
-          </Link>
-        ) : (
-          <button
-            type="button"
-            disabled
-            className="font-body font-bold text-center bg-zine-burntYellow/40 text-zine-cream/70 dark:text-zine-surface-dark/70 px-4 py-3 border-4 border-zine-cream dark:border-zine-cream/30 block cursor-not-allowed"
-          >
-            💬 {chatStatusText(event) ?? 'chat indisponível'}
-          </button>
-        )
       )}
 
       {/* Link to past events */}

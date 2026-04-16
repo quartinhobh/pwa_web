@@ -15,7 +15,7 @@ interface TemplateDefault {
 const DEFAULTS: Record<EmailTemplateKey, TemplateDefault> = {
   confirmation: {
     subject: 'tá confirmado! 🎶 {evento}',
-    body: 'Oi {nome}!\n\nSua presença em {evento} ({data}, {horario}) está confirmada.\n\nNos vemos lá!',
+    body: 'Oi {nome}!\n\nSua presença em {evento} ({data}, {horario}) está confirmada.\n\n{local}\n\nNos vemos lá!',
     description: 'Enviado quando alguém confirma presença',
   },
   waitlist: {
@@ -25,7 +25,7 @@ const DEFAULTS: Record<EmailTemplateKey, TemplateDefault> = {
   },
   promotion: {
     subject: 'abriu vaga! 🎉 {evento}',
-    body: 'Oi {nome}!\n\nAbriu uma vaga no {evento} ({data}, {horario}) e você saiu da fila! Sua presença está confirmada.',
+    body: 'Oi {nome}!\n\nAbriu uma vaga no {evento} ({data}, {horario}) e você saiu da fila! Sua presença está confirmada.\n\n{local}',
     description: 'Enviado quando sai da fila e entra',
   },
   reminder: {

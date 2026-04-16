@@ -166,8 +166,8 @@ rsvpRouter.post(
 
       // Send email (fire-and-forget, after response)
       const eventSnap = await adminDb.collection('events').doc(eventId).get();
-      const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string } | undefined;
-      const vars = { evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '' };
+      const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string; location?: string } | undefined;
+      const vars = { evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '', local: ev?.location ?? '' };
       const emailKey = result.entry.status === 'confirmed' ? 'confirmation' as const
         : result.entry.status === 'waitlisted' ? 'waitlist' as const
         : null;
@@ -207,9 +207,9 @@ rsvpRouter.delete(
       // Send promotion email if someone was auto-promoted
       if (result.promotedEntryKey) {
         const eventSnap = await adminDb.collection('events').doc(eventId).get();
-        const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string } | undefined;
+        const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string; location?: string } | undefined;
         void sendRsvpEmail('promotion', eventId, result.promotedEntryKey, {
-          evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '',
+          evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '', local: ev?.location ?? '',
         });
       }
     } catch (err) {
@@ -300,9 +300,9 @@ rsvpRouter.put(
 
       if (result.promotedEntryKey) {
         const eventSnap = await adminDb.collection('events').doc(eventId).get();
-        const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string } | undefined;
+        const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string; location?: string } | undefined;
         void sendRsvpEmail('promotion', eventId, result.promotedEntryKey, {
-          evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '',
+          evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '', local: ev?.location ?? '',
         });
       }
     } catch (err) {
@@ -328,9 +328,9 @@ rsvpRouter.delete(
 
       if (result.promotedEntryKey) {
         const eventSnap = await adminDb.collection('events').doc(eventId).get();
-        const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string } | undefined;
+        const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string; location?: string } | undefined;
         void sendRsvpEmail('promotion', eventId, result.promotedEntryKey, {
-          evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '',
+          evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '', local: ev?.location ?? '',
         });
       }
     } catch (err) {
@@ -363,8 +363,8 @@ rsvpRouter.put(
 
       // Send email
       const eventSnap = await adminDb.collection('events').doc(eventId).get();
-      const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string } | undefined;
-      const vars = { evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '' };
+      const ev = eventSnap.data() as { title?: string; date?: string; startTime?: string; location?: string } | undefined;
+      const vars = { evento: ev?.title ?? '', data: ev?.date ?? '', horario: ev?.startTime ?? '', local: ev?.location ?? '' };
       const emailKey = newStatus === 'confirmed' ? 'confirmation' as const : 'rejected' as const;
       void sendRsvpEmail(emailKey, eventId, targetEntryKey, vars);
     } catch (err) {

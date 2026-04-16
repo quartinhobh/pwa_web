@@ -23,9 +23,6 @@ import { rsvpRouter } from './rsvp';
 
 export const eventsRouter: Router = Router();
 
-// Nested RSVP routes: /events/:eventId/rsvp/*
-eventsRouter.use('/:eventId/rsvp', rsvpRouter);
-
 // ── In-memory cache (TTL 60s, invalidated on writes) ─────────────
 const CACHE_TTL = 10 * 60_000; // 10 min — invalidated instantly on admin writes
 let listCache: { data: Event[]; at: number } | null = null;
@@ -382,3 +379,7 @@ eventsRouter.delete(
     }
   },
 );
+
+// Nested RSVP routes: /events/:eventId/rsvp/*
+// MUST be after all specific routes (e.g. /current, /:id) so they don't get caught by :eventId
+eventsRouter.use('/:eventId/rsvp', rsvpRouter);

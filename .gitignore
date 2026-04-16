@@ -54,4 +54,5 @@ web/test-results/
 .env.production
 .github/secrets.env
 
-nota.txt
+nota.txt.env
+.env.*

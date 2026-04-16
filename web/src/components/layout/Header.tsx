@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useSessionStore } from '@/store/sessionStore';
-import LoginModal from '@/components/auth/LoginModal';
 import GuestUpsellModal from '@/components/rsvp/GuestUpsellModal';
 import UserAvatar from '@/components/common/UserAvatar';
 import { useGuestUpsell } from '@/contexts/GuestUpsellContext';
@@ -21,7 +20,6 @@ export const Header: React.FC = () => {
   const { user, isAuthenticated, signOut } = useAuth();
   const role = useSessionStore((s) => s.role);
   const isAdminOrMod = role === 'admin' || role === 'moderator';
-  const [loginOpen, setLoginOpen] = useState(false);
   const [dark, setDark] = useState(getInitialDark);
   const { modalData, closeModal } = useGuestUpsell();
 
@@ -94,19 +92,10 @@ export const Header: React.FC = () => {
                   sair
                 </button>
               </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setLoginOpen(true)}
-                className="font-body font-bold text-sm text-zine-cream border-2 border-zine-cream dark:border-zine-cream/30 px-3 py-1 hover:bg-zine-burntYellow shrink-0"
-              >
-                entrar
-              </button>
-            )}
+            ) : null}
           </nav>
         </div>
       </header>
-      <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} />
       {modalData && (
         <GuestUpsellModal
           isOpen={!!modalData}

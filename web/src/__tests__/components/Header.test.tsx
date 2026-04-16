@@ -66,11 +66,6 @@ describe('Header', () => {
     expect(screen.getByText('lojinha')).toBeInTheDocument();
   });
 
-  it('shows "entrar" button when not authenticated', () => {
-    renderHeader();
-    expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument();
-  });
-
   it('shows "sair" button when authenticated', () => {
     mockUseAuth.mockReturnValue({
       user: { displayName: 'Gustavo', email: 'g@test.com', uid: 'uid-1' },
