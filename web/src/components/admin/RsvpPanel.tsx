@@ -236,6 +236,10 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
       }
 
       // Fetch PDF from backend
+      if (!idToken) {
+        throw new Error('Token de autenticação não disponível. Faça login novamente.');
+      }
+
       const response = await fetch(`/events/${eventId}/rsvp/admin/export-pdf`, {
         headers: {
           'Authorization': `Bearer ${idToken}`,
@@ -243,7 +247,17 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao gerar PDF');
+        let errorMsg = 'Erro ao gerar PDF';
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorData.message || errorMsg;
+          if (errorData.details) {
+            errorMsg += `: ${errorData.details}`;
+          }
+        } catch {
+          errorMsg += ` (HTTP ${response.status})`;
+        }
+        throw new Error(errorMsg);
       }
 
       const blob = await response.blob();
