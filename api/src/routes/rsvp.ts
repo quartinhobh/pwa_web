@@ -22,6 +22,7 @@ import {
   adminCancelRsvp,
   moveToWaitlist,
   exportCsv,
+  exportPdf,
   buildEntryKey,
   bulkImportRsvp,
   type SubmitRsvpInput,
@@ -258,6 +259,31 @@ rsvpRouter.get(
       res.status(200).send(csv);
     } catch {
       res.status(500).json({ error: 'export_failed' });
+    }
+  },
+);
+
+// GET /events/:eventId/rsvp/admin/export-pdf — PDF download with confirmed RSVPs (MUST be before :entryKey)
+rsvpRouter.get(
+  '/admin/export-pdf',
+  requireAuth,
+  requireRole('admin'),
+  async (req: Request, res: Response) => {
+    try {
+      const eventId = req.params.eventId!;
+      const entries = await getAdminList(eventId);
+      const eventSnap = await adminDb.collection('events').doc(eventId).get();
+      const event = eventSnap.data() as { title?: string; date?: string } | undefined;
+      const title = event?.title ?? 'Evento';
+      const date = event?.date ?? new Date().toISOString().split('T')[0];
+
+      const pdfBuffer = await exportPdf(entries, title, date);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="confirmados-${eventId}.pdf"`);
+      res.status(200).send(pdfBuffer);
+    } catch (err) {
+      console.error('[rsvp export-pdf]', err instanceof Error ? err.message : err);
+      res.status(500).json({ error: 'export_pdf_failed', details: err instanceof Error ? err.message : String(err) });
     }
   },
 );

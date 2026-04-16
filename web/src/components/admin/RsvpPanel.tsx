@@ -235,105 +235,26 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
         }));
       }
 
-      // Calcula total de lugares (contando +1)
-      const totalLugares = confirmed.reduce((sum, entry) => sum + (entry.plusOne ? 2 : 1), 0);
-
-      // Cria elemento HTML com dados
-      const element = document.createElement('div');
-      element.innerHTML = `
-        <div style="font-family: 'Bitter', Georgia, serif; padding: 16px 20px;">
-          <h1 style="font-family: 'Alfa Slab One', serif; font-size: 24px; margin: 0 0 2px 0; color: #333; text-align: center;">
-            ${event.title}
-          </h1>
-          <p style="font-size: 11px; color: #666; margin: 0 0 12px 0; text-align: center; border-bottom: 1px solid #999; padding-bottom: 6px;">
-            ${event.date} · ${event.location ?? 'Local não informado'} | Confirmados: ${confirmed.length} pessoas | Lugares: ${totalLugares}
-          </p>
-          <div>
-            ${confirmed.map((entry, idx) => `
-              <div>
-                <div style="margin-bottom: 2px; padding-bottom: 2px; border-bottom: 1px solid #ddd; display: flex; gap: 20px; align-items: baseline;">
-                  <div style="min-width: 20px; font-size: 11px; color: #999; flex-shrink: 0;">
-                    ${idx + 1}.
-                  </div>
-                  <div style="font-size: 11px; color: #333; font-weight: 500; flex: 1;">
-                    ${entry.displayName}
-                  </div>
-                  <div style="color: #666; font-size: 10px; flex: 1.5; text-align: right;">
-                    ${entry.email}
-                  </div>
-                </div>
-                ${entry.plusOne ? `
-                  <div style="margin-bottom: 6px; padding-left: 24px; padding-bottom: 4px; border-bottom: 1px solid #eee; display: flex; gap: 20px; align-items: baseline; opacity: 0.8;">
-                    <div style="font-size: 11px; color: #999; flex-shrink: 0;">
-                      ⤷
-                    </div>
-                    <div style="font-size: 10px; color: #555; font-style: italic; flex: 1;">
-                      ${entry.plusOneName || 'acompanhante'}
-                    </div>
-                    <div style="color: #999; font-size: 10px; flex: 1.5; text-align: right;">
-                      —
-                    </div>
-                  </div>
-                ` : ''}
-              </div>
-            `).join('')}
-          </div>
-          <div style="text-align: center; font-size: 9px; color: #999; border-top: 1px solid #999; padding-top: 6px; margin-top: 16px; page-break-before: avoid;">
-            ${new Date().toLocaleDateString('pt-BR')} · Quartinho
-          </div>
-        </div>
-      `;
-
-      // Converte HTML em canvas usando html2canvas
-      const htmlCanvasName = 'html2canvas';
-      const jsPdfName = 'jspdf';
-      const [html2canvasModule, jsPDFModule] = await Promise.all([
-        import(htmlCanvasName),
-        import(jsPdfName),
-      ]);
-
-      const html2canvas = html2canvasModule.default || html2canvasModule;
-      const jsPDFClass = jsPDFModule.jsPDF || jsPDFModule.default;
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        logging: false,
-        useCORS: true,
+      // Fetch PDF from backend
+      const response = await fetch(`/events/${eventId}/rsvp/admin/export-pdf`, {
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+        },
       });
 
-      const imgData = canvas.toDataURL('image/png');
-
-      // Cria PDF com jsPDF
-      const pdf = new jsPDFClass({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      // Calcula dimensões da imagem para caber na página
-      const imgWidth = pdfWidth - 20; // 10mm margin em cada lado
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      let position = 10; // margin top
-      let heightLeft = imgHeight;
-
-      // Primeira página
-      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-
-      // Páginas adicionais se conteúdo exceder
-      while (heightLeft > 0) {
-        position -= (pdfHeight - 10);
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
+      if (!response.ok) {
+        throw new Error('Erro ao gerar PDF');
       }
 
-      // Salva o PDF
-      pdf.save(`Presença - ${event.title}.pdf`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Presença - ${event.title}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao gerar PDF');
     }

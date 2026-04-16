@@ -13,6 +13,7 @@
 //   - `guest:${sha256(email)[0..32]}`  — anonymous submission
 
 import { createHash } from 'crypto';
+import jsPDF from 'jspdf';
 import { adminDb } from '../config/firebase';
 import type {
   Event,
@@ -680,4 +681,99 @@ export async function bulkImportRsvp(
   }
 
   return { imported, skipped };
+}
+
+/** Generate PDF with confirmed RSVPs for printing using Puppeteer */
+export async function exportPdf(
+  entries: AdminRsvpEntry[],
+  eventTitle: string,
+  eventDate: string,
+): Promise<Buffer> {
+  const confirmed = entries.filter((e) => e.status === 'confirmed');
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  // Constants for layout
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentWidth = pageWidth - 2 * margin;
+  let yPos = margin;
+  const lineHeight = 7;
+
+  // Set up fonts
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.text(eventTitle, margin, yPos);
+  yPos += 12;
+
+  // Header info
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(100, 100, 100);
+  doc.text(
+    `${eventDate} · Quartinho | Confirmados: ${confirmed.length}`,
+    margin,
+    yPos,
+  );
+  yPos += 10;
+
+  // Draw separator line
+  doc.setDrawColor(200, 200, 200);
+  doc.line(margin, yPos, pageWidth - margin, yPos);
+  yPos += 8;
+
+  // List entries
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(0, 0, 0);
+
+  confirmed.forEach((entry, idx) => {
+    const nameText = `${idx + 1}. ${entry.displayName}`;
+
+    // Check if we need a new page
+    if (yPos + lineHeight > pageHeight - margin) {
+      doc.addPage();
+      yPos = margin;
+    }
+
+    doc.text(nameText, margin + 2, yPos);
+    yPos += lineHeight;
+
+    // Add plus-one if exists
+    if (entry.plusOneName) {
+      if (yPos + lineHeight > pageHeight - margin) {
+        doc.addPage();
+        yPos = margin;
+      }
+
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      doc.setTextColor(120, 120, 120);
+      doc.text(`+1: ${entry.plusOneName}`, margin + 10, yPos);
+      yPos += lineHeight;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+    }
+  });
+
+  // Footer
+  yPos = pageHeight - margin - 10;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text(
+    `${new Date().toLocaleDateString('pt-BR')} · ${confirmed.length} confirmados`,
+    pageWidth / 2,
+    yPos,
+    { align: 'center' },
+  );
+
+  // Return PDF as buffer
+  return Buffer.from(doc.output('arraybuffer'));
 }

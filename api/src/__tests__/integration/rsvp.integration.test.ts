@@ -467,4 +467,50 @@ describe.skipIf(SKIP)('RSVP Integration', () => {
     });
     expect(r.entry.status).toBe('confirmed');
   });
+
+  it('exportPdf generates valid PDF with confirmed RSVPs', async () => {
+    const { submitRsvp, getAdminList, exportPdf } = await import('../../services/rsvpService');
+
+    await seedEvent('evt-pdf', {
+      enabled: true,
+      capacity: null,
+      waitlistEnabled: false,
+      plusOneAllowed: true,
+      approvalMode: 'auto',
+      opensAt: null,
+      closesAt: null,
+    });
+
+    // Submit multiple RSVPs
+    await submitRsvp('evt-pdf', {
+      type: 'firebase', uid: 'user1', email: 'u1@test.com', displayName: 'Alice Silva',
+    });
+    await submitRsvp('evt-pdf', {
+      type: 'firebase', uid: 'user2', email: 'u2@test.com', displayName: 'Bob Santos', plusOne: true, plusOneName: 'Charlie',
+    });
+    await submitRsvp('evt-pdf', {
+      type: 'guest', email: 'guest@test.com', displayName: 'Diana Costa',
+    });
+
+    // Get admin list
+    const entries = await getAdminList('evt-pdf');
+    expect(entries.length).toBeGreaterThanOrEqual(3);
+
+    // Generate PDF
+    const pdfBuffer = await exportPdf(entries, 'Quartinho #42 — Test Event', '2026-05-15');
+
+    // Verify it's a valid PDF
+    expect(pdfBuffer).toBeInstanceOf(Buffer);
+    expect(pdfBuffer.length).toBeGreaterThan(100);
+
+    // Check PDF signature
+    const pdfSignature = pdfBuffer.slice(0, 4).toString('ascii');
+    expect(pdfSignature).toBe('%PDF');
+
+    // Verify content contains expected names
+    const pdfText = pdfBuffer.toString('latin1');
+    expect(pdfText).toContain('Alice');
+    expect(pdfText).toContain('Bob');
+    expect(pdfText).toContain('Diana');
+  });
 });

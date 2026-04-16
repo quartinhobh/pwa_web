@@ -27,5 +27,9 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "bun@1.1.20"
+  "packageManager": "bun@1.1.20",
+  "dependencies": {
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1"
+  }
 }
