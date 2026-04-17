@@ -254,6 +254,9 @@ export async function submitRsvp(
     }
 
     const wantsPlusOne = config.plusOneAllowed && !!input.plusOne;
+    if (wantsPlusOne && !input.plusOneName?.trim()) {
+      throw new Error('plus_one_requires_name');
+    }
     const seatsNeeded = wantsPlusOne ? 2 : 1;
     const now = Date.now();
 
@@ -750,6 +753,7 @@ export async function exportPdf(
     let fullLine = `${attendeeNumber}. ${entry.displayName}`;
     if (entry.email) fullLine += ` - ${entry.email}`;
     if (entry.instagram) fullLine += ` - @${entry.instagram}`;
+    if (entry.plusOne && !entry.plusOneName) fullLine += ' - está levando acompanhante sem nome ⚠️';
 
     // Attendee with contact info on same line
     doc.setFont('times', 'normal');

@@ -24,6 +24,7 @@ const errorMessages: Record<string, string> = {
   rsvp_closed: 'inscrições encerradas',
   rsvp_disabled: 'rsvp desabilitado pra esse evento',
   event_not_found: 'evento não encontrado',
+  plus_one_requires_name: 'se vai levar +1, preenche o nome',
 };
 
 function mapError(msg: string): string {
@@ -77,6 +78,10 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
     }
     if (!emailTrimmed) {
       setError('preencha seu email');
+      return;
+    }
+    if (plusOne && !plusOneName.trim()) {
+      setError('se vai levar +1, preenche o nome');
       return;
     }
 
@@ -193,10 +198,11 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
       {plusOne && (
         <input
           type="text"
-          placeholder="nome do acompanhante (opcional)"
+          placeholder="nome do acompanhante"
           aria-label="nome do acompanhante"
           value={plusOneName}
           onChange={(e) => setPlusOneName(e.target.value)}
+          required
           className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
         />
       )}
