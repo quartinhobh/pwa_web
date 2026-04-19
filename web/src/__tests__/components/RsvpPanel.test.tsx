@@ -205,7 +205,7 @@ describe('RsvpPanel', () => {
     await userEvent.click(screen.getAllByLabelText('selecionar A')[0]);
     await userEvent.click(screen.getAllByLabelText('selecionar B')[0]);
 
-    const bulkBtn = screen.getByRole('button', { name: /aprovar 2/i });
+    const bulkBtn = screen.getByRole('button', { name: /aprovar \(2\)/i });
     await userEvent.click(bulkBtn);
 
     await waitFor(() => expect(mockAction).toHaveBeenCalledTimes(2));

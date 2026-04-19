@@ -9,6 +9,7 @@ vi.mock('@/services/api', () => ({
   fetchMusicBrainzAlbum: vi.fn(),
   fetchTallies: vi.fn(),
   fetchPhotos: vi.fn(),
+  fetchComments: vi.fn(),
 }));
 
 import {
@@ -16,6 +17,7 @@ import {
   fetchMusicBrainzAlbum,
   fetchTallies,
   fetchPhotos,
+  fetchComments,
 } from '@/services/api';
 
 const event: Event = {
@@ -76,6 +78,7 @@ describe('EventDetail page', () => {
     (fetchMusicBrainzAlbum as Mock).mockResolvedValue(album);
     (fetchTallies as Mock).mockResolvedValue(tallies);
     (fetchPhotos as Mock).mockResolvedValue(photos);
+    (fetchComments as Mock).mockResolvedValue([]);
   });
 
   it('renders album and tabs by default', async () => {
@@ -116,13 +119,17 @@ describe('EventDetail page', () => {
     expect(screen.getByAltText('photo-p1')).toBeInTheDocument();
   });
 
-  it('switches to comments tab and shows placeholder', async () => {
+  it('switches to comments tab and shows empty state', async () => {
     render(<EventDetail eventId="e1" />);
     await waitFor(() => {
       expect(screen.getByText('Some Album')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole('tab', { name: 'Comentários' }));
-    expect(screen.getByText('Em breve!')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Nenhum comentário ainda\. Seja o primeiro!/i),
+      ).toBeInTheDocument();
+    });
   });
 
   it('shows loading state before event resolves', () => {
