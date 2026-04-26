@@ -169,7 +169,7 @@ export const Listen: React.FC = () => {
               rel="noopener noreferrer"
               className="font-body font-bold text-sm bg-zine-burntYellow text-zine-cream px-4 py-2 border-4 border-zine-cream dark:border-zine-cream/30 hover:bg-zine-burntOrange"
             >
-              ouvir no Spotify
+              ouvir o lado C no Spotify
             </a>
           )}
           {event.extras.links.map((link, i) => (
