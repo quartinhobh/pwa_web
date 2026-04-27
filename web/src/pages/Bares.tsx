@@ -14,7 +14,7 @@ export default function Bares() {
   const [loginOpen, setLoginOpen] = useState(false);
 
   return (
-    <main className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-4">
       <h1 className="font-display text-3xl text-zine-burntOrange">bares</h1>
 
       <BaratonaIntro variant="full" />
@@ -30,6 +30,6 @@ export default function Bares() {
       />
 
       <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} />
-    </main>
+    </div>
   );
 }

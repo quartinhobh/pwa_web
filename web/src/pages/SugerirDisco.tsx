@@ -4,7 +4,7 @@ import AlbumSuggestionForm from '@/components/bares/AlbumSuggestionForm';
 export default function SugerirDisco() {
   const idToken = useIdToken();
   return (
-    <main className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-4">
       <h1 className="font-display text-3xl text-zine-burntOrange">sugerir disco</h1>
 
       <aside className="flex items-start gap-2 border-2 border-dashed border-zine-burntYellow/50 bg-zine-burntYellow/10 dark:bg-zine-burntYellow/10 p-3">
@@ -14,6 +14,6 @@ export default function SugerirDisco() {
       </aside>
 
       <AlbumSuggestionForm idToken={idToken} />
-    </main>
+    </div>
   );
 }

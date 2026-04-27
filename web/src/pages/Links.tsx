@@ -4,7 +4,7 @@ import { ZineFrame } from '@/components/common/ZineFrame';
 import { LoadingState } from '@/components/common/LoadingState';
 import type { LinkTreeItem } from '@/types';
 
-const cardBgs = ['mint', 'burntYellow', 'periwinkle', 'cream'] as const;
+const cardBgs = ['mint', 'burntYellow', 'periwinkle'] as const;
 
 export const Links: React.FC = () => {
   const [links, setLinks] = useState<LinkTreeItem[]>([]);

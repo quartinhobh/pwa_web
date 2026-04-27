@@ -81,39 +81,43 @@ export const BarSuggestionsPanel: React.FC<BarSuggestionsPanelProps> = ({ idToke
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <ZineFrame bg="cream">
-        <h2 className="font-display text-xl text-zine-burntOrange mb-3">Bares sugeridos</h2>
-        <form onSubmit={(e) => void handleCreate(e)} className="flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
-            <input
-              type="text"
-              value={newBarName}
-              onChange={(e) => setNewBarName(e.target.value)}
-              placeholder="nome do bar"
-              className={`${inputClass} min-w-0 flex-1`}
-            />
-            <Button type="submit" disabled={busy || !newBarName.trim()} className="min-h-[44px]">
-              {busy ? 'adicionando...' : 'adicionar bar'}
-            </Button>
-          </div>
-          {createError && (
-            <p
-              role="alert"
-              aria-live="assertive"
-              className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow"
-            >
-              {createError}
-            </p>
-          )}
-        </form>
-      </ZineFrame>
+    <ZineFrame bg="cream">
+      <h2 className="font-display text-xl text-zine-burntOrange mb-2">Bares sugeridos</h2>
+      <p className="font-body text-xs text-zine-burntOrange/70 mb-3 italic">
+        ❤️/💀 são votos do público. as abas abaixo são a sua curadoria — você pode mover bares entre elas independente dos votos.
+      </p>
 
-      <SuggestionStatusTabs
-        activeStatus={activeStatus}
-        onChange={setActiveStatus}
-        counts={counts}
-      />
+      <form onSubmit={(e) => void handleCreate(e)} className="flex flex-col gap-3 mb-4">
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="text"
+            value={newBarName}
+            onChange={(e) => setNewBarName(e.target.value)}
+            placeholder="nome do bar"
+            className={`${inputClass} min-w-0 flex-1`}
+          />
+          <Button type="submit" disabled={busy || !newBarName.trim()} className="min-h-[44px]">
+            {busy ? 'adicionando...' : 'adicionar bar'}
+          </Button>
+        </div>
+        {createError && (
+          <p
+            role="alert"
+            aria-live="assertive"
+            className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow"
+          >
+            {createError}
+          </p>
+        )}
+      </form>
+
+      <div className="mb-3">
+        <SuggestionStatusTabs
+          activeStatus={activeStatus}
+          onChange={setActiveStatus}
+          counts={counts}
+        />
+      </div>
 
       {loading && (
         <p
@@ -128,7 +132,7 @@ export const BarSuggestionsPanel: React.FC<BarSuggestionsPanelProps> = ({ idToke
         <p
           role="alert"
           aria-live="assertive"
-          className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow"
+          className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow mb-2"
         >
           {error}
         </p>
@@ -137,7 +141,7 @@ export const BarSuggestionsPanel: React.FC<BarSuggestionsPanelProps> = ({ idToke
         <p
           role="alert"
           aria-live="assertive"
-          className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow"
+          className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow mb-2"
         >
           {actionError}
         </p>
@@ -155,8 +159,13 @@ export const BarSuggestionsPanel: React.FC<BarSuggestionsPanelProps> = ({ idToke
             onDelete={(id) => void handleDelete(id)}
           />
         ))}
+        {!loading && filteredBars.length === 0 && (
+          <p className="font-body italic text-zine-burntOrange/70">
+            nenhum bar nessa aba.
+          </p>
+        )}
       </div>
-    </div>
+    </ZineFrame>
   );
 };
 

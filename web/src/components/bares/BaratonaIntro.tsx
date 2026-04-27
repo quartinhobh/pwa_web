@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 export interface BaratonaIntroProps {
   variant?: 'full' | 'short';
@@ -13,12 +14,18 @@ export const BaratonaIntro: React.FC<BaratonaIntroProps> = ({ variant = 'full' }
           <>
             o quartinho é itinerante — toda edição rola num lugar diferente. tamo
             organizando uma <strong>baratona</strong> pra descobrir bares novos
-            que combinem com a vibe. quer ajudar? indica um bar que voce curte,
-            ou passa nos ja indicados pra dar seu feedback (curti / não gostei + comentário).
+            que combinem com a vibe. quer ajudar?{' '}
+            <Link to="/novo-bar" className="underline font-bold hover:text-zine-burntOrange">
+              indica um bar
+            </Link>{' '}
+            que voce curte, ou ja foi em algum dos indicados? deixa seu feedback (❤️ / 💀 + comentário) clicando em "ver e votar →" no card.
           </>
         ) : (
           <>
-            indica um bar pra baratona — sua sugestão ajuda a gente a achar lugares novos.
+            indica um bar pra baratona — sua sugestão ajuda a gente a achar lugares novos. ja foi em algum?{' '}
+            <Link to="/bares" className="underline font-bold hover:text-zine-burntOrange">
+              ajuda avaliando
+            </Link>.
           </>
         )}
       </div>

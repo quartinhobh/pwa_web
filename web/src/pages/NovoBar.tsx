@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useIdToken } from '@/hooks/useIdToken';
 import BarSuggestionForm from '@/components/bares/BarSuggestionForm';
 import BaratonaIntro from '@/components/bares/BaratonaIntro';
@@ -11,8 +11,16 @@ export default function NovoBar() {
   const [submitted, setSubmitted] = useState(false);
 
   return (
-    <main className="flex flex-col gap-4 p-4">
-      <h1 className="font-display text-3xl text-zine-burntOrange">indicar bar</h1>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="font-display text-3xl text-zine-burntOrange">indicar bar</h1>
+        <Link
+          to="/bares"
+          className="font-body text-sm font-bold text-zine-burntOrange underline hover:text-zine-burntOrange/70"
+        >
+          ver bares ja indicados →
+        </Link>
+      </div>
 
       <BaratonaIntro variant="short" />
 
@@ -30,6 +38,6 @@ export default function NovoBar() {
       ) : (
         <BarSuggestionForm idToken={idToken} onSuccess={() => setSubmitted(true)} />
       )}
-    </main>
+    </div>
   );
 }

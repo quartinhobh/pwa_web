@@ -84,36 +84,43 @@ export const BarCard: React.FC<BarCardProps> = ({
           <div>{cardContent}</div>
         )}
 
-        <BarFeedbackButtons
-          barId={bar.id}
-          idToken={idToken}
-          firebaseUid={firebaseUid}
-          onRequestLogin={onRequestLogin}
-        />
+        {!onMoveStatus && (
+          <BarFeedbackButtons
+            barId={bar.id}
+            idToken={idToken}
+            firebaseUid={firebaseUid}
+            onRequestLogin={onRequestLogin}
+          />
+        )}
 
-        {!asDetail && (
+        {!asDetail && !onMoveStatus && (
           <div className="flex justify-end">
             <Link
               to={`/bar/${bar.id}`}
-              className="font-body text-sm text-zine-burntOrange underline hover:text-zine-burntOrange/70"
+              className="font-body text-sm font-bold text-zine-burntOrange underline hover:text-zine-burntOrange/70"
             >
-              ver detalhes →
+              ver e votar →
             </Link>
           </div>
         )}
 
         {onMoveStatus && (
-          <div className="flex gap-2 flex-wrap border-t-2 border-zine-burntYellow/30 pt-2">
-            {STATUS_LABELS.map((status) => (
-              <Button
-                key={status}
-                type="button"
-                onClick={() => onMoveStatus(bar.id, status)}
-                className="text-xs min-h-[44px]"
-              >
-                {STATUS_DISPLAY[status]}
-              </Button>
-            ))}
+          <div className="flex flex-col gap-2 border-t-2 border-zine-burntYellow/30 pt-2">
+            <span className="font-body text-xs text-zine-burntOrange/70 italic">
+              mover para (curadoria do admin):
+            </span>
+            <div className="flex gap-2 flex-wrap">
+              {STATUS_LABELS.map((status) => (
+                <Button
+                  key={status}
+                  type="button"
+                  onClick={() => onMoveStatus(bar.id, status)}
+                  className="text-xs min-h-[44px]"
+                >
+                  {STATUS_DISPLAY[status]}
+                </Button>
+              ))}
+            </div>
           </div>
         )}
 

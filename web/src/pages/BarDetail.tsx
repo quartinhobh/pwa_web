@@ -25,7 +25,7 @@ export default function BarDetail() {
     );
   }
   return (
-    <main className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-4">
       <Link
         to="/bares"
         className="font-body text-sm text-zine-burntOrange/70 hover:text-zine-burntOrange"
@@ -46,6 +46,6 @@ export default function BarDetail() {
         onRequestLogin={() => setLoginOpen(true)}
       />
       <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} />
-    </main>
+    </div>
   );
 }

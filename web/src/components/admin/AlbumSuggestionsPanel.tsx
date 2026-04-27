@@ -139,10 +139,19 @@ export const AlbumSuggestionsPanel: React.FC<AlbumSuggestionsPanelProps> = ({ id
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <AlbumSuggestionForm idToken={idToken} onSuccess={refresh} />
+    <ZineFrame bg="cream">
+      <h2 className="font-display text-xl text-zine-burntOrange mb-2">Discos sugeridos</h2>
+      <p className="font-body text-xs text-zine-burntOrange/70 mb-3 italic">
+        as abas abaixo são sua curadoria. mova entre elas conforme seu critério.
+      </p>
 
-      <SuggestionStatusTabs activeStatus={activeStatus} onChange={setActiveStatus} />
+      <div className="mb-4">
+        <AlbumSuggestionForm idToken={idToken} onSuccess={refresh} />
+      </div>
+
+      <div className="mb-3">
+        <SuggestionStatusTabs activeStatus={activeStatus} onChange={setActiveStatus} />
+      </div>
 
       {loading && (
         <p
@@ -218,8 +227,13 @@ export const AlbumSuggestionsPanel: React.FC<AlbumSuggestionsPanelProps> = ({ id
             </div>
           </ZineFrame>
         ))}
+        {!loading && albums.length === 0 && (
+          <p className="font-body italic text-zine-burntOrange/70">
+            nenhum disco nessa aba.
+          </p>
+        )}
       </div>
-    </div>
+    </ZineFrame>
   );
 };
 
