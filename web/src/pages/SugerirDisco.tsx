@@ -1,5 +1,6 @@
 import { useIdToken } from '@/hooks/useIdToken';
 import AlbumSuggestionForm from '@/components/bares/AlbumSuggestionForm';
+import ZineFrame from '@/components/common/ZineFrame';
 
 export default function SugerirDisco() {
   const idToken = useIdToken();
@@ -7,11 +8,11 @@ export default function SugerirDisco() {
     <div className="flex flex-col gap-4">
       <h1 className="font-display text-3xl text-zine-burntOrange">sugerir disco</h1>
 
-      <aside className="flex items-start gap-2 border-2 border-dashed border-zine-burntYellow/50 bg-zine-burntYellow/10 dark:bg-zine-burntYellow/10 p-3">
-        <div className="font-body text-xs text-zine-burntOrange/70 dark:text-zine-cream/70 leading-relaxed italic">
-          discos sugeridos passam por curadoria do quartinho — voce não ve a lista, mas a gente le todas.
-        </div>
-      </aside>
+      <ZineFrame bg="cream">
+        <p className="font-body text-sm text-zine-burntOrange/80 dark:text-zine-cream/80 leading-relaxed italic">
+          🎵 discos sugeridos passam por curadoria do quartinho — voce não ve a lista, mas a gente le todas.
+        </p>
+      </ZineFrame>
 
       <AlbumSuggestionForm idToken={idToken} />
     </div>

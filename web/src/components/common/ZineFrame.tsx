@@ -61,7 +61,7 @@ const ZineFrameBase: React.FC<ZineFrameProps> = ({
         className={[
           bgClassMap[bg],
           borderClassMap[borderColor],
-          'border-4 p-4 relative min-w-0 max-w-full',
+          'border-4 p-4 relative min-w-0 max-w-full overflow-hidden',
           wobble ? 'hover:wobble' : '',
           className,
         ]
