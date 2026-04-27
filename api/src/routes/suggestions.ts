@@ -289,11 +289,25 @@ router.post('/albums', optionalAuth, async (req: Request, res: Response) => {
       youtubeUrl: typeof youtubeUrl === 'string' ? youtubeUrl : null,
       notes: typeof notes === 'string' ? notes : null,
     });
-    // Hide details (id, count, status) from non-admin — only admin sees the actual records.
+    // Admin gets full record (id, status, suggestionCount, timestamps).
+    // Non-admin gets a public subset — content fields only, no curation signals.
     if (req.user?.role === 'admin') {
       res.status(201).json({ data });
     } else {
-      res.status(201).json({ data: { ok: true } });
+      res.status(201).json({
+        data: {
+          mbid: data.mbid,
+          albumTitle: data.albumTitle,
+          artistName: data.artistName,
+          coverUrl: data.coverUrl,
+          spotifyUrl: data.spotifyUrl,
+          youtubeUrl: data.youtubeUrl,
+          notes: data.notes,
+          instagramLink: data.instagramLink,
+          suggestedByUid: data.suggestedByUid,
+          suggestedByEmail: data.suggestedByEmail,
+        },
+      });
     }
   } catch (err) {
     if (err instanceof Error) {
