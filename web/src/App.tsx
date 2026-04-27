@@ -64,11 +64,7 @@ function PageFallback() {
 /** Main content wrapper that adapts width based on route */
 function MainContent({ idToken }: { idToken: string | null }) {
   const location = useLocation();
-  const isAdmin =
-    location.pathname === '/admin' ||
-    location.pathname === '/bares' ||
-    location.pathname.startsWith('/bar/') ||
-    location.pathname === '/sugerir-disco';
+  const isAdmin = location.pathname === '/admin';
 
   return (
     <main className={`flex-1 mx-auto w-full px-4 py-3 ${
