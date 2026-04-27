@@ -126,7 +126,7 @@ export const BarSuggestionForm: React.FC<BarSuggestionFormProps> = ({ idToken, o
               onChange={(e) => setHasSoundSystem(e.target.checked)}
               className="accent-zine-burntOrange"
             />
-            tem sistema de som / boa música ao vivo
+            tem sistema de som bom/ música ao vivo
           </label>
         </div>
 
