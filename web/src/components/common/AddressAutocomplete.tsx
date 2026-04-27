@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 
 interface NominatimResult {
   place_id: number;
@@ -33,7 +33,10 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   const [results, setResults] = useState<NominatimResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
   const skipNextFetch = useRef(false);
+  const uid = useId();
+  const listboxId = `address-listbox-${uid}`;
 
   useEffect(() => {
     if (skipNextFetch.current) {
@@ -43,6 +46,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     const q = value.trim();
     if (q.length < MIN_QUERY_LEN) {
       setResults([]);
+      setOpen(false);
       return;
     }
     const ctrl = new AbortController();
@@ -55,6 +59,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         const data = (await res.json()) as NominatimResult[];
         setResults(data);
         setOpen(true);
+        setActiveIndex(-1);
       } catch (err) {
         if ((err as Error).name !== 'AbortError') setResults([]);
       } finally {
@@ -72,7 +77,29 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     onChange(display);
     setResults([]);
     setOpen(false);
+    setActiveIndex(-1);
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open || results.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((prev) => Math.min(prev + 1, results.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === 'Enter' && activeIndex >= 0) {
+      e.preventDefault();
+      const chosen = results[activeIndex];
+      if (chosen) handlePick(chosen.display_name);
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+      setActiveIndex(-1);
+    }
+  };
+
+  const activeOptionId = activeIndex >= 0 ? `address-option-${uid}-${activeIndex}` : undefined;
 
   return (
     <div className="relative">
@@ -80,27 +107,48 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         id={id}
         aria-label={ariaLabel}
         type="text"
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={listboxId}
+        aria-autocomplete="list"
+        aria-activedescendant={activeOptionId}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => results.length > 0 && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         autoComplete="off"
         className={className}
       />
       {open && (loading || results.length > 0) && (
-        <ul className="absolute left-0 right-0 top-full mt-1 z-10 max-h-60 overflow-auto border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark shadow-md">
+        <ul
+          id={listboxId}
+          role="listbox"
+          className="absolute left-0 right-0 top-full mt-1 z-10 max-h-60 overflow-auto border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark shadow-md"
+        >
           {loading && (
             <li className="font-body text-xs text-zine-burntOrange/70 px-3 py-2">buscando…</li>
           )}
           {!loading &&
-            results.map((r) => (
-              <li key={r.place_id}>
+            results.map((r, i) => (
+              <li
+                key={r.place_id}
+                id={`address-option-${uid}-${i}`}
+                role="option"
+                aria-selected={i === activeIndex}
+              >
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
+                  onTouchStart={(e) => e.preventDefault()}
                   onClick={() => handlePick(r.display_name)}
-                  className="w-full text-left px-3 py-2 font-body text-sm text-zine-burntOrange hover:bg-zine-burntYellow/30 focus:outline-none focus-visible:bg-zine-burntYellow/30"
+                  className={[
+                    'w-full text-left px-3 py-2 font-body text-sm text-zine-burntOrange focus:outline-none',
+                    i === activeIndex
+                      ? 'bg-zine-burntYellow/50'
+                      : 'hover:bg-zine-burntYellow/30 focus-visible:bg-zine-burntYellow/30',
+                  ].join(' ')}
                 >
                   {r.display_name}
                 </button>

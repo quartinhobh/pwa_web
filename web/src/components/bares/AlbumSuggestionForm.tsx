@@ -150,6 +150,8 @@ export const AlbumSuggestionForm: React.FC<AlbumSuggestionFormProps> = ({ idToke
                   type="url"
                   value={spotifyUrl}
                   onChange={(e) => setSpotifyUrl(e.target.value)}
+                  aria-invalid={validationError ? 'true' : 'false'}
+                  aria-describedby={validationError ? 'album-validation-error' : undefined}
                   placeholder="https://open.spotify.com/album/..."
                   className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream placeholder:text-zine-burntOrange/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zine-burntYellow"
                 />
@@ -214,7 +216,7 @@ export const AlbumSuggestionForm: React.FC<AlbumSuggestionFormProps> = ({ idToke
               {mbSelection.coverUrl && (
                 <img
                   src={mbSelection.coverUrl}
-                  alt="capa"
+                  alt=""
                   className="h-16 w-16 object-cover border-2 border-zine-cream shrink-0"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                 />
@@ -254,13 +256,32 @@ export const AlbumSuggestionForm: React.FC<AlbumSuggestionFormProps> = ({ idToke
         </div>
 
         {validationError && (
-          <span className="font-body text-xs text-red-500">{validationError}</span>
+          <span
+            id="album-validation-error"
+            role="alert"
+            aria-live="assertive"
+            className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow"
+          >
+            {validationError}
+          </span>
         )}
         {success && (
-          <p className="font-body text-sm text-zine-burntOrange">disco indicado com sucesso!</p>
+          <p
+            role="status"
+            aria-live="polite"
+            className="font-body text-sm text-zine-burntOrange"
+          >
+            disco indicado com sucesso!
+          </p>
         )}
         {error && (
-          <p className="font-body text-xs text-red-500">{error}</p>
+          <p
+            role="alert"
+            aria-live="assertive"
+            className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow"
+          >
+            {error}
+          </p>
         )}
 
         <Button type="submit" disabled={busy}>

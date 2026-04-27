@@ -8,13 +8,8 @@ import {
   updateAlbumSuggestionStatus,
   deleteAlbumSuggestion,
 } from '@/services/api';
+import { STATUS_DISPLAY } from '@/types';
 import type { AlbumSuggestion, SuggestionStatus } from '@/types';
-
-const STATUS_DISPLAY: Record<SuggestionStatus, string> = {
-  suggested: 'sugerido',
-  liked: '❤️ curti',
-  disliked: '💀 nao gostei',
-};
 
 const STATUS_LABELS: SuggestionStatus[] = ['suggested', 'liked', 'disliked'];
 
@@ -32,6 +27,10 @@ function AlbumCard({ album }: { album: AlbumSuggestion }) {
     album.instagramLink ||
     album.notes;
 
+  const altText = album.albumTitle && album.artistName
+    ? `capa de ${album.albumTitle} - ${album.artistName}`
+    : '';
+
   return (
     <div className="flex flex-col gap-2">
       {hasData ? (
@@ -41,7 +40,7 @@ function AlbumCard({ album }: { album: AlbumSuggestion }) {
             {album.coverUrl && (
               <img
                 src={album.coverUrl}
-                alt="capa"
+                alt={altText || ''}
                 className="h-16 w-16 object-cover border-2 border-zine-burntYellow shrink-0"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
@@ -113,22 +112,25 @@ function AlbumCard({ album }: { album: AlbumSuggestion }) {
 export const AlbumSuggestionsPanel: React.FC<AlbumSuggestionsPanelProps> = ({ idToken }) => {
   const [activeStatus, setActiveStatus] = useState<SuggestionStatus>('suggested');
   const { albums, loading, error, refresh } = useAlbumSuggestions(activeStatus, idToken);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   async function handleMoveStatus(id: string, status: SuggestionStatus) {
+    setActionError(null);
     try {
       await updateAlbumSuggestionStatus(id, status, idToken);
       refresh();
-    } catch {
-      // silently ignore — user can retry
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'erro ao mover status');
     }
   }
 
   async function handleDelete(id: string) {
+    setActionError(null);
     try {
       await deleteAlbumSuggestion(id, idToken);
       refresh();
-    } catch {
-      // silently ignore — user can retry
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'erro ao apagar disco');
     }
   }
 
@@ -143,10 +145,31 @@ export const AlbumSuggestionsPanel: React.FC<AlbumSuggestionsPanelProps> = ({ id
       <SuggestionStatusTabs activeStatus={activeStatus} onChange={setActiveStatus} />
 
       {loading && (
-        <p className="font-body italic text-zine-burntOrange/70">carregando...</p>
+        <p
+          role="status"
+          aria-live="polite"
+          className="font-body italic text-zine-burntOrange/70"
+        >
+          carregando...
+        </p>
       )}
       {error && (
-        <p className="font-body text-xs text-red-500">{error}</p>
+        <p
+          role="alert"
+          aria-live="assertive"
+          className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow"
+        >
+          {error}
+        </p>
+      )}
+      {actionError && (
+        <p
+          role="alert"
+          aria-live="assertive"
+          className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow"
+        >
+          {actionError}
+        </p>
       )}
 
       <div className="flex flex-col gap-3">
@@ -156,12 +179,13 @@ export const AlbumSuggestionsPanel: React.FC<AlbumSuggestionsPanelProps> = ({ id
               <AlbumCard album={album} />
 
               <div className="flex gap-2 items-center flex-wrap">
-                <span className="font-body text-xs px-2 py-0.5 border-2 border-zine-burntYellow text-zine-burntOrange rounded-full">
+                {/* Badge — no rounded-full, plain border */}
+                <span className="font-body text-xs px-2 py-0.5 border-2 border-zine-burntYellow text-zine-burntOrange">
                   {STATUS_DISPLAY[album.status]}
                 </span>
                 {album.suggestionCount > 1 && (
                   <span
-                    className="font-body text-xs font-bold px-2 py-0.5 bg-zine-burntOrange text-zine-cream rounded-full"
+                    className="font-body text-xs font-bold px-2 py-0.5 bg-zine-burntOrange text-zine-cream"
                     title="numero de pessoas que indicaram este disco"
                   >
                     indicado {album.suggestionCount}x
@@ -178,7 +202,7 @@ export const AlbumSuggestionsPanel: React.FC<AlbumSuggestionsPanelProps> = ({ id
                     key={status}
                     type="button"
                     onClick={() => void handleMoveStatus(album.id, status)}
-                    className="text-xs"
+                    className="text-xs min-h-[44px]"
                   >
                     {STATUS_DISPLAY[status]}
                   </Button>
@@ -186,7 +210,7 @@ export const AlbumSuggestionsPanel: React.FC<AlbumSuggestionsPanelProps> = ({ id
                 <Button
                   type="button"
                   onClick={() => void handleDelete(album.id)}
-                  className="text-xs"
+                  className="text-xs min-h-[44px]"
                 >
                   apagar
                 </Button>

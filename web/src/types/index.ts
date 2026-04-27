@@ -379,6 +379,12 @@ export interface MusicBrainzRelease {
 
 export type SuggestionStatus = 'suggested' | 'liked' | 'disliked';
 
+export const STATUS_DISPLAY: Record<SuggestionStatus, string> = {
+  suggested: 'sugerido',
+  liked: 'curti',
+  disliked: 'nao gostei',
+};
+
 export interface BarSuggestion {
   id: string;
   status: SuggestionStatus;

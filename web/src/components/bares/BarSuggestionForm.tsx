@@ -70,10 +70,18 @@ export const BarSuggestionForm: React.FC<BarSuggestionFormProps> = ({ idToken, o
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            aria-invalid={nameError ? 'true' : 'false'}
+            aria-describedby={nameError ? 'bar-name-error' : undefined}
             className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-zine-burntYellow"
           />
           {nameError && (
-            <span className="font-body text-xs text-red-500">{nameError}</span>
+            <span
+              id="bar-name-error"
+              role="alert"
+              className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow"
+            >
+              {nameError}
+            </span>
           )}
         </div>
 
@@ -126,10 +134,18 @@ export const BarSuggestionForm: React.FC<BarSuggestionFormProps> = ({ idToken, o
         </div>
 
         {success && (
-          <p className="font-body text-sm text-zine-burntOrange">bar indicado com sucesso!</p>
+          <div role="status" aria-live="polite" className="flex flex-col gap-2">
+            <p className="font-body text-sm text-zine-burntOrange">bar indicado com sucesso!</p>
+          </div>
         )}
         {error && (
-          <p className="font-body text-xs text-red-500">{error}</p>
+          <p
+            role="alert"
+            aria-live="assertive"
+            className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow"
+          >
+            {error}
+          </p>
         )}
 
         <Button type="submit" disabled={busy}>

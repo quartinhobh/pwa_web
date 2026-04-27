@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
 import BarFeedbackButtons from '@/components/bares/BarFeedbackButtons';
+import { STATUS_DISPLAY } from '@/types';
 import type { PublicBarSuggestion, SuggestionStatus } from '@/types';
 
 export interface BarCardProps {
@@ -12,14 +13,10 @@ export interface BarCardProps {
   asDetail?: boolean;
   onMoveStatus?: (id: string, status: SuggestionStatus) => void;
   onDelete?: (id: string) => void;
+  onRequestLogin?: () => void;
 }
 
 const STATUS_LABELS: SuggestionStatus[] = ['suggested', 'liked', 'disliked'];
-const STATUS_DISPLAY: Record<SuggestionStatus, string> = {
-  suggested: 'sugerido',
-  liked: 'curti',
-  disliked: 'nao gostei',
-};
 
 export const BarCard: React.FC<BarCardProps> = ({
   bar,
@@ -28,47 +25,53 @@ export const BarCard: React.FC<BarCardProps> = ({
   asDetail = false,
   onMoveStatus,
   onDelete,
+  onRequestLogin,
 }) => {
+  const instagramHandle = bar.instagram
+    ? bar.instagram.replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/$/, '')
+    : null;
+  const instagramHref = bar.instagram
+    ? (bar.instagram.startsWith('http')
+      ? bar.instagram
+      : `https://instagram.com/${bar.instagram.replace(/^@/, '')}`)
+    : null;
+
   const cardContent = (
     <>
       <h3 className="font-display text-lg text-zine-burntOrange dark:text-zine-cream">
         {bar.name}
       </h3>
 
-      {bar.address && (
-        <p className="font-body text-sm text-zine-burntOrange/80 dark:text-zine-cream/80 mt-1">
-          {bar.address}
-        </p>
-      )}
-
-      {bar.instagram && (
-        <a
-          href={
-            bar.instagram.startsWith('http')
-              ? bar.instagram
-              : `https://instagram.com/${bar.instagram.replace(/^@/, '')}`
-          }
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-body text-sm text-zine-burntOrange underline hover:text-zine-burntOrange/70 mt-1 inline-block"
-          onClick={(e) => e.stopPropagation()}
-        >
-          @{bar.instagram.replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '')}
-        </a>
-      )}
-
-      <div className="flex gap-2 flex-wrap mt-2">
+      {/* Status/tag badges — below name, no rounded-full */}
+      <div className="flex gap-2 flex-wrap mt-1">
         {bar.isClosed && (
-          <span className="font-body text-xs px-2 py-0.5 border-2 border-zine-burntOrange text-zine-burntOrange rounded-full">
+          <span className="font-body text-xs px-2 py-0.5 border-2 border-zine-burntOrange text-zine-burntOrange dark:text-zine-burntYellow">
             fechado
           </span>
         )}
         {bar.hasSoundSystem && (
-          <span className="font-body text-xs px-2 py-0.5 border-2 border-zine-burntYellow text-zine-burntOrange rounded-full">
+          <span className="font-body text-xs px-2 py-0.5 border-2 border-zine-burntYellow text-zine-burntOrange dark:text-zine-burntYellow">
             som
           </span>
         )}
       </div>
+
+      {bar.address && (
+        <p className="font-body text-sm text-zine-burntOrange/80 dark:text-zine-cream/80 mt-1 line-clamp-1">
+          📍 {bar.address}
+        </p>
+      )}
+
+      {instagramHref && instagramHandle && (
+        <a
+          href={instagramHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-body text-sm text-zine-burntOrange underline hover:text-zine-burntOrange/70 mt-1 inline-block"
+        >
+          @{instagramHandle}
+        </a>
+      )}
     </>
   );
 
@@ -78,21 +81,35 @@ export const BarCard: React.FC<BarCardProps> = ({
         {asDetail ? (
           <div>{cardContent}</div>
         ) : (
-          <Link to={`/bar/${bar.id}`} className="block hover:opacity-80 transition-opacity">
-            {cardContent}
-          </Link>
+          <div>{cardContent}</div>
         )}
 
-        <BarFeedbackButtons barId={bar.id} idToken={idToken} firebaseUid={firebaseUid} />
+        <BarFeedbackButtons
+          barId={bar.id}
+          idToken={idToken}
+          firebaseUid={firebaseUid}
+          onRequestLogin={onRequestLogin}
+        />
+
+        {!asDetail && (
+          <div className="flex justify-end">
+            <Link
+              to={`/bar/${bar.id}`}
+              className="font-body text-sm text-zine-burntOrange underline hover:text-zine-burntOrange/70"
+            >
+              ver detalhes →
+            </Link>
+          </div>
+        )}
 
         {onMoveStatus && (
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap border-t-2 border-zine-burntYellow/30 pt-2">
             {STATUS_LABELS.map((status) => (
               <Button
                 key={status}
                 type="button"
                 onClick={() => onMoveStatus(bar.id, status)}
-                className="text-xs"
+                className="text-xs min-h-[44px]"
               >
                 {STATUS_DISPLAY[status]}
               </Button>
@@ -104,7 +121,7 @@ export const BarCard: React.FC<BarCardProps> = ({
           <Button
             type="button"
             onClick={() => onDelete(bar.id)}
-            className="text-xs"
+            className="text-xs min-h-[44px]"
           >
             apagar
           </Button>

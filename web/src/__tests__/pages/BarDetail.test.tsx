@@ -34,6 +34,11 @@ vi.mock('@/hooks/useBarFeedback', () => ({
   })),
 }));
 
+vi.mock('@/components/auth/LoginModal', () => ({
+  default: () => null,
+  LoginModal: () => null,
+}));
+
 import * as barDetailHook from '@/hooks/useBarDetail';
 import BarDetail from '@/pages/BarDetail';
 import type { PublicBarSuggestion } from '@/types';

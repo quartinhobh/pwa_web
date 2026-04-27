@@ -6,16 +6,17 @@ import { useBarSuggestions } from '@/hooks/useBarSuggestions';
 export interface BarListProps {
   idToken: string | null;
   firebaseUid: string | null;
+  onRequestLogin?: () => void;
 }
 
-export const BarList: React.FC<BarListProps> = ({ idToken, firebaseUid }) => {
+export const BarList: React.FC<BarListProps> = ({ idToken, firebaseUid, onRequestLogin }) => {
   const { bars, loading, error } = useBarSuggestions();
 
   if (loading) return <LoadingState />;
 
   if (error) {
     return (
-      <p className="font-body text-sm text-red-500">erro ao carregar bares</p>
+      <p className="font-body text-sm text-zine-burntOrange font-bold dark:text-zine-burntYellow">erro ao carregar bares</p>
     );
   }
 
@@ -34,6 +35,7 @@ export const BarList: React.FC<BarListProps> = ({ idToken, firebaseUid }) => {
           idToken={idToken}
           firebaseUid={firebaseUid}
           asDetail={false}
+          onRequestLogin={onRequestLogin}
         />
       ))}
     </div>

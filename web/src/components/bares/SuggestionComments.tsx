@@ -12,12 +12,14 @@ export interface SuggestionCommentsProps {
   barId: string;
   idToken: string | null;
   firebaseUid: string | null;
+  onRequestLogin?: () => void;
 }
 
 export const SuggestionComments: React.FC<SuggestionCommentsProps> = ({
   barId,
   idToken,
   firebaseUid,
+  onRequestLogin,
 }) => {
   const [comments, setComments] = useState<SuggestionCommentWithUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,17 +69,32 @@ export const SuggestionComments: React.FC<SuggestionCommentsProps> = ({
     [barId, idToken, loadComments],
   );
 
-  // CommentItem expects CommentWithUser but SuggestionCommentWithUser has different shape.
-  // We render a simpler inline display for suggestion comments since they share
-  // user.id / user.displayName / user.avatarUrl but differ in root shape.
+  const handleInputClick = () => {
+    if (!firebaseUid) {
+      onRequestLogin?.();
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       {loading && (
-        <p className="font-body text-sm text-zine-burntOrange/70">carregando comentários...</p>
+        <p
+          role="status"
+          aria-live="polite"
+          className="font-body text-sm text-zine-burntOrange/70"
+        >
+          carregando comentários...
+        </p>
       )}
 
       {!loading && error && (
-        <p className="font-body text-sm text-red-500">{error}</p>
+        <p
+          role="alert"
+          aria-live="assertive"
+          className="font-body text-sm text-zine-burntOrange font-bold dark:text-zine-burntYellow"
+        >
+          {error}
+        </p>
       )}
 
       {!loading && !error && comments.length === 0 && (
@@ -109,6 +126,9 @@ export const SuggestionComments: React.FC<SuggestionCommentsProps> = ({
                   <span className="font-bold font-body text-zine-burntOrange dark:text-zine-cream">
                     {c.user.displayName}
                   </span>
+                  <span className="font-body text-xs text-zine-burntOrange/50 dark:text-zine-cream/50">
+                    {new Date(c.createdAt).toLocaleDateString('pt-BR')}
+                  </span>
                 </div>
                 <p className="font-body text-sm mt-1 text-zine-burntOrange dark:text-zine-cream whitespace-pre-wrap break-words">
                   {c.content}
@@ -117,7 +137,7 @@ export const SuggestionComments: React.FC<SuggestionCommentsProps> = ({
                   <button
                     type="button"
                     onClick={() => void handleDelete(c.id)}
-                    className="font-body text-xs text-zine-burntOrange/60 hover:text-red-500 mt-2"
+                    className="font-body text-xs text-zine-burntOrange/60 hover:text-zine-burntOrange mt-2 min-h-[44px] px-3 py-2"
                   >
                     excluir
                   </button>
@@ -130,21 +150,38 @@ export const SuggestionComments: React.FC<SuggestionCommentsProps> = ({
 
       {!firebaseUid ? (
         <ZineFrame bg="cream" borderColor="burntYellow" className="p-4">
-          <p className="font-body text-zine-burntOrange text-center">
-            faca login pra comentar
-          </p>
+          {onRequestLogin ? (
+            <button
+              type="button"
+              onClick={onRequestLogin}
+              className="font-body text-zine-burntOrange text-center w-full underline"
+            >
+              entrar pra comentar →
+            </button>
+          ) : (
+            <p className="font-body text-zine-burntOrange text-center">
+              faca login pra comentar
+            </p>
+          )}
         </ZineFrame>
       ) : (
         <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-2">
           <textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            onClick={handleInputClick}
             placeholder="escreva um comentário..."
             rows={3}
             className="w-full font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream placeholder:text-zine-burntOrange/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zine-burntYellow resize-none"
           />
           {submitError && (
-            <p className="font-body text-xs text-red-500">{submitError}</p>
+            <p
+              role="alert"
+              aria-live="assertive"
+              className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow"
+            >
+              {submitError}
+            </p>
           )}
           <div className="flex justify-end">
             <Button type="submit" disabled={submitting || !inputValue.trim()} className="text-sm">

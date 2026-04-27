@@ -1,5 +1,4 @@
 import React from 'react';
-import Button from '@/components/common/Button';
 import type { SuggestionStatus } from '@/types';
 
 export interface SuggestionStatusTabsProps {
@@ -13,9 +12,9 @@ export interface SuggestionStatusTabsProps {
 }
 
 const TABS: { status: SuggestionStatus; label: string }[] = [
-  { status: 'suggested', label: 'Sugeridos' },
-  { status: 'liked', label: '❤️ Curti' },
-  { status: 'disliked', label: '💀 Nao gostei' },
+  { status: 'suggested', label: 'sugeridos' },
+  { status: 'liked', label: '❤️ curti' },
+  { status: 'disliked', label: '💀 nao gostei' },
 ];
 
 const COUNT_KEY: Record<SuggestionStatus, keyof NonNullable<SuggestionStatusTabsProps['counts']>> = {
@@ -37,14 +36,21 @@ export const SuggestionStatusTabs: React.FC<SuggestionStatusTabsProps> = ({
         const isActive = activeStatus === status;
 
         return (
-          <Button
+          <button
             key={status}
             type="button"
             onClick={() => onChange(status)}
-            className={isActive ? 'ring-4 ring-zine-burntOrange' : ''}
+            aria-pressed={isActive}
+            className={[
+              'font-body text-xs px-3 py-1.5 border-2 border-zine-burntYellow min-h-[44px]',
+              isActive
+                ? 'bg-zine-burntYellow text-zine-cream'
+                : 'bg-transparent text-zine-burntOrange hover:bg-zine-burntYellow/20',
+              'focus-visible:ring-2 focus-visible:ring-zine-burntOrange',
+            ].join(' ')}
           >
             {displayLabel}
-          </Button>
+          </button>
         );
       })}
     </div>

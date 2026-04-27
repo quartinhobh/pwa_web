@@ -4,19 +4,27 @@ import { SuggestionStatusTabs } from '@/components/bares/SuggestionStatusTabs';
 import type { SuggestionStatus } from '@/types';
 
 describe('SuggestionStatusTabs', () => {
-  it('renders 3 tabs: "Sugeridos", "Curti", "Nao gostei"', () => {
+  it('renders 3 tabs: "sugeridos", "curti", "nao gostei"', () => {
     render(<SuggestionStatusTabs activeStatus="suggested" onChange={() => {}} />);
     expect(screen.getByRole('button', { name: /sugeridos/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /curti/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /nao gostei/i })).toBeInTheDocument();
   });
 
-  it('active tab ("suggested") has distinct styling via class', () => {
+  it('active tab ("suggested") has aria-pressed=true', () => {
     render(<SuggestionStatusTabs activeStatus="suggested" onChange={() => {}} />);
     const activeBtn = screen.getByRole('button', { name: /sugeridos/i });
-    expect(activeBtn.className).toContain('ring-4');
+    expect(activeBtn).toHaveAttribute('aria-pressed', 'true');
     const otherBtn = screen.getByRole('button', { name: /curti/i });
-    expect(otherBtn.className).not.toContain('ring-4');
+    expect(otherBtn).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('active tab has active background class (bg-zine-burntYellow)', () => {
+    render(<SuggestionStatusTabs activeStatus="suggested" onChange={() => {}} />);
+    const activeBtn = screen.getByRole('button', { name: /sugeridos/i });
+    expect(activeBtn.className).toContain('bg-zine-burntYellow');
+    const otherBtn = screen.getByRole('button', { name: /curti/i });
+    expect(otherBtn.className).not.toContain('bg-zine-burntYellow ');
   });
 
   it('clicking different tab calls onChange with correct SuggestionStatus', () => {

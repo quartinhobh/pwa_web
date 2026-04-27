@@ -29,6 +29,12 @@ vi.mock('@/hooks/useBarFeedback', () => ({
   })),
 }));
 
+// Mock LoginModal to avoid complex auth dependencies in page test
+vi.mock('@/components/auth/LoginModal', () => ({
+  default: () => null,
+  LoginModal: () => null,
+}));
+
 import * as barSuggestionsHook from '@/hooks/useBarSuggestions';
 import Bares from '@/pages/Bares';
 import type { PublicBarSuggestion } from '@/types';
@@ -95,7 +101,7 @@ describe('Bares page', () => {
     });
   });
 
-  it('each card contains a link to /bar/:id', async () => {
+  it('each card contains a "ver detalhes" link to /bar/:id', async () => {
     render(
       <MemoryRouter>
         <Bares />
@@ -108,13 +114,12 @@ describe('Bares page', () => {
     });
   });
 
-  it('"indicar bar" link points to /novo-bar', () => {
+  it('"indicar bar" button is present', () => {
     render(
       <MemoryRouter>
         <Bares />
       </MemoryRouter>,
     );
-    const link = screen.getByRole('link', { name: /indicar bar/i });
-    expect(link).toHaveAttribute('href', '/novo-bar');
+    expect(screen.getByRole('button', { name: /indicar bar/i })).toBeInTheDocument();
   });
 });

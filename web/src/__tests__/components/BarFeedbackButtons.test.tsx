@@ -29,19 +29,29 @@ beforeEach(() => {
 describe('BarFeedbackButtons', () => {
   it('renders liked count and disliked count', () => {
     render(<BarFeedbackButtons barId="bar-1" idToken={null} firebaseUid={null} />);
-    expect(screen.getByRole('button', { name: /curti \(3\)/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /nao gostei \(1\)/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /curti.*3/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /nao gostei.*1/i })).toBeInTheDocument();
   });
 
-  it('when firebaseUid=null: both buttons disabled', () => {
-    render(<BarFeedbackButtons barId="bar-1" idToken={null} firebaseUid={null} />);
-    expect(screen.getByRole('button', { name: /curti/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /nao gostei/i })).toBeDisabled();
-  });
-
-  it('when firebaseUid=null: text "faca login pra votar" is visible', () => {
+  it('when firebaseUid=null and no onRequestLogin: text "faca login pra votar" is visible', () => {
     render(<BarFeedbackButtons barId="bar-1" idToken={null} firebaseUid={null} />);
     expect(screen.getByText(/faca login pra votar/i)).toBeInTheDocument();
+  });
+
+  it('when firebaseUid=null and onRequestLogin provided: shows "entrar pra votar" button', () => {
+    const onRequestLogin = vi.fn();
+    render(
+      <BarFeedbackButtons
+        barId="bar-1"
+        idToken={null}
+        firebaseUid={null}
+        onRequestLogin={onRequestLogin}
+      />,
+    );
+    const loginBtn = screen.getByRole('button', { name: /entrar pra votar/i });
+    expect(loginBtn).toBeInTheDocument();
+    fireEvent.click(loginBtn);
+    expect(onRequestLogin).toHaveBeenCalledOnce();
   });
 
   it('when firebaseUid present: clicking curti button calls handleVote("liked")', async () => {
@@ -52,10 +62,17 @@ describe('BarFeedbackButtons', () => {
     await waitFor(() => expect(handleVote).toHaveBeenCalledWith('liked'));
   });
 
-  it('when userVote="liked": liked button has active styling', () => {
+  it('when userVote="liked": liked button has aria-pressed=true', () => {
     useBarFeedbackMock.mockReturnValue({ ...defaultHookResult, userVote: 'liked' });
     render(<BarFeedbackButtons barId="bar-1" idToken="tok" firebaseUid="uid-1" />);
     const likedBtn = screen.getByRole('button', { name: /curti/i });
-    expect(likedBtn.className).toContain('ring-4');
+    expect(likedBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('when userVote="liked": liked button has active styling (bg-zine-burntYellow)', () => {
+    useBarFeedbackMock.mockReturnValue({ ...defaultHookResult, userVote: 'liked' });
+    render(<BarFeedbackButtons barId="bar-1" idToken="tok" firebaseUid="uid-1" />);
+    const likedBtn = screen.getByRole('button', { name: /curti/i });
+    expect(likedBtn.className).toContain('bg-zine-burntYellow');
   });
 });
