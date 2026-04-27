@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
 import MbResultsList from '@/components/common/MbResultsList';
 import { useMusicBrainzSearch } from '@/hooks/useMusicBrainzSearch';
@@ -102,9 +101,7 @@ export const AlbumSuggestionForm: React.FC<AlbumSuggestionFormProps> = ({ idToke
   };
 
   return (
-    <ZineFrame bg="cream">
-      <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
-        <h2 className="font-display text-xl text-zine-burntOrange">indicar disco</h2>
+    <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
 
         {!mbSelection ? (
           <>
@@ -287,8 +284,7 @@ export const AlbumSuggestionForm: React.FC<AlbumSuggestionFormProps> = ({ idToke
         <Button type="submit" disabled={busy}>
           {busy ? 'enviando...' : 'indicar disco'}
         </Button>
-      </form>
-    </ZineFrame>
+    </form>
   );
 };
 

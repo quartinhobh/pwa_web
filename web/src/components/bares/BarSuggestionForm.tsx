@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
 import AddressAutocomplete from '@/components/common/AddressAutocomplete';
 import { createBarSuggestion } from '@/services/api';
@@ -57,9 +56,7 @@ export const BarSuggestionForm: React.FC<BarSuggestionFormProps> = ({ idToken, o
   };
 
   return (
-    <ZineFrame bg="cream">
-      <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
-        <h2 className="font-display text-xl text-zine-burntOrange">indicar bar</h2>
+    <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
 
         <div className="flex flex-col gap-1">
           <label className="font-body text-sm text-zine-burntOrange" htmlFor="bar-name">
@@ -151,8 +148,7 @@ export const BarSuggestionForm: React.FC<BarSuggestionFormProps> = ({ idToken, o
         <Button type="submit" disabled={busy}>
           {busy ? 'enviando...' : 'indicar bar'}
         </Button>
-      </form>
-    </ZineFrame>
+    </form>
   );
 };
 
