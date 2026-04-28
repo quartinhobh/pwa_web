@@ -230,6 +230,16 @@ export const AlbumSuggestionsPanel: React.FC<AlbumSuggestionsPanelProps> = ({ id
                 </span>
               </div>
 
+              {album.suggestedByEmail ? (
+                <p className="font-body text-xs text-zine-burntOrange/70">
+                  por <a href={`mailto:${album.suggestedByEmail}`} className="underline break-all">{album.suggestedByEmail}</a>
+                </p>
+              ) : (
+                <p className="font-body text-xs text-zine-burntOrange/50 italic">
+                  por anônimo
+                </p>
+              )}
+
               <div className="flex gap-2 flex-wrap">
                 {STATUS_LABELS.map((status) => (
                   <Button
