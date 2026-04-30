@@ -21,14 +21,11 @@ function AlbumCover({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) return null;
   return (
-    <div className="relative h-14 w-14 border-2 border-zine-burntYellow bg-zine-periwinkle/40 dark:bg-zine-periwinkle-dark/40 overflow-hidden">
-      {!loaded && (
-        <div
-          aria-hidden
-          className="absolute inset-0 bg-gradient-to-br from-zine-periwinkle/60 to-zine-burntYellow/40 animate-pulse"
-          style={{ filter: 'blur(8px)' }}
-        />
-      )}
+    <div
+      className={`h-14 w-14 overflow-hidden transition-opacity duration-300 ${
+        loaded ? 'opacity-100 border-2 border-zine-burntYellow' : 'opacity-0'
+      }`}
+    >
       <img
         src={src}
         alt={alt}
@@ -36,7 +33,7 @@ function AlbumCover({ src, alt }: { src: string; alt: string }) {
         decoding="async"
         onLoad={() => setLoaded(true)}
         onError={() => setFailed(true)}
-        className={`h-full w-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        className="h-full w-full object-cover"
       />
     </div>
   );

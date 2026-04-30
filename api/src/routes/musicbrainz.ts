@@ -20,6 +20,18 @@ function normalizeForMatch(s: string): string {
     .trim();
 }
 
+// Stopwords kept out of token matching: connectors that vary across sources
+// (MB joins artists with "&", users type "e"/"and"/etc.) and 1-char fragments
+// from punctuation collapse. Without this, "Juçara Marçal & Kiko Dinucci"
+// (MB) won't match "Juçara Marçal e Kiko Dinucci" (user input).
+const TOKEN_STOPWORDS = new Set(['e', 'y', 'and', 'the', 'de', 'da', 'do']);
+
+function tokenize(s: string): string[] {
+  return normalizeForMatch(s)
+    .split(' ')
+    .filter((t) => t.length > 1 && !TOKEN_STOPWORDS.has(t));
+}
+
 musicbrainzRouter.get('/search', async (req: Request, res: Response) => {
   const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
   const year = typeof req.query.year === 'string' ? req.query.year.trim() : '';
@@ -56,14 +68,18 @@ musicbrainzRouter.get('/cover-by-name', async (req: Request, res: Response) => {
       res.status(200).json({ coverUrl: null });
       return;
     }
-    const normQuery = normalizeForMatch(q);
-    const normTitle = normalizeForMatch(top.title);
-    const normArtist = normalizeForMatch(top.artistCredit);
+    // Token-set match: every meaningful token of MB title AND every token
+    // of MB artistCredit must appear in the user's query (any order). This
+    // is robust to: "Title - Artist" vs "Artist - Title" inversion, and to
+    // connector variations like "&" (MB) vs "e"/"and" (user input).
+    const queryTokens = new Set(tokenize(q));
+    const titleTokens = tokenize(top.title);
+    const artistTokens = tokenize(top.artistCredit);
     const confident =
-      normTitle.length > 0 &&
-      normArtist.length > 0 &&
-      normQuery.includes(normTitle) &&
-      normQuery.includes(normArtist);
+      titleTokens.length > 0 &&
+      artistTokens.length > 0 &&
+      titleTokens.every((t) => queryTokens.has(t)) &&
+      artistTokens.every((t) => queryTokens.has(t));
     if (!confident) {
       res.status(200).json({ coverUrl: null });
       return;
