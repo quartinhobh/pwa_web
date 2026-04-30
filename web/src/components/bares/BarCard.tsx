@@ -101,6 +101,21 @@ export const BarCard: React.FC<BarCardProps> = ({
 
         {onMoveStatus && (
           <div className="flex flex-col gap-2 border-t-2 border-zine-burntYellow/30 pt-2">
+            {bar.suggestedByEmail ? (
+              <p className="font-body text-xs text-zine-burntOrange/70">
+                por{' '}
+                <a
+                  href={`mailto:${bar.suggestedByEmail}`}
+                  className="underline break-all"
+                >
+                  {bar.suggestedByEmail}
+                </a>
+              </p>
+            ) : (
+              <p className="font-body text-xs text-zine-burntOrange/50 italic">
+                por anônimo
+              </p>
+            )}
             <span className="font-body text-xs text-zine-burntOrange/70 italic">
               mover para (curadoria do admin):
             </span>
