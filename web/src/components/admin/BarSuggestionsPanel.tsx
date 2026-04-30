@@ -1,29 +1,24 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
 import SuggestionStatusTabs from '@/components/bares/SuggestionStatusTabs';
 import BarCard from '@/components/bares/BarCard';
 import { useBarSuggestions } from '@/hooks/useBarSuggestions';
 import {
-  createBarSuggestion,
   updateBarSuggestionStatus,
   deleteBarSuggestion,
 } from '@/services/api';
 import type { SuggestionStatus } from '@/types';
-
-const inputClass =
-  'border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream font-body p-2 focus:outline-none focus:border-zine-burntOrange w-full';
 
 export interface BarSuggestionsPanelProps {
   idToken: string;
 }
 
 export const BarSuggestionsPanel: React.FC<BarSuggestionsPanelProps> = ({ idToken }) => {
+  const navigate = useNavigate();
   const { bars, loading, error, refresh } = useBarSuggestions();
   const [activeStatus, setActiveStatus] = useState<SuggestionStatus>('suggested');
-  const [newBarName, setNewBarName] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const counts = useMemo(() => {
@@ -43,22 +38,6 @@ export const BarSuggestionsPanel: React.FC<BarSuggestionsPanelProps> = ({ idToke
       return s === activeStatus;
     });
   }, [bars, activeStatus]);
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newBarName.trim()) return;
-    setBusy(true);
-    setCreateError(null);
-    try {
-      await createBarSuggestion({ name: newBarName.trim() }, idToken);
-      setNewBarName('');
-      refresh();
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'erro ao adicionar local');
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function handleMoveStatus(id: string, status: SuggestionStatus) {
     setActionError(null);
@@ -87,29 +66,15 @@ export const BarSuggestionsPanel: React.FC<BarSuggestionsPanelProps> = ({ idToke
         ❤️/💀 são votos do público. as abas abaixo são a sua curadoria — você pode mover locais entre elas independente dos votos.
       </p>
 
-      <form onSubmit={(e) => void handleCreate(e)} className="flex flex-col gap-3 mb-4">
-        <div className="flex flex-wrap gap-2">
-          <input
-            type="text"
-            value={newBarName}
-            onChange={(e) => setNewBarName(e.target.value)}
-            placeholder="nome do local"
-            className={`${inputClass} min-w-0 flex-1`}
-          />
-          <Button type="submit" disabled={busy || !newBarName.trim()} className="min-h-[44px]">
-            {busy ? 'adicionando...' : 'adicionar local'}
-          </Button>
-        </div>
-        {createError && (
-          <p
-            role="alert"
-            aria-live="assertive"
-            className="font-body text-xs text-zine-burntOrange font-bold dark:text-zine-burntYellow"
-          >
-            {createError}
-          </p>
-        )}
-      </form>
+      <div className="mb-4">
+        <Button
+          type="button"
+          onClick={() => navigate('/novo-local')}
+          className="min-h-[44px]"
+        >
+          indicar local
+        </Button>
+      </div>
 
       <div className="mb-3">
         <SuggestionStatusTabs
