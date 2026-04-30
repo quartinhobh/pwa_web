@@ -320,6 +320,31 @@ export async function lookupCoverByName(query: string): Promise<string | null> {
   }
 }
 
+/**
+ * Admin-only: run the cover lookup against an album suggestion's own
+ * title/artist and persist the result so subsequent reads have it inline.
+ * Idempotent — backend short-circuits if the suggestion already has cover.
+ */
+export async function enrichAlbumSuggestionCover(
+  id: string,
+  idToken: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `${API_URL}/suggestions/albums/${encodeURIComponent(id)}/enrich-cover`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${idToken}` },
+      },
+    );
+    if (!res.ok) return null;
+    const body = (await res.json()) as { coverUrl: string | null };
+    return body.coverUrl ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export interface LyricsResponse {
   lyrics: string | null;
   source: string | null;

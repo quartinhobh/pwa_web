@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { lookupCoverByName } from '@/services/api';
+import { enrichAlbumSuggestionCover, lookupCoverByName } from '@/services/api';
 
 const moduleCache = new Map<string, string | null>();
 
@@ -9,6 +9,11 @@ const moduleCache = new Map<string, string | null>();
  * (e.g. "Cartola (1976) - Cartola"). The backend runs the search + waterfall
  * (CAA → Deezer → Last.fm) and only returns a URL when confident.
  *
+ * When `suggestionId` + `idToken` are passed, calls the admin-only enrich
+ * endpoint instead — same lookup, but the result is persisted on the doc so
+ * the next list read includes it inline. Without those args, falls back to
+ * the public read-only endpoint.
+ *
  * Returns the existing cover when one is already stored on the suggestion;
  * otherwise null until the lookup resolves. Null after lookup means "no
  * confident match found anywhere" — caller should render no media.
@@ -17,6 +22,8 @@ export function useMbCoverLookup(
   albumTitle: string | null | undefined,
   artistName: string | null | undefined,
   existingCoverUrl: string | null | undefined,
+  suggestionId?: string,
+  idToken?: string | null,
 ): string | null {
   const [cover, setCover] = useState<string | null>(existingCoverUrl ?? null);
 
@@ -38,7 +45,10 @@ export function useMbCoverLookup(
     }
     let cancelled = false;
     setCover(null);
-    lookupCoverByName(query).then((url) => {
+    const lookup = suggestionId && idToken
+      ? enrichAlbumSuggestionCover(suggestionId, idToken)
+      : lookupCoverByName(query);
+    lookup.then((url) => {
       if (cancelled) return;
       moduleCache.set(cacheKey, url);
       setCover(url);
@@ -46,7 +56,7 @@ export function useMbCoverLookup(
     return () => {
       cancelled = true;
     };
-  }, [albumTitle, artistName, existingCoverUrl]);
+  }, [albumTitle, artistName, existingCoverUrl, suggestionId, idToken]);
 
   return cover;
 }

@@ -41,10 +41,12 @@ function AlbumCover({ src, alt }: { src: string; alt: string }) {
 
 function AlbumCardRow({
   album,
+  idToken,
   onMoveStatus,
   onDelete,
 }: {
   album: AlbumSuggestion;
+  idToken: string;
   onMoveStatus: (status: SuggestionStatus) => void;
   onDelete: () => void;
 }) {
@@ -52,6 +54,8 @@ function AlbumCardRow({
     album.albumTitle,
     album.artistName,
     album.coverUrl,
+    album.id,
+    idToken,
   );
   const altText = album.albumTitle
     ? `capa de ${album.albumTitle}${album.artistName ? ` - ${album.artistName}` : ''}`
@@ -221,6 +225,7 @@ export const AlbumSuggestionsPanel: React.FC<AlbumSuggestionsPanelProps> = ({ id
           <AlbumCardRow
             key={album.id}
             album={album}
+            idToken={idToken}
             onMoveStatus={(status) => void handleMoveStatus(album.id, status)}
             onDelete={() => void handleDelete(album.id)}
           />

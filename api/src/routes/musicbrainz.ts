@@ -6,31 +6,9 @@ import {
   fetchTracks,
   searchReleases,
 } from '../services/musicbrainzService';
-import { fetchCoverArt } from '../services/coverArtService';
+import { lookupCoverByText } from '../services/coverLookupService';
 
 export const musicbrainzRouter: Router = Router();
-
-function normalizeForMatch(s: string): string {
-  return s
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^\p{Letter}\p{Number}\s]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-// Stopwords kept out of token matching: connectors that vary across sources
-// (MB joins artists with "&", users type "e"/"and"/etc.) and 1-char fragments
-// from punctuation collapse. Without this, "Juçara Marçal & Kiko Dinucci"
-// (MB) won't match "Juçara Marçal e Kiko Dinucci" (user input).
-const TOKEN_STOPWORDS = new Set(['e', 'y', 'and', 'the', 'de', 'da', 'do']);
-
-function tokenize(s: string): string[] {
-  return normalizeForMatch(s)
-    .split(' ')
-    .filter((t) => t.length > 1 && !TOKEN_STOPWORDS.has(t));
-}
 
 musicbrainzRouter.get('/search', async (req: Request, res: Response) => {
   const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
@@ -49,12 +27,10 @@ musicbrainzRouter.get('/search', async (req: Request, res: Response) => {
   }
 });
 
-// Free-text cover lookup. Used by the admin suggestions panel: callers pass
-// the suggestion's free-text title (which often packs "album - artist" into a
-// single string). We search MB, accept the top hit only if both its title and
-// artistCredit appear (normalized substring) in the user's query, then run
-// the CAA → Deezer → Last.fm waterfall on that release. Returns null when not
-// confident or no cover anywhere — callers render no media in that case.
+// Free-text cover lookup. Returns mbid + coverUrl when confident, null
+// otherwise. See coverLookupService for matching/waterfall details. Callers
+// who can persist the result should hit the dedicated enrich-cover endpoint
+// on the suggestions resource — this one is read-only.
 musicbrainzRouter.get('/cover-by-name', async (req: Request, res: Response) => {
   const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
   if (!q) {
@@ -62,38 +38,12 @@ musicbrainzRouter.get('/cover-by-name', async (req: Request, res: Response) => {
     return;
   }
   try {
-    const results = await searchReleases(q, 5, '');
-    const top = results[0];
-    if (!top) {
-      res.status(200).json({ coverUrl: null });
-      return;
-    }
-    // Token-set match: every meaningful token of MB title AND every token
-    // of MB artistCredit must appear in the user's query (any order). This
-    // is robust to: "Title - Artist" vs "Artist - Title" inversion, and to
-    // connector variations like "&" (MB) vs "e"/"and" (user input).
-    const queryTokens = new Set(tokenize(q));
-    const titleTokens = tokenize(top.title);
-    const artistTokens = tokenize(top.artistCredit);
-    const confident =
-      titleTokens.length > 0 &&
-      artistTokens.length > 0 &&
-      titleTokens.every((t) => queryTokens.has(t)) &&
-      artistTokens.every((t) => queryTokens.has(t));
-    if (!confident) {
-      res.status(200).json({ coverUrl: null });
-      return;
-    }
-    const { coverUrl } = await fetchCoverArt({
-      mbid: top.id,
-      artistCredit: top.artistCredit,
-      albumTitle: top.title,
-    });
-    res.status(200).json({ coverUrl });
+    const result = await lookupCoverByText(q);
+    res.status(200).json(result ?? { mbid: null, coverUrl: null });
   } catch (err) {
     // Don't break the UI — degrade to "no cover".
     console.error('[GET /mb/cover-by-name]', err);
-    res.status(200).json({ coverUrl: null });
+    res.status(200).json({ mbid: null, coverUrl: null });
   }
 });
 

@@ -8,6 +8,7 @@ import * as barSvc from '../services/barSuggestionService';
 import * as albumSvc from '../services/albumSuggestionService';
 import * as feedbackSvc from '../services/barFeedbackService';
 import * as commentSvc from '../services/suggestionCommentService';
+import { lookupCoverByText } from '../services/coverLookupService';
 import type { SuggestionStatus } from '../types';
 
 const router = Router();
@@ -347,6 +348,48 @@ router.patch(
         res.status(404).json({ error: 'not_found' });
         return;
       }
+      res.status(500).json({ error: 'internal_error' });
+    }
+  },
+);
+
+// POST /albums/:id/enrich-cover — admin only.
+// Resolves a cover from MB+CAA/Deezer/Last.fm using the album's own title +
+// artist text and persists mbid/coverUrl on the doc when confident, so the
+// next list read can skip the lookup. Idempotent: short-circuits when the
+// suggestion already has both fields.
+router.post(
+  '/albums/:id/enrich-cover',
+  requireAuth,
+  requireRole('admin'),
+  async (req: Request, res: Response) => {
+    try {
+      const id = req.params.id!;
+      const album = await albumSvc.getAlbumSuggestionById(id);
+      if (!album) {
+        res.status(404).json({ error: 'not_found' });
+        return;
+      }
+      if (album.coverUrl && album.mbid) {
+        res.status(200).json({ mbid: album.mbid, coverUrl: album.coverUrl });
+        return;
+      }
+      const title = (album.albumTitle ?? '').trim();
+      const artist = (album.artistName ?? '').trim();
+      const query = artist ? `${title} ${artist}` : title;
+      if (!query) {
+        res.status(200).json({ mbid: null, coverUrl: null });
+        return;
+      }
+      const result = await lookupCoverByText(query);
+      if (!result) {
+        res.status(200).json({ mbid: null, coverUrl: null });
+        return;
+      }
+      await albumSvc.enrichWithCover(id, result.mbid, result.coverUrl);
+      res.status(200).json(result);
+    } catch (err) {
+      console.error('[POST /albums/:id/enrich-cover]', err);
       res.status(500).json({ error: 'internal_error' });
     }
   },

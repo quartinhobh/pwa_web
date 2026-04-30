@@ -145,6 +145,33 @@ export async function updateAlbumSuggestionStatus(id: string, status: Suggestion
 }
 
 /**
+ * Get a single album suggestion by id. Returns null when not found.
+ */
+export async function getAlbumSuggestionById(
+  id: string,
+): Promise<AlbumSuggestion | null> {
+  const snap = await adminDb.collection(COLLECTION).doc(id).get();
+  if (!snap.exists) return null;
+  return snap.data() as AlbumSuggestion;
+}
+
+/**
+ * Persist a resolved MB lookup on a suggestion. Called after a confident
+ * match so subsequent reads can skip the lookup roundtrip.
+ * Throws Error('not_found') if document does not exist.
+ */
+export async function enrichWithCover(
+  id: string,
+  mbid: string,
+  coverUrl: string,
+): Promise<void> {
+  const ref = adminDb.collection(COLLECTION).doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error('not_found');
+  await ref.update({ mbid, coverUrl, updatedAt: Date.now() });
+}
+
+/**
  * Delete an album suggestion.
  * Throws Error('not_found') if document does not exist.
  */
