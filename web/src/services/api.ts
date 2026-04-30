@@ -303,6 +303,23 @@ export async function fetchMusicBrainzAlbum(
   return body.release;
 }
 
+/**
+ * Resolve a verified cover URL from a free-text album/artist string. Backend
+ * runs MB search + CAA→Deezer→Last.fm waterfall and confirms a match before
+ * returning a URL. Returns null when no confident match or no cover anywhere.
+ */
+export async function lookupCoverByName(query: string): Promise<string | null> {
+  const params = new URLSearchParams({ q: query });
+  try {
+    const res = await fetch(`${API_URL}/mb/cover-by-name?${params}`);
+    if (!res.ok) return null;
+    const body = (await res.json()) as { coverUrl: string | null };
+    return body.coverUrl ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export interface LyricsResponse {
   lyrics: string | null;
   source: string | null;

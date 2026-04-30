@@ -19,7 +19,7 @@ export interface AlbumSuggestionsPanelProps {
 function AlbumCover({ src, alt }: { src: string; alt: string }) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
-  if (failed) return <CoverPlaceholder />;
+  if (failed) return null;
   return (
     <div className="relative h-14 w-14 border-2 border-zine-burntYellow bg-zine-periwinkle/40 dark:bg-zine-periwinkle-dark/40 overflow-hidden">
       {!loaded && (
@@ -39,15 +39,6 @@ function AlbumCover({ src, alt }: { src: string; alt: string }) {
         className={`h-full w-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
       />
     </div>
-  );
-}
-
-function CoverPlaceholder() {
-  return (
-    <div
-      aria-hidden="true"
-      className="h-14 w-14 border-2 border-zine-burntYellow bg-zine-periwinkle/40 dark:bg-zine-periwinkle-dark/40"
-    />
   );
 }
 
@@ -143,11 +134,7 @@ function AlbumCardRow({
   return (
     <AdminSuggestionCard
       media={
-        resolvedCover ? (
-          <AlbumCover src={resolvedCover} alt={altText} />
-        ) : (
-          <CoverPlaceholder />
-        )
+        resolvedCover ? <AlbumCover src={resolvedCover} alt={altText} /> : undefined
       }
       title={album.albumTitle ?? `sugestao sem titulo (${album.id.slice(0, 8)})`}
       subtitle={album.artistName}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import ZineFrame from '@/components/common/ZineFrame';
 import BarFeedbackButtons from '@/components/bares/BarFeedbackButtons';
 import AdminSuggestionCard from '@/components/admin/AdminSuggestionCard';
+import { useBarFeedbackCounts } from '@/hooks/useBarFeedbackCounts';
 import type { PublicBarSuggestion, SuggestionStatus } from '@/types';
 
 export interface BarCardProps {
@@ -46,66 +47,12 @@ export const BarCard: React.FC<BarCardProps> = ({
     const barWithStatus = bar as PublicBarSuggestion & { status?: SuggestionStatus };
     const status: SuggestionStatus = barWithStatus.status ?? 'suggested';
 
-    const meta: React.ReactNode[] = [];
-    if (bar.isClosed) {
-      meta.push(
-        <span
-          key="closed"
-          className="font-body text-xs px-2 py-0.5 border-2 border-zine-burntOrange text-zine-burntOrange dark:text-zine-burntYellow"
-        >
-          fechado
-        </span>,
-      );
-    }
-    if (bar.hasSoundSystem) {
-      meta.push(
-        <span
-          key="som"
-          className="font-body text-xs px-2 py-0.5 border-2 border-zine-burntYellow text-zine-burntOrange dark:text-zine-burntYellow"
-        >
-          som
-        </span>,
-      );
-    }
-    if (instagramHref && instagramHandle) {
-      meta.push(
-        <a
-          key="ig"
-          href={instagramHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline hover:text-zine-burntOrange"
-        >
-          @{instagramHandle}
-        </a>,
-      );
-    }
-    meta.push(
-      <span key="date">{new Date(bar.createdAt).toLocaleDateString('pt-BR')}</span>,
-    );
-    meta.push(
-      bar.suggestedByEmail ? (
-        <a
-          key="by"
-          href={`mailto:${bar.suggestedByEmail}`}
-          className="underline truncate max-w-[18ch]"
-          title={bar.suggestedByEmail}
-        >
-          {bar.suggestedByEmail}
-        </a>
-      ) : (
-        <span key="by" className="italic">
-          anônimo
-        </span>
-      ),
-    );
-
     return (
-      <AdminSuggestionCard
-        title={bar.name}
-        subtitle={bar.address ? `📍 ${bar.address}` : undefined}
-        metaItems={meta}
+      <BarAdminCard
+        bar={bar}
         status={status}
+        instagramHref={instagramHref}
+        instagramHandle={instagramHandle}
         onMoveStatus={(s) => onMoveStatus(bar.id, s)}
         onDelete={onDelete ? () => onDelete(bar.id) : undefined}
       />
@@ -169,5 +116,103 @@ export const BarCard: React.FC<BarCardProps> = ({
     </ZineFrame>
   );
 };
+
+interface BarAdminCardProps {
+  bar: PublicBarSuggestion;
+  status: SuggestionStatus;
+  instagramHref: string | null;
+  instagramHandle: string | null;
+  onMoveStatus: (status: SuggestionStatus) => void;
+  onDelete?: () => void;
+}
+
+function BarAdminCard({
+  bar,
+  status,
+  instagramHref,
+  instagramHandle,
+  onMoveStatus,
+  onDelete,
+}: BarAdminCardProps) {
+  const counts = useBarFeedbackCounts(bar.id);
+
+  const meta: React.ReactNode[] = [];
+  if (counts) {
+    meta.push(
+      <span
+        key="votes"
+        className="inline-flex items-center gap-1 font-body text-xs font-bold"
+        title={`${counts.liked} curti · ${counts.disliked} nao gostei`}
+      >
+        <span aria-label="curti">❤️ {counts.liked}</span>
+        <span aria-hidden="true" className="opacity-50">/</span>
+        <span aria-label="nao gostei">💀 {counts.disliked}</span>
+      </span>,
+    );
+  }
+  if (bar.isClosed) {
+    meta.push(
+      <span
+        key="closed"
+        className="font-body text-xs px-2 py-0.5 border-2 border-zine-burntOrange text-zine-burntOrange dark:text-zine-burntYellow"
+      >
+        fechado
+      </span>,
+    );
+  }
+  if (bar.hasSoundSystem) {
+    meta.push(
+      <span
+        key="som"
+        className="font-body text-xs px-2 py-0.5 border-2 border-zine-burntYellow text-zine-burntOrange dark:text-zine-burntYellow"
+      >
+        som
+      </span>,
+    );
+  }
+  if (instagramHref && instagramHandle) {
+    meta.push(
+      <a
+        key="ig"
+        href={instagramHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline hover:text-zine-burntOrange"
+      >
+        @{instagramHandle}
+      </a>,
+    );
+  }
+  meta.push(
+    <span key="date">{new Date(bar.createdAt).toLocaleDateString('pt-BR')}</span>,
+  );
+  meta.push(
+    bar.suggestedByEmail ? (
+      <a
+        key="by"
+        href={`mailto:${bar.suggestedByEmail}`}
+        className="underline truncate max-w-[18ch]"
+        title={bar.suggestedByEmail}
+      >
+        {bar.suggestedByEmail}
+      </a>
+    ) : (
+      <span key="by" className="italic">
+        anônimo
+      </span>
+    ),
+  );
+
+  return (
+    <AdminSuggestionCard
+      title={bar.name}
+      subtitle={bar.address ? `📍 ${bar.address}` : undefined}
+      metaItems={meta}
+      status={status}
+      onMoveStatus={onMoveStatus}
+      onDelete={onDelete}
+    />
+  );
+}
 
 export default BarCard;

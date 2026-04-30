@@ -1,28 +1,17 @@
 import { useEffect, useState } from 'react';
-import { searchMusicBrainz } from '@/services/api';
-
-function normalize(s: string): string {
-  return s
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^\p{Letter}\p{Number}\s]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+import { lookupCoverByName } from '@/services/api';
 
 const moduleCache = new Map<string, string | null>();
 
 /**
- * Lookup a cover URL on MusicBrainz using the suggestion's free-text title.
- * Suggestion forms have a single "name" input, so the title may include the
- * artist (e.g. "Cartola (1976) - Cartola"). We send the whole string as the
- * MB query and only return a cover if both MB's `title` and `artistCredit`
- * appear (normalized substring) in the original query — otherwise we don't
- * know if the top hit is the right release and prefer to show nothing.
+ * Resolve a verified cover URL for a free-text suggestion. Suggestion forms
+ * have a single "name" field, so the title may pack album + artist together
+ * (e.g. "Cartola (1976) - Cartola"). The backend runs the search + waterfall
+ * (CAA → Deezer → Last.fm) and only returns a URL when confident.
  *
- * Returns null until lookup completes; null after completion means "no
- * confident match" and the caller should render its empty state.
+ * Returns the existing cover when one is already stored on the suggestion;
+ * otherwise null until the lookup resolves. Null after lookup means "no
+ * confident match found anywhere" — caller should render no media.
  */
 export function useMbCoverLookup(
   albumTitle: string | null | undefined,
@@ -41,46 +30,19 @@ export function useMbCoverLookup(
       setCover(null);
       return;
     }
-
     const query = artistName?.trim() ? `${title} ${artistName.trim()}` : title;
-    const normQuery = normalize(query);
-    if (!normQuery) {
-      setCover(null);
+    const cacheKey = query.toLowerCase();
+    if (moduleCache.has(cacheKey)) {
+      setCover(moduleCache.get(cacheKey) ?? null);
       return;
     }
-
-    if (moduleCache.has(normQuery)) {
-      setCover(moduleCache.get(normQuery) ?? null);
-      return;
-    }
-
     let cancelled = false;
     setCover(null);
-    searchMusicBrainz(query)
-      .then((results) => {
-        if (cancelled) return;
-        const top = results[0];
-        if (!top || !top.coverUrl) {
-          moduleCache.set(normQuery, null);
-          return;
-        }
-        const normTitle = normalize(top.title);
-        const normArtist = normalize(top.artistCredit);
-        const confident =
-          normTitle.length > 0 &&
-          normArtist.length > 0 &&
-          normQuery.includes(normTitle) &&
-          normQuery.includes(normArtist);
-        const resolved = confident ? top.coverUrl : null;
-        moduleCache.set(normQuery, resolved);
-        setCover(resolved);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        moduleCache.set(normQuery, null);
-        setCover(null);
-      });
-
+    lookupCoverByName(query).then((url) => {
+      if (cancelled) return;
+      moduleCache.set(cacheKey, url);
+      setCover(url);
+    });
     return () => {
       cancelled = true;
     };
