@@ -158,7 +158,9 @@ export function extractDiscogsCredits(release: DiscogsRelease): DiscogsCredits {
 
   function addToMap(map: Map<string, Set<string>>, key: string, value: string) {
     if (!map.has(key)) map.set(key, new Set());
-    map.get(key)!.add(value);
+    // Strip Discogs disambiguation numbers like "Toninho (7)"
+    const clean = value.replace(/\s*\(\d+\)$/, '');
+    map.get(key)!.add(clean);
   }
 
   // Process release-level extraartists

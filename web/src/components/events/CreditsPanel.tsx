@@ -109,17 +109,13 @@ function performerRow(p: {
     .map(translateRole)
     .filter(Boolean)
     .join(', ');
+  const cleanName = p.name.replace(/\s*\(\d+\)$/, '');
 
   return (
     <div key={p.name} className="flex items-baseline gap-2 text-sm">
-      <span className="text-zine-burntOrange">{p.name}</span>
+      <span className="text-zine-burntOrange">{cleanName}</span>
       {roleStr && (
         <span className="text-zine-burntOrange/40 text-xs">{roleStr}</span>
-      )}
-      {p.trackCount < p.totalTracks && (
-        <span className="text-zine-burntOrange/30 text-xs">
-          ({p.trackCount}/{p.totalTracks})
-        </span>
       )}
     </div>
   );
