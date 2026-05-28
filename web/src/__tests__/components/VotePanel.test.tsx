@@ -4,9 +4,9 @@ import { VotePanel } from '@/components/voting/VotePanel';
 import type { MusicBrainzTrack } from '@/types';
 
 const tracks: MusicBrainzTrack[] = [
-  { id: 't1', title: 'Alpha', position: 1, length: 100000 },
-  { id: 't2', title: 'Beta', position: 2, length: 100000 },
-  { id: 't3', title: 'Gamma', position: 3, length: 100000 },
+  { id: 't1', recordingId: 'r1', title: 'Alpha', position: 1, length: 100000 },
+  { id: 't2', recordingId: 'r2', title: 'Beta', position: 2, length: 100000 },
+  { id: 't3', recordingId: 'r3', title: 'Gamma', position: 3, length: 100000 },
 ];
 
 describe('VotePanel', () => {

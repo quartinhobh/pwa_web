@@ -15,6 +15,40 @@ import ZineFrame from '@/components/common/ZineFrame';
 
 const DEFAULT_LOCATION_REVEAL_DAYS = 7;
 
+function parseTextWithLinks(text: string): React.ReactNode[] {
+  const urlPattern = /(https?:\/\/[^\s]+)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = urlPattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const url = match[0];
+    const display =
+      url.length > 50
+        ? url.slice(0, 35) + '...' + url.slice(-12)
+        : url;
+    parts.push(
+      <a
+        key={match.index}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-zine-burntYellow underline hover:text-zine-burntOrange"
+      >
+        {display}
+      </a>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts;
+}
+
 function shouldShowLocation(eventDate: string, revealDays: number): boolean {
   const event = new Date(eventDate + 'T00:00:00');
   const now = new Date();
@@ -109,6 +143,15 @@ export const Listen: React.FC = () => {
 
       <AlbumDisplay event={event} album={album} coverUrl={event.album?.coverUrl} />
 
+      {/* Event notes / curiosidades */}
+      {event.extras.text && (
+        <ZineFrame bg="cream" borderColor="burntYellow">
+          <p className="font-body text-zine-burntOrange text-sm whitespace-pre-wrap leading-relaxed">
+            {parseTextWithLinks(event.extras.text)}
+          </p>
+        </ZineFrame>
+      )}
+
       {/* Date + time + location */}
       <ZineFrame bg="cream">
         <div className="flex flex-col gap-1 text-center font-body text-zine-burntOrange">
@@ -195,12 +238,17 @@ export const Listen: React.FC = () => {
           canVote={!!idToken}
           userVote={userVote}
           onVote={submitVote}
+          trackWorks={event.album?.credits?.trackWorks}
         />
       )}
 
       {/* Upcoming: tracklist preview, no voting */}
       {isUpcoming && tracks.length > 0 && (
-        <TrackList tracks={tracks} artistCredit={album?.artistCredit} />
+        <TrackList
+          tracks={tracks}
+          artistCredit={album?.artistCredit}
+          trackWorks={event.album?.credits?.trackWorks}
+        />
       )}
 
       {/* Link to past events */}

@@ -69,8 +69,6 @@ function applyOptimistic(
   return next;
 }
 
-const VOTES_TTL = 30 * 1000; // 30 seconds
-
 async function fetchVotesData(
   eventId: string,
   idToken: string | null,
@@ -90,7 +88,7 @@ export function useVotes(
   const offlineQueue = useOfflineQueue();
   const cacheKey = eventId ? `votes:${eventId}` : null;
 
-  const cached = cacheKey ? useApiCache.getState().get<VotesCacheData>(cacheKey, VOTES_TTL) : null;
+  const cached = cacheKey ? useApiCache.getState().get<VotesCacheData>(cacheKey) : null;
   const [data, setData] = useState<VotesCacheData | null>(cached ?? null);
   const [loading, setLoading] = useState(!cached && !!eventId);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +97,10 @@ export function useVotes(
     if (!eventId || !cacheKey) {
       setData(null);
       setLoading(false);
+      return;
+    }
+
+    if (uid && !idToken) {
       return;
     }
 
@@ -122,7 +124,7 @@ export function useVotes(
     return () => {
       cancelled = true;
     };
-  }, [eventId, idToken, cacheKey]);
+  }, [eventId, idToken, uid, cacheKey]);
 
   const submitVote = useCallback(
     async (favoriteTrackId: string, leastLikedTrackId: string): Promise<void> => {

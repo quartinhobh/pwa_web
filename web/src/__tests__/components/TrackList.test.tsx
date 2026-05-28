@@ -4,9 +4,9 @@ import { TrackList } from '@/components/events/TrackList';
 import type { MusicBrainzTrack } from '@/types';
 
 const tracks: MusicBrainzTrack[] = [
-  { id: 't1', title: 'Alpha', position: 1, length: 180000 },
-  { id: 't2', title: 'Beta', position: 2, length: 200000 },
-  { id: 't3', title: 'Gamma', position: 3, length: 0 },
+  { id: 't1', recordingId: 'r1', title: 'Alpha', position: 1, length: 180000 },
+  { id: 't2', recordingId: 'r2', title: 'Beta', position: 2, length: 200000 },
+  { id: 't3', recordingId: 'r3', title: 'Gamma', position: 3, length: 0 },
 ];
 
 describe('TrackList', () => {

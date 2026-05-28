@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ZineBorderDecorative } from '@/components/common/ZineFrame';
 import { LyricsDisplay } from '@/components/events/LyricsDisplay';
 import { useLyrics } from '@/hooks/useLyrics';
-import type { MusicBrainzTrack, UserVote } from '@/types';
+import type { MusicBrainzTrack, TrackWorkCredit, UserVote } from '@/types';
 
 export interface TrackListProps {
   tracks: MusicBrainzTrack[];
   artistCredit?: string | null;
-  /** When provided, enables inline voting with emoji toggles. */
   userVote?: UserVote | null;
   onVote?: (favoriteTrackId: string, leastLikedTrackId: string) => Promise<void>;
   canVote?: boolean;
+  trackWorks?: TrackWorkCredit[];
 }
 
 function formatDuration(ms: number): string {
@@ -32,12 +32,18 @@ export const TrackList: React.FC<TrackListProps> = ({
   userVote,
   onVote,
   canVote = false,
+  trackWorks = [],
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [favorite, setFavorite] = useState<string | null>(userVote?.favoriteTrackId ?? null);
   const [least, setLeast] = useState<string | null>(userVote?.leastLikedTrackId ?? null);
   const [submitting, setSubmitting] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFavorite(userVote?.favoriteTrackId ?? null);
+    setLeast(userVote?.leastLikedTrackId ?? null);
+  }, [userVote?.favoriteTrackId, userVote?.leastLikedTrackId]);
 
   async function copyTrack(track: MusicBrainzTrack) {
     const text = artistCredit ? `${artistCredit} — ${track.title}` : track.title;
@@ -167,6 +173,23 @@ export const TrackList: React.FC<TrackListProps> = ({
 
                 {isOpen && (
                   <div className="mt-1 mb-2 ml-4">
+                    {/* Track credits — composers, lyricists */}
+                    {trackWorks.filter((w) => w.recordingId === t.recordingId).map((w, wi) => (
+                      <div key={wi} className="mb-2 font-body text-xs space-y-0.5">
+                        {w.composers.length > 0 && (
+                          <p className="text-zine-burntOrange/70">
+                            <span className="text-zine-burntOrange/40">compositor </span>
+                            {w.composers.join(', ')}
+                          </p>
+                        )}
+                        {w.lyricists.length > 0 && (
+                          <p className="text-zine-burntOrange/70">
+                            <span className="text-zine-burntOrange/40">letrista </span>
+                            {w.lyricists.join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    ))}
                     <TrackLyrics track={t} artistCredit={artistCredit ?? null} />
                   </div>
                 )}

@@ -43,8 +43,8 @@ const album: MusicBrainzRelease = {
   artistCredit: 'Artist',
   date: '2020-01-01',
   tracks: [
-    { id: 't1', title: 'Track One', position: 1, length: 60000 },
-    { id: 't2', title: 'Track Two', position: 2, length: 90000 },
+    { id: 't1', recordingId: 'r1', title: 'Track One', position: 1, length: 60000 },
+    { id: 't2', recordingId: 'r2', title: 'Track Two', position: 2, length: 90000 },
   ],
 };
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ZineFrame } from '@/components/common/ZineFrame';
+import { CreditsPanel } from '@/components/events/CreditsPanel';
 import type { Event, MusicBrainzRelease } from '@/types';
 
 export interface AlbumDisplayProps {
@@ -77,6 +78,8 @@ export const AlbumDisplay: React.FC<AlbumDisplayProps> = ({
           <p className="font-body text-xl text-zine-cream">{album.artistCredit}</p>
         ) : null}
       </div>
+
+      <CreditsPanel credits={event.album?.credits} />
     </ZineFrame>
   );
 };

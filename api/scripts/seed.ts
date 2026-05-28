@@ -14,7 +14,7 @@
 
 import { adminAuth, adminDb } from '../src/config/firebase';
 import type { Event, EventAlbumSnapshot, User } from '../src/types';
-import { fetchAlbum } from '../src/services/musicbrainzService';
+import { fetchAlbum, fetchCredits } from '../src/services/musicbrainzService';
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -94,15 +94,29 @@ async function ensureUserDoc(
 }
 
 async function ensureSampleEvent(adminUid: string): Promise<void> {
+  const mbid = '1834eae1-741b-3c03-9ca5-0df3decb43ea';
   const ref = adminDb.collection('events').doc(SAMPLE_EVENT_ID);
   const snap = await ref.get();
   if (snap.exists) {
     console.log(`[seed] events/${SAMPLE_EVENT_ID} already exists`);
+
+    // Still fetch credits if not yet populated.
+    const existing = snap.data() as Event;
+    if (!existing.album?.credits || (existing.album.credits.performers?.length === 0 && existing.album.credits.trackWorks?.length === 0)) {
+      console.log('[seed] fetching missing credits...');
+      try {
+        const { credits } = await fetchCredits(mbid);
+        await ref.update({ 'album.credits': credits, 'album.creditsAttempted': true });
+        console.log(`[seed] credits attached: ${credits.performers?.length ?? 0} musicians, ${credits.trackWorks?.length ?? 0} works`);
+      } catch (err) {
+        console.log(`[seed] credits fetch failed: ${(err as Error).message}`);
+        await ref.update({ 'album.creditsAttempted': true });
+      }
+    }
     return;
   }
   const now = Date.now();
   const today = new Date().toISOString().slice(0, 10);
-  const mbid = '1834eae1-741b-3c03-9ca5-0df3decb43ea';
 
   // Snapshot MB data so the app never re-fetches.
   let album: EventAlbumSnapshot | null = null;
@@ -112,6 +126,7 @@ async function ensureSampleEvent(adminUid: string): Promise<void> {
       albumTitle: mb.title,
       artistCredit: mb.artistCredit,
       coverUrl: `https://coverartarchive.org/release/${mb.id}/front-250`,
+      coverBlurDataUrl: null,
       tracks: mb.tracks,
     };
     console.log(`[seed] MB snapshot: ${mb.title} (${mb.tracks.length} tracks)`);
@@ -141,6 +156,18 @@ async function ensureSampleEvent(adminUid: string): Promise<void> {
   };
   await ref.set(event);
   console.log(`[seed] events/${SAMPLE_EVENT_ID} created (status=live)`);
+
+  // Fetch and attach credits (genres, label, musicians, composers).
+  try {
+    console.log('[seed] fetching credits from MusicBrainz...');
+    const { credits } = await fetchCredits(mbid);
+    await ref.update({ 'album.credits': credits, 'album.creditsAttempted': true });
+    const perf = credits.performers?.length ?? 0;
+    const works = credits.trackWorks?.length ?? 0;
+    console.log(`[seed] credits attached: ${perf} musicians, ${works} works`);
+  } catch (err) {
+    console.log(`[seed] credits fetch failed (non-blocking): ${(err as Error).message}`);
+  }
 }
 
 async function main(): Promise<void> {

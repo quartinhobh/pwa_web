@@ -72,10 +72,11 @@ app.use('/comments', commentsRouter);
 app.use('/suggestions', suggestionsRouter);
 
 if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'preflight') {
-  app.listen(PORT, () => {
-
+  const server = app.listen(PORT, () => {
     console.log(`[api] listening on :${PORT}`);
   });
+  // Credits fetch can take 55s+ (MB rate limit + Discogs fallback).
+  server.setTimeout(120_000);
   startEmailScheduler();
 }
 

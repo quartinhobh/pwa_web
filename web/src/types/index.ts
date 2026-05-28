@@ -86,6 +86,8 @@ export interface EventAlbumSnapshot {
   coverUrl: string | null;
   coverBlurDataUrl: string | null;
   tracks: MusicBrainzTrack[];
+  credits?: AggregatedCredits;
+  creditsAttempted?: boolean;
 }
 
 export interface Event {
@@ -362,6 +364,7 @@ export interface CommentWithUser extends Comment {
 
 export interface MusicBrainzTrack {
   id: string;
+  recordingId: string;
   title: string;
   position: number;
   length: number; // ms
@@ -373,6 +376,40 @@ export interface MusicBrainzRelease {
   artistCredit: string;
   date: string;
   tracks: MusicBrainzTrack[];
+}
+
+export interface AlbumCredits {
+  label?: string;
+  catalogNumber?: string;
+  country?: string;
+  releaseYear?: string;
+  genres?: string[];
+  releaseType?: string;
+}
+
+export interface AggregatedPerformer {
+  name: string;
+  instruments: string[];
+  trackCount: number;
+  totalTracks: number;
+}
+
+export interface TrackWorkCredit {
+  recordingId: string;
+  title: string;
+  composers: string[];
+  lyricists: string[];
+}
+
+export interface AggregatedCredits {
+  label?: string;
+  catalogNumber?: string;
+  country?: string;
+  releaseYear?: string;
+  genres?: string[];
+  releaseType?: string;
+  performers: AggregatedPerformer[];
+  trackWorks: TrackWorkCredit[];
 }
 
 // ── Bares & Discos ────────────────────────────────────────────────────────
