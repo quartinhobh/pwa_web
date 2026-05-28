@@ -32,11 +32,15 @@ describe.skipIf(SKIP)('Events Integration', () => {
   it('getCurrentEvent runs the status+date composite query', async () => {
     const { getCurrentEvent } = await import('../../services/eventService');
 
+    const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
     await adminDb.collection('events').doc('e1').set({
       id: 'e1',
       mbAlbumId: 'mb',
       title: 'Quartinho Test',
-      date: '2026-05-15',
+      date: futureDate,
       startTime: '19:00',
       endTime: '22:00',
       location: null,
