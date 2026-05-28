@@ -3,6 +3,7 @@
 
 import { adminDb } from '../config/firebase';
 import type {
+  AggregatedCredits,
   Event,
   EventAlbumSnapshot,
   EventCreatePayload,
@@ -10,11 +11,27 @@ import type {
   RsvpDoc,
   RsvpEntry,
 } from '../types';
-import { fetchAlbum } from './musicbrainzService';
+import { fetchAlbum, fetchCredits } from './musicbrainzService';
 import { fetchCoverArt } from './coverArtService';
 import { computeEventStatus, withDerivedStatus } from './eventStatus';
 
 const EVENTS = 'events';
+
+function maybeBackfillCredits(event: Event): void {
+  const album = event.album;
+  if (!album || !event.mbAlbumId) return;
+  if (album.credits || album.creditsAttempted) return;
+
+  const ref = adminDb.collection(EVENTS).doc(event.id);
+
+  fetchCredits(event.mbAlbumId)
+    .then((cr) => {
+      void ref.update({ 'album.credits': cr.credits, 'album.creditsAttempted': true });
+    })
+    .catch(() => {
+      void ref.update({ 'album.creditsAttempted': true });
+    });
+}
 
 export async function listEvents(): Promise<Event[]> {
   const snap = await adminDb
@@ -39,7 +56,11 @@ export async function getCurrentEvent(): Promise<Event | null> {
     .get();
   for (const doc of snap.docs) {
     const ev = doc.data() as Event;
-    if (computeEventStatus(ev) !== 'archived') return withDerivedStatus(ev);
+    if (computeEventStatus(ev) !== 'archived') {
+      const result = withDerivedStatus(ev);
+      maybeBackfillCredits(result);
+      return result;
+    }
   }
   return null;
 }
@@ -47,7 +68,9 @@ export async function getCurrentEvent(): Promise<Event | null> {
 export async function getEventById(id: string): Promise<Event | null> {
   const snap = await adminDb.collection(EVENTS).doc(id).get();
   if (!snap.exists) return null;
-  return withDerivedStatus(snap.data() as Event);
+  const ev = withDerivedStatus(snap.data() as Event);
+  maybeBackfillCredits(ev);
+  return ev;
 }
 
 export async function createEvent(
@@ -69,12 +92,24 @@ export async function createEvent(
         artistCredit: mb.artistCredit,
         albumTitle: mb.title,
       });
+      // Fetch credits (genres, label, performers, composers) alongside
+      // the album snapshot so the event is created with full data.
+      // MusicBrainz rate limit means this adds ~N seconds (N = track count).
+      let creditsData: { credits: AggregatedCredits } | null = null;
+      try {
+        creditsData = await fetchCredits(payload.mbAlbumId);
+      } catch {
+        // Credits unreachable — event is still created without them.
+      }
+
       album = {
         albumTitle: mb.title,
         artistCredit: mb.artistCredit,
         coverUrl,
         coverBlurDataUrl,
         tracks: mb.tracks,
+        credits: creditsData?.credits,
+        creditsAttempted: true,
       };
     } catch {
       // MB unreachable — album snapshot stays null, can be enriched later.
@@ -165,4 +200,21 @@ export async function deleteEvent(id: string): Promise<boolean> {
   if (!snap.exists) return false;
   await ref.delete();
   return true;
+}
+
+export async function refreshEventCredits(
+  eventId: string,
+): Promise<AggregatedCredits | null> {
+  const ref = adminDb.collection(EVENTS).doc(eventId);
+  const snap = await ref.get();
+  if (!snap.exists) return null;
+  const ev = snap.data() as Event;
+  if (!ev.mbAlbumId) return null;
+
+  const { credits } = await fetchCredits(ev.mbAlbumId, true);
+  await ref.update({
+    'album.credits': credits,
+    'album.creditsAttempted': true,
+  });
+  return credits;
 }

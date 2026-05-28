@@ -1714,3 +1714,18 @@ export async function deleteAlbumComment(
   });
   if (!res.ok) throw new Error(`DELETE album comment failed: ${res.status}`);
 }
+
+export async function refreshEventCredits(
+  eventId: string,
+  idToken: string,
+): Promise<unknown> {
+  const res = await fetch(
+    `${API_URL}/events/${encodeURIComponent(eventId)}/refresh-credits`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${idToken}` },
+    },
+  );
+  if (!res.ok) throw new Error(`POST refresh-credits failed: ${res.status}`);
+  return res.json();
+}

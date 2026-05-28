@@ -3,6 +3,7 @@
 import { Router, type Request, type Response } from 'express';
 import {
   fetchAlbum,
+  fetchCredits,
   fetchTracks,
   searchReleases,
 } from '../services/musicbrainzService';
@@ -64,6 +65,20 @@ musicbrainzRouter.get(
     try {
       const tracks = await fetchTracks(req.params.mbid!);
       res.status(200).json({ tracks });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'mb_failed';
+      const status = msg.startsWith('musicbrainz_4') ? 404 : 502;
+      res.status(status).json({ error: msg });
+    }
+  },
+);
+
+musicbrainzRouter.get(
+  '/credits/:mbid',
+  async (req: Request, res: Response) => {
+    try {
+      const result = await fetchCredits(req.params.mbid!);
+      res.status(200).json(result);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'mb_failed';
       const status = msg.startsWith('musicbrainz_4') ? 404 : 502;

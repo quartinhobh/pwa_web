@@ -20,6 +20,8 @@ import type {
   VoteTallies,
 } from '@/types';
 
+import { parseTextWithLinks } from '../utils/parseTextWithLinks';
+
 type Tab = 'tracks' | 'votes' | 'photos' | 'comments';
 
 export interface EventDetailProps {
@@ -105,6 +107,15 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId }) => {
     <div className="flex flex-col gap-4">
       <AlbumDisplay event={event} album={album} coverUrl={event.album?.coverUrl} />
 
+      {/* Event notes */}
+      {event.extras.text && (
+        <ZineFrame bg="cream" borderColor="burntYellow">
+          <p className="font-body text-zine-burntOrange text-sm whitespace-pre-wrap leading-relaxed">
+            {parseTextWithLinks(event.extras.text)}
+          </p>
+        </ZineFrame>
+      )}
+
       <div
         role="tablist"
         aria-label="event-tabs"
@@ -124,7 +135,11 @@ export const EventDetail: React.FC<EventDetailProps> = ({ eventId }) => {
       </div>
 
       {tab === 'tracks' && (
-        <TrackList tracks={album?.tracks ?? []} artistCredit={album?.artistCredit} />
+        <TrackList
+          tracks={album?.tracks ?? []}
+          artistCredit={album?.artistCredit}
+          trackWorks={event.album?.credits?.trackWorks}
+        />
       )}
 
       {tab === 'votes' && (

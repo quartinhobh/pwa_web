@@ -13,6 +13,7 @@ import {
   getEventById,
   getRsvpEmailsByFilter,
   listEvents,
+  refreshEventCredits,
   updateEvent,
 } from '../services/eventService';
 import { getRsvpSummary } from '../services/rsvpService';
@@ -376,6 +377,28 @@ eventsRouter.delete(
       res.status(204).send();
     } catch {
       res.status(500).json({ error: 'delete_failed' });
+    }
+  },
+);
+
+// Admin: refresh credits from MusicBrainz
+eventsRouter.post(
+  '/:eventId/refresh-credits',
+  writeLimiter,
+  requireAuth,
+  requireRole('admin'),
+  async (req: Request, res: Response) => {
+    try {
+      const credits = await refreshEventCredits(req.params.eventId!);
+      if (!credits) {
+        res.status(404).json({ error: 'event_not_found_or_no_mbid' });
+        return;
+      }
+      invalidateCache();
+      res.status(200).json({ credits });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'refresh_failed';
+      res.status(500).json({ error: msg });
     }
   },
 );

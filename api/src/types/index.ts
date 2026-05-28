@@ -86,6 +86,8 @@ export interface EventAlbumSnapshot {
   coverUrl: string | null;
   coverBlurDataUrl: string | null;
   tracks: MusicBrainzTrack[];
+  credits?: AggregatedCredits;
+  creditsAttempted?: boolean;
 }
 
 export interface Event {
@@ -240,6 +242,7 @@ export interface EventCreatePayload {
 
 export interface MusicBrainzTrack {
   id: string;
+  recordingId: string;
   title: string;
   position: number;
   length: number; // ms
@@ -251,6 +254,51 @@ export interface MusicBrainzRelease {
   artistCredit: string;
   date: string;
   tracks: MusicBrainzTrack[];
+}
+
+export interface AlbumCredits {
+  label?: string;
+  catalogNumber?: string;
+  country?: string;
+  releaseYear?: string;
+  genres?: string[];
+  releaseType?: string;
+}
+
+export interface TrackPerformer {
+  name: string;
+  instruments: string[];
+}
+
+export interface TrackWorkCredit {
+  recordingId: string;
+  title: string;
+  composers: string[];
+  lyricists: string[];
+}
+
+export interface TrackCredits {
+  recordingId: string;
+  performers: TrackPerformer[];
+  works: TrackWorkCredit[];
+}
+
+export interface AggregatedPerformer {
+  name: string;
+  instruments: string[];
+  trackCount: number;
+  totalTracks: number;
+}
+
+export interface AggregatedCredits {
+  label?: string;
+  catalogNumber?: string;
+  country?: string;
+  releaseYear?: string;
+  genres?: string[];
+  releaseType?: string;
+  performers: AggregatedPerformer[];
+  trackWorks: TrackWorkCredit[];
 }
 
 // ── Lojinha / PIX ─────────────────────────────────────────────────────

@@ -4,8 +4,8 @@ import { VoteResults } from '@/components/voting/VoteResults';
 import type { MusicBrainzTrack, VoteTallies } from '@/types';
 
 const tracks: MusicBrainzTrack[] = [
-  { id: 't1', title: 'Alpha', position: 1, length: 100000 },
-  { id: 't2', title: 'Beta', position: 2, length: 100000 },
+  { id: 't1', recordingId: 'r1', title: 'Alpha', position: 1, length: 100000 },
+  { id: 't2', recordingId: 'r2', title: 'Beta', position: 2, length: 100000 },
 ];
 
 describe('VoteResults', () => {

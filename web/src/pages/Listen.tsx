@@ -12,6 +12,7 @@ import { RsvpButton } from '@/components/rsvp/RsvpButton';
 import { RsvpStatus } from '@/components/rsvp/RsvpStatus';
 import { EventDetailSkeleton } from '@/components/common/LoadingState';
 import ZineFrame from '@/components/common/ZineFrame';
+import { parseTextWithLinks } from '../utils/parseTextWithLinks';
 
 const DEFAULT_LOCATION_REVEAL_DAYS = 7;
 
@@ -109,6 +110,15 @@ export const Listen: React.FC = () => {
 
       <AlbumDisplay event={event} album={album} coverUrl={event.album?.coverUrl} />
 
+      {/* Event notes / curiosidades */}
+      {event.extras.text && (
+        <ZineFrame bg="cream" borderColor="burntYellow">
+          <p className="font-body text-zine-burntOrange text-sm whitespace-pre-wrap leading-relaxed">
+            {parseTextWithLinks(event.extras.text)}
+          </p>
+        </ZineFrame>
+      )}
+
       {/* Date + time + location */}
       <ZineFrame bg="cream">
         <div className="flex flex-col gap-1 text-center font-body text-zine-burntOrange">
@@ -195,12 +205,17 @@ export const Listen: React.FC = () => {
           canVote={!!idToken}
           userVote={userVote}
           onVote={submitVote}
+          trackWorks={event.album?.credits?.trackWorks}
         />
       )}
 
       {/* Upcoming: tracklist preview, no voting */}
       {isUpcoming && tracks.length > 0 && (
-        <TrackList tracks={tracks} artistCredit={album?.artistCredit} />
+        <TrackList
+          tracks={tracks}
+          artistCredit={album?.artistCredit}
+          trackWorks={event.album?.credits?.trackWorks}
+        />
       )}
 
       {/* Link to past events */}

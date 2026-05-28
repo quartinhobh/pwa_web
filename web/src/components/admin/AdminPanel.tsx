@@ -26,7 +26,9 @@ import {
   fetchPhotos,
   cancelEvent as apiCancelEvent,
   broadcastToEvent as apiBroadcastToEvent,
+  refreshEventCredits,
 } from '@/services/api';
+import { useApiCache } from '@/store/apiCache';
 import Modal from '@/components/common/Modal';
 
 /** Get token with fallback to auth.currentUser for race-condition safety. */
@@ -258,6 +260,7 @@ const EventsTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
   const [editing, setEditing] = useState<Event | null>(null);
   const [creating, setCreating] = useState(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
   const [cancelTarget, setCancelTarget] = useState<Event | null>(null);
   const [broadcastTarget, setBroadcastTarget] = useState<Event | null>(null);
 
@@ -348,13 +351,49 @@ const EventsTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
                   {e.date} · {e.status}
                 </span>
               </div>
-              <div className="flex flex-wrap gap-2 justify-end">
+                <div className="flex flex-wrap gap-2 justify-end">
                 <Button onClick={() => setEditing(e)}>editar</Button>
                 <Button onClick={() => setBroadcastTarget(e)}>enviar mensagem</Button>
                 <Button onClick={() => setCancelTarget(e)}>cancelar evento</Button>
                 <Button onClick={() => void handleDelete(e.id)} disabled={isDeleting}>
                   {isDeleting ? 'apagando...' : 'apagar'}
                 </Button>
+                {e.mbAlbumId && (
+                  <Button
+                    onClick={async () => {
+                      const token = await resolveToken(idToken);
+                      if (!token) return;
+                      setRefreshingIds((s) => new Set(s).add(e.id));
+                      try {
+                        await refreshEventCredits(e.id, token);
+                        useApiCache.getState().invalidatePrefix(`event:${e.id}`);
+                        useApiCache.getState().invalidatePrefix('event:current');
+                        alert('Ficha técnica atualizada!');
+                      } catch (err) {
+                        alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+                      } finally {
+                        setRefreshingIds((s) => {
+                          const next = new Set(s);
+                          next.delete(e.id);
+                          return next;
+                        });
+                      }
+                    }}
+                    disabled={refreshingIds.has(e.id)}
+                  >
+                    {refreshingIds.has(e.id) ? (
+                      <span className="inline-flex items-center gap-1">
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        buscando...
+                      </span>
+                    ) : (
+                      'atualizar ficha'
+                    )}
+                  </Button>
+                )}
               </div>
             </li>
             );

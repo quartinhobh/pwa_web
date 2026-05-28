@@ -58,6 +58,11 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
+            // Long-running admin requests (credits fetch ~55s) — bypass SW cache.
+            urlPattern: /\/refresh-credits\b/,
+            handler: 'NetworkOnly',
+          },
+          {
             // API reads — network first, fall back to cache when offline or
             // when the backend is slow (Cloud Run cold starts can take 10-15s,
             // so a 5s timeout was aborting legitimate requests and surfacing
