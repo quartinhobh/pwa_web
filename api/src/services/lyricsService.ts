@@ -108,12 +108,12 @@ export async function fetchLyrics(
     }
   }
 
-  let lyrics = await fetchFromLyricsOvh(artist, title);
-  let source: LyricsSource | null = lyrics ? 'lyrics.ovh' : null;
+  let lyrics = await fetchFromLrclib(artist, title);
+  let source: LyricsSource | null = lyrics ? 'lrclib' : null;
 
   if (!lyrics) {
-    lyrics = await fetchFromLrclib(artist, title);
-    source = lyrics ? 'lrclib' : null;
+    lyrics = await fetchFromLyricsOvh(artist, title);
+    source = lyrics ? 'lyrics.ovh' : null;
   }
 
   if (lyrics && source) {
