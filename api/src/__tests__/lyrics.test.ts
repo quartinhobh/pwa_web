@@ -121,9 +121,8 @@ describe('fetchLyrics (fetch + fallback, in-memory cache)', () => {
     expect(out.source).toBe('lrclib');
   });
 
-  it('lyrics.ovh fails → falls back to LRCLIB', async () => {
+  it('LRCLIB returns first → uses LRCLIB without calling lyrics.ovh', async () => {
     mockFetchByUrl([
-      { match: 'api.lyrics.ovh', ok: false, status: 404, body: {} },
       { match: 'lrclib.net', body: { plainLyrics: 'from lrclib' } },
     ]);
     const cache = memoryCache();
@@ -133,8 +132,24 @@ describe('fetchLyrics (fetch + fallback, in-memory cache)', () => {
     expect(out.lyrics).toBe('from lrclib');
     expect(out.source).toBe('lrclib');
     expect(out.cached).toBe(false);
-    expect(calls.some((c) => c.url.includes('lyrics.ovh'))).toBe(true);
     expect(calls.some((c) => c.url.includes('lrclib.net'))).toBe(true);
+    expect(calls.some((c) => c.url.includes('lyrics.ovh'))).toBe(false);
+  });
+
+  it('LRCLIB fails → falls back to lyrics.ovh', async () => {
+    mockFetchByUrl([
+      { match: 'lrclib.net', ok: false, status: 404, body: {} },
+      { match: 'api.lyrics.ovh', body: { lyrics: 'from ovh' } },
+    ]);
+    const cache = memoryCache();
+
+    const out = await fetchLyrics('Artist', 'Title', { cache });
+
+    expect(out.lyrics).toBe('from ovh');
+    expect(out.source).toBe('lyrics.ovh');
+    expect(out.cached).toBe(false);
+    expect(calls.some((c) => c.url.includes('lrclib.net'))).toBe(true);
+    expect(calls.some((c) => c.url.includes('lyrics.ovh'))).toBe(true);
   });
 
   it('both providers fail → returns null without caching', async () => {
