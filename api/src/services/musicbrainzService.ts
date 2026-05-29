@@ -385,6 +385,7 @@ async function fetchRecordingCredits(
 
 export interface FetchCreditsResult {
   credits: AggregatedCredits;
+  tracks: MusicBrainzTrack[];
 }
 
 export async function fetchCredits(mbid: string, forceRefresh = false): Promise<FetchCreditsResult> {
@@ -562,7 +563,7 @@ export async function fetchCredits(mbid: string, forceRefresh = false): Promise<
     }
   }
 
-  const result: FetchCreditsResult = { credits };
+  const result: FetchCreditsResult = { credits, tracks };
   cacheSet(cacheKey, result);
   return result;
 }

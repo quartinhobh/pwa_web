@@ -174,7 +174,7 @@ export const TrackList: React.FC<TrackListProps> = ({
                 {isOpen && (
                   <div className="mt-1 mb-2 ml-4">
                     {/* Track credits — composers, lyricists */}
-                    {trackWorks.filter((w) => w.recordingId === t.recordingId).map((w, wi) => (
+                    {trackWorks.filter((w) => w.recordingId === t.recordingId || w.recordingId === t.id).map((w, wi) => (
                       <div key={wi} className="mb-2 font-body text-xs space-y-0.5">
                         {w.composers.length > 0 && (
                           <p className="text-zine-burntOrange/70">

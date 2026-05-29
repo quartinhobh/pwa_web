@@ -26,7 +26,7 @@ function maybeBackfillCredits(event: Event): void {
 
   fetchCredits(event.mbAlbumId)
     .then((cr) => {
-      void ref.update({ 'album.credits': cr.credits, 'album.creditsAttempted': true });
+      void ref.update({ 'album.credits': cr.credits, 'album.tracks': cr.tracks, 'album.creditsAttempted': true });
     })
     .catch(() => {
       void ref.update({ 'album.creditsAttempted': true });
@@ -211,9 +211,10 @@ export async function refreshEventCredits(
   const ev = snap.data() as Event;
   if (!ev.mbAlbumId) return null;
 
-  const { credits } = await fetchCredits(ev.mbAlbumId, true);
+  const { credits, tracks } = await fetchCredits(ev.mbAlbumId, true);
   await ref.update({
     'album.credits': credits,
+    'album.tracks': tracks,
     'album.creditsAttempted': true,
   });
   return credits;
