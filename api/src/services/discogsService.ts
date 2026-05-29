@@ -88,8 +88,7 @@ function isComposerRole(role: string): boolean {
     r.includes('composed by') ||
     r.includes('songwriter') ||
     r.includes('writer') ||
-    r === 'music by' ||
-    r === 'words by'
+    r === 'music by'
   );
 }
 

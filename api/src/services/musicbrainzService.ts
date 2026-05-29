@@ -267,6 +267,22 @@ function extractAlbumCredits(json: MbReleaseJson): AlbumCredits {
   };
 }
 
+const COMPOSER_ROLES = new Set([
+  'composer', 'writer', 'arranger',
+]);
+const LYRICIST_ROLES = new Set([
+  'lyricist', 'librettist', 'translator', 'text by',
+]);
+const WORK_RELATION_TYPES = new Set([
+  'performance of',
+  'performance',
+  'is a recording of',
+  'compilation',
+  'medley of',
+  'instrumental recording of',
+  'karaoke recording of',
+]);
+
 function extractTrackPerformers(recording: MbRecordingJson): TrackPerformer[] {
   const performerMap = new Map<string, Set<string>>();
   for (const rel of recording.relations ?? []) {
@@ -284,6 +300,20 @@ function extractTrackPerformers(recording: MbRecordingJson): TrackPerformer[] {
   }));
 }
 
+function extractRecordingComposers(recording: MbRecordingJson): { composers: string[]; lyricists: string[] } {
+  const composers: string[] = [];
+  const lyricists: string[] = [];
+  for (const rel of recording.relations ?? []) {
+    if (!rel.artist) continue;
+    if (COMPOSER_ROLES.has(rel.type)) {
+      composers.push(rel.artist.name);
+    } else if (LYRICIST_ROLES.has(rel.type)) {
+      lyricists.push(rel.artist.name);
+    }
+  }
+  return { composers: [...new Set(composers)], lyricists: [...new Set(lyricists)] };
+}
+
 async function fetchWorkCredits(workId: string): Promise<TrackWorkCredit | null> {
   try {
     const json = (await mbFetch(
@@ -293,9 +323,9 @@ async function fetchWorkCredits(workId: string): Promise<TrackWorkCredit | null>
     const lyricists: string[] = [];
     for (const rel of json.relations ?? []) {
       if (!rel.artist) continue;
-      if (rel.type === 'composer' || rel.type === 'writer') {
+      if (COMPOSER_ROLES.has(rel.type)) {
         composers.push(rel.artist.name);
-      } else if (rel.type === 'lyricist') {
+      } else if (LYRICIST_ROLES.has(rel.type)) {
         lyricists.push(rel.artist.name);
       }
     }
@@ -305,7 +335,8 @@ async function fetchWorkCredits(workId: string): Promise<TrackWorkCredit | null>
       composers: [...new Set(composers)],
       lyricists: [...new Set(lyricists)],
     };
-  } catch {
+  } catch (err) {
+    console.warn(`[musicbrainz] failed to fetch work credits for work ${workId}:`, err);
     return null;
   }
 }
@@ -320,10 +351,9 @@ async function fetchRecordingCredits(
 
     const performers = extractTrackPerformers(json);
 
-    // Collect work IDs and fetch composer/lyricist info for each
     const workCredits: TrackWorkCredit[] = [];
     for (const rel of json.relations ?? []) {
-      if (rel.type === 'performance of' || rel.type === 'performance') {
+      if (WORK_RELATION_TYPES.has(rel.type)) {
         if (rel.work?.id) {
           const wc = await fetchWorkCredits(rel.work.id);
           if (wc) workCredits.push(wc);
@@ -331,12 +361,24 @@ async function fetchRecordingCredits(
       }
     }
 
+    // Bug 1 fix: include recording-level composers/lyricists as a work entry
+    const { composers: recComposers, lyricists: recLyricists } = extractRecordingComposers(json);
+    if (recComposers.length > 0 || recLyricists.length > 0) {
+      workCredits.push({
+        recordingId,
+        title: json.title,
+        composers: recComposers,
+        lyricists: recLyricists,
+      });
+    }
+
     return {
       recordingId,
       performers,
       works: workCredits,
     };
-  } catch {
+  } catch (err) {
+    console.warn(`[musicbrainz] failed to fetch recording credits for ${recordingId}:`, err);
     return { recordingId, performers: [], works: [] };
   }
 }
@@ -451,18 +493,30 @@ export async function fetchCredits(mbid: string, forceRefresh = false): Promise<
           }
         }
 
-        // Merge composers/lyricists from Discogs (fuzzy title match: accent + case insensitive)
+        // Merge composers/lyricists from Discogs (fuzzy title match: accent + case insensitive, strips parentheticals)
         const normalizeTitle = (s: string): string =>
-          s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+          s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+            .replace(/\s*[-–(]\s*(ao vivo|live|bonus track|remaster|remastered|remix|alternate take|demo version|mono|stereo|single version|edit|extended|instrumental|acoustic version|radio edit)\s*[-–)]?\s*$/i, '')
+            .replace(/\(\s*\d{4}\s*[-–]\s*remaster\s*\)/i, '')
+            .trim();
         const normalizeName = (s: string): string =>
           s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
+        const findTrackWork = (title: string): TrackWorkCredit | undefined => {
+          const norm = normalizeTitle(title);
+          let match = trackWorks.find((w) => normalizeTitle(w.title) === norm);
+          if (!match) {
+            match = trackWorks.find((w) => {
+              const wNorm = normalizeTitle(w.title);
+              return wNorm.length > 0 && (wNorm.includes(norm) || norm.includes(wNorm));
+            });
+          }
+          return match;
+        };
+
         for (const [workTitle, composerSet] of dg.composers) {
           if (workTitle === 'album') continue;
-          const normTitle = normalizeTitle(workTitle);
-          const existing = trackWorks.find(
-            (w) => normalizeTitle(w.title) === normTitle,
-          );
+          const existing = findTrackWork(workTitle);
           if (existing) {
             for (const c of composerSet) {
               if (!existing.composers.some((e) => normalizeName(e) === normalizeName(c))) {
@@ -473,7 +527,7 @@ export async function fetchCredits(mbid: string, forceRefresh = false): Promise<
             trackWorks.push({
               recordingId:
                 tracks.find(
-                  (t) => normalizeTitle(t.title) === normTitle,
+                  (t) => normalizeTitle(t.title) === normalizeTitle(workTitle),
                 )?.recordingId ?? '',
               title: workTitle,
               composers: [...composerSet],
@@ -483,10 +537,7 @@ export async function fetchCredits(mbid: string, forceRefresh = false): Promise<
         }
         for (const [workTitle, lyricistSet] of dg.lyricists) {
           if (workTitle === 'album') continue;
-          const normTitle = normalizeTitle(workTitle);
-          const existing = trackWorks.find(
-            (w) => normalizeTitle(w.title) === normTitle,
-          );
+          const existing = findTrackWork(workTitle);
           if (existing) {
             for (const l of lyricistSet) {
               if (!existing.lyricists.some((e) => normalizeName(e) === normalizeName(l))) {
@@ -497,7 +548,7 @@ export async function fetchCredits(mbid: string, forceRefresh = false): Promise<
             trackWorks.push({
               recordingId:
                 tracks.find(
-                  (t) => normalizeTitle(t.title) === normTitle,
+                  (t) => normalizeTitle(t.title) === normalizeTitle(workTitle),
                 )?.recordingId ?? '',
               title: workTitle,
               composers: [],
@@ -506,8 +557,8 @@ export async function fetchCredits(mbid: string, forceRefresh = false): Promise<
           }
         }
       }
-    } catch {
-      // Discogs fallback failed — non-blocking
+    } catch (err) {
+      console.warn(`[musicbrainz] Discogs fallback failed for ${artistName} — ${json.title}:`, err);
     }
   }
 
