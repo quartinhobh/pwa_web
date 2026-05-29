@@ -7,7 +7,7 @@ SHELL := /bin/bash
 .PHONY: help install up down logs seed seed-extra reset dev api web stop \
         lint typecheck test test-emulators test-all \
         e2e e2e-install build clean \
-        status test-docker test-integration ci
+        status test-docker test-integration ci deadcode
 
 # ─── Meta ───────────────────────────────────────────────────────────────
 
@@ -103,6 +103,21 @@ test-integration: ## RSVP integration tests against emulator + MailDev (needs `m
 	cd api && bun run test:integration
 
 test-all: lint typecheck test test-emulators ## Run every check below E2E
+
+# ─── Dead code ───────────────────────────────────────────────────────────
+
+deadcode: ## Audit unused dependencies (knip + depcheck) across workspaces
+	@echo "==> knip (unused exports/files/deps)"
+	-bunx --bun knip --reporter compact
+	@echo ""
+	@echo "==> depcheck (orphan package.json deps)"
+	-bunx --bun depcheck
+	@echo ""
+	@echo "==> depcheck api"
+	-bunx --bun depcheck --ignores="@types/bun" api
+	@echo ""
+	@echo "==> depcheck web"
+	-bunx --bun depcheck --ignores="@types/html2canvas,@types/jspdf,eslint-plugin-react-refresh,vite-plugin-pwa" web
 
 # ─── CI / Docker ─────────────────────────────────────────────────────────
 
