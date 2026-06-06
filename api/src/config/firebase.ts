@@ -117,6 +117,10 @@ const app: App = buildApp();
 
 export const adminAuth: Auth = getAuth(app);
 export const adminDb: Firestore = getFirestore(app);
+// Optional credit fields (label, catalogNumber, genres, …) are left undefined
+// when absent. Firestore rejects undefined values by default, so drop them
+// instead of throwing on writes like createEvent's album snapshot.
+adminDb.settings({ ignoreUndefinedProperties: true });
 export const adminRtdb: Database = getDatabase(app);
 export const adminStorage: Storage = getStorage(app);
 export const STORAGE_BUCKET: string =

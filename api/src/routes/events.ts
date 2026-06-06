@@ -185,7 +185,8 @@ eventsRouter.post(
       const event = await createEvent(payload, req.user!.uid);
       invalidateCache();
       res.status(201).json({ event });
-    } catch {
+    } catch (err) {
+      console.error('[POST /events]', err);
       res.status(500).json({ error: 'create_failed' });
     }
   },
