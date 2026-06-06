@@ -119,7 +119,11 @@ Render dashboard → teu service → **Environment** → adiciona:
 | `FIREBASE_STORAGE_BUCKET` | `teste-qbh.firebasestorage.app` | Firebase Console → Storage → URL |
 | `INITIAL_ADMIN_EMAIL` | `seu-email@gmail.com` | seu email Google (remover depois!) |
 | `MUSICBRAINZ_USER_AGENT` | `Quartinho/1.0 (email@dominio.com)` | qualquer email de contato |
-| `GENIUS_ACCESS_TOKEN` | *(opcional)* | https://genius.com/api-clients |
+| `DISCOGS_TOKEN` | *(opcional)* | https://www.discogs.com/settings/developers (melhora rate limit) |
+| `GENIUS_ACCESS_TOKEN` | *(opcional)* | https://genius.com/api-clients (Client Access Token) — sem ele o fallback Genius fica desligado |
+| `CREDITS_ENABLE_DISCOGS` | *(opcional)* `false` desliga | toggle do fallback Discogs (default: ligado) |
+| `CREDITS_ENABLE_GENIUS` | *(opcional)* `false` desliga | toggle do fallback Genius (default: ligado, exige token) |
+| `CREDITS_ENABLE_DEEZER` | *(opcional)* `false` desliga | toggle do fallback Deezer (default: ligado) |
 | `BREVO_API_KEY` | `xkeysib-...` | https://app.brevo.com/settings/keys/api |
 | `BREVO_SENDER_EMAIL` | `afa7789@gmail.com` | Email verificado no Brevo (Settings → Senders) |
 | `BREVO_SENDER_NAME` | `Quartinho BH` | Nome que aparece como remetente |

@@ -14,6 +14,14 @@ import type {
   TrackWorkCredit,
 } from '../types';
 import { fetchDiscogsCredits } from './discogsService';
+import { fetchGeniusTrackCredits } from './geniusService';
+import { fetchDeezerPerformers } from './deezerService';
+
+// Per-source toggles for the credit fallback chain. Each source defaults ON;
+// set CREDITS_ENABLE_<SOURCE>=false to skip it without code changes.
+function sourceEnabled(source: 'DISCOGS' | 'GENIUS' | 'DEEZER'): boolean {
+  return process.env[`CREDITS_ENABLE_${source}`] !== 'false';
+}
 
 const MB_BASE = 'https://musicbrainz.org/ws/2';
 export const MB_USER_AGENT = 'Quartinho/1.0 (https://quartinho.app)';
@@ -455,9 +463,29 @@ export async function fetchCredits(mbid: string, forceRefresh = false): Promise<
     trackWorks,
   };
 
-  // Merge Discogs credits (always fetch, fills gaps and adds missing data)
+  // Shared fuzzy matchers for fallback merges (accent + case insensitive, strips parentheticals).
+  const normalizeTitle = (s: string): string =>
+    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+      .replace(/\s*[-–(]\s*(ao vivo|live|bonus track|remaster|remastered|remix|alternate take|demo version|mono|stereo|single version|edit|extended|instrumental|acoustic version|radio edit)\s*[-–)]?\s*$/i, '')
+      .replace(/\(\s*\d{4}\s*[-–]\s*remaster\s*\)/i, '')
+      .trim();
+  const normalizeName = (s: string): string =>
+    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  const findTrackWork = (title: string): TrackWorkCredit | undefined => {
+    const norm = normalizeTitle(title);
+    let match = trackWorks.find((w) => normalizeTitle(w.title) === norm);
+    if (!match) {
+      match = trackWorks.find((w) => {
+        const wNorm = normalizeTitle(w.title);
+        return wNorm.length > 0 && (wNorm.includes(norm) || norm.includes(wNorm));
+      });
+    }
+    return match;
+  };
+
+  // Merge Discogs credits (fills gaps and adds missing data)
   const artistName = joinArtistCredit(json['artist-credit']);
-  if (artistName) {
+  if (artistName && sourceEnabled('DISCOGS')) {
     try {
       const dg = await fetchDiscogsCredits(artistName, json.title);
       if (dg) {
@@ -494,27 +522,7 @@ export async function fetchCredits(mbid: string, forceRefresh = false): Promise<
           }
         }
 
-        // Merge composers/lyricists from Discogs (fuzzy title match: accent + case insensitive, strips parentheticals)
-        const normalizeTitle = (s: string): string =>
-          s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
-            .replace(/\s*[-–(]\s*(ao vivo|live|bonus track|remaster|remastered|remix|alternate take|demo version|mono|stereo|single version|edit|extended|instrumental|acoustic version|radio edit)\s*[-–)]?\s*$/i, '')
-            .replace(/\(\s*\d{4}\s*[-–]\s*remaster\s*\)/i, '')
-            .trim();
-        const normalizeName = (s: string): string =>
-          s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-
-        const findTrackWork = (title: string): TrackWorkCredit | undefined => {
-          const norm = normalizeTitle(title);
-          let match = trackWorks.find((w) => normalizeTitle(w.title) === norm);
-          if (!match) {
-            match = trackWorks.find((w) => {
-              const wNorm = normalizeTitle(w.title);
-              return wNorm.length > 0 && (wNorm.includes(norm) || norm.includes(wNorm));
-            });
-          }
-          return match;
-        };
-
+        // Merge composers/lyricists from Discogs (fuzzy title match via shared matchers above)
         for (const [workTitle, composerSet] of dg.composers) {
           if (workTitle === 'album') continue;
           const existing = findTrackWork(workTitle);
@@ -560,6 +568,59 @@ export async function fetchCredits(mbid: string, forceRefresh = false): Promise<
       }
     } catch (err) {
       console.warn(`[musicbrainz] Discogs fallback failed for ${artistName} — ${json.title}:`, err);
+    }
+  }
+
+  // Genius fallback — digital-first, covers streaming-only albums with no physical
+  // release. Only queries tracks still missing songwriter data after MB+Discogs,
+  // and is a no-op unless GENIUS_ACCESS_TOKEN is configured.
+  if (artistName && sourceEnabled('GENIUS') && process.env.GENIUS_ACCESS_TOKEN) {
+    const gapTracks = tracks.filter((t) => {
+      const w = findTrackWork(t.title);
+      return !w || (w.composers.length === 0 && w.lyricists.length === 0);
+    });
+    for (const track of gapTracks) {
+      const gc = await fetchGeniusTrackCredits(artistName, track.title);
+      if (!gc) continue;
+      const existing = findTrackWork(track.title);
+      if (existing) {
+        for (const c of gc.composers) {
+          if (!existing.composers.some((e) => normalizeName(e) === normalizeName(c))) {
+            existing.composers.push(c);
+          }
+        }
+        for (const l of gc.lyricists) {
+          if (!existing.lyricists.some((e) => normalizeName(e) === normalizeName(l))) {
+            existing.lyricists.push(l);
+          }
+        }
+      } else {
+        trackWorks.push({
+          recordingId: track.recordingId,
+          title: track.title,
+          composers: gc.composers,
+          lyricists: gc.lyricists,
+        });
+      }
+    }
+  }
+
+  // Deezer fallback — last resort, no API key needed. Deezer only exposes
+  // performing artists (no composers/lyricists), so it only fills the
+  // album-level performers list when the prior sources found none.
+  if (artistName && sourceEnabled('DEEZER') && credits.performers.length === 0) {
+    const dz = await fetchDeezerPerformers(artistName, json.title);
+    if (dz) {
+      const existingNames = new Set(credits.performers.map((p) => p.name));
+      for (const [name, roles] of dz) {
+        if (existingNames.has(name)) continue;
+        credits.performers.push({
+          name,
+          instruments: [...roles],
+          trackCount: 0,
+          totalTracks,
+        });
+      }
     }
   }
 
