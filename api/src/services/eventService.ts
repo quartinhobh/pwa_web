@@ -92,24 +92,18 @@ export async function createEvent(
         artistCredit: mb.artistCredit,
         albumTitle: mb.title,
       });
-      // Fetch credits (genres, label, performers, composers) alongside
-      // the album snapshot so the event is created with full data.
-      // MusicBrainz rate limit means this adds ~N seconds (N = track count).
-      let creditsData: { credits: AggregatedCredits } | null = null;
-      try {
-        creditsData = await fetchCredits(payload.mbAlbumId);
-      } catch {
-        // Credits unreachable — event is still created without them.
-      }
-
+      // Credits (genres, label, performers, composers) are the slow part:
+      // one rate-limited MusicBrainz call per track (~N seconds). We skip them
+      // here so the admin gets a fast response, and let maybeBackfillCredits
+      // populate them in the background. creditsAttempted:false keeps the
+      // read-path backfill enabled as a safety net.
       album = {
         albumTitle: mb.title,
         artistCredit: mb.artistCredit,
         coverUrl,
         coverBlurDataUrl,
         tracks: mb.tracks,
-        credits: creditsData?.credits,
-        creditsAttempted: true,
+        creditsAttempted: false,
       };
     } catch {
       // MB unreachable — album snapshot stays null, can be enriched later.
@@ -137,6 +131,9 @@ export async function createEvent(
     updatedAt: now,
   };
   await ref.set(event);
+  // Fire-and-forget: start fetching credits now so they're ready by the time
+  // anyone opens the event. The read-path also retries via maybeBackfillCredits.
+  maybeBackfillCredits(event);
   return event;
 }
 
