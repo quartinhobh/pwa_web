@@ -158,38 +158,48 @@ export async function searchGeniusTracks(
 ): Promise<GeniusTrack[]> {
   if (!process.env.GENIUS_ACCESS_TOKEN) return [];
   try {
-    const q = `${artist} ${albumTitle}`.trim();
-    const json = (await geniusFetch(
-      `/search?q=${encodeURIComponent(q)}&per_page=20`,
-    )) as { response?: { hits?: GeniusSearchHit[] } };
-    const hits = (json.response?.hits ?? []).filter((h) => h.type === 'song');
+    const tracks = await searchGeniusWithQuery(`${artist} ${albumTitle}`, artist);
+    if (tracks.length > 0) return tracks;
 
-    const tracks: GeniusTrack[] = [];
-    let position = 0;
-    const seen = new Set<string>();
-    for (const hit of hits) {
-      const r = hit.result;
-      if (!r?.title) continue;
-      if (artist && r.primary_artist?.name && !artistsMatch(r.primary_artist.name, artist)) {
-        continue;
-      }
-      const norm = normalize(r.title);
-      if (seen.has(norm)) continue;
-      seen.add(norm);
-      position++;
-      const sid = String(r.id);
-      tracks.push({
-        id: sid,
-        recordingId: sid,
-        title: r.title,
-        position,
-        length: 0,
-      });
-    }
-    return tracks;
+    // Fallback: search for artist only (broader results)
+    return searchGeniusWithQuery(artist, artist);
   } catch {
     return [];
   }
+}
+
+async function searchGeniusWithQuery(
+  q: string,
+  artist: string,
+): Promise<GeniusTrack[]> {
+  const json = (await geniusFetch(
+    `/search?q=${encodeURIComponent(q.trim())}&per_page=30`,
+  )) as { response?: { hits?: GeniusSearchHit[] } };
+  const hits = (json.response?.hits ?? []).filter((h) => h.type === 'song');
+
+  const tracks: GeniusTrack[] = [];
+  let position = 0;
+  const seen = new Set<string>();
+  for (const hit of hits) {
+    const r = hit.result;
+    if (!r?.title) continue;
+    if (artist && r.primary_artist?.name && !artistsMatch(r.primary_artist.name, artist)) {
+      continue;
+    }
+    const norm = normalize(r.title);
+    if (seen.has(norm)) continue;
+    seen.add(norm);
+    position++;
+    const sid = String(r.id);
+    tracks.push({
+      id: sid,
+      recordingId: sid,
+      title: r.title,
+      position,
+      length: 0,
+    });
+  }
+  return tracks;
 }
 
 async function fetchGeniusSong(songId: number): Promise<GeniusSong | null> {
