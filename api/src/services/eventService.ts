@@ -38,17 +38,18 @@ function maybeBackfillCredits(event: Event): void {
     .then(async (cr) => {
       let tracks = cr.tracks;
 
-      // Fallback to Genius when MusicBrainz has no tracks
       if (tracks.length === 0 && album.artistCredit) {
-        const geniusTracks = await searchGeniusTracks(album.artistCredit, album.albumTitle);
-        if (geniusTracks.length > 0) {
-          tracks = geniusTracks;
+        try {
+          const geniusTracks = await searchGeniusTracks(album.artistCredit, album.albumTitle);
+          if (geniusTracks.length > 0) {
+            tracks = geniusTracks;
+          }
+        } catch {
+          // Genius fallback failed silently in background
         }
       }
 
       void ref.update({ 'album.credits': cr.credits, 'album.tracks': tracks, 'album.creditsAttempted': true });
-
-      // Fire-and-forget: warm lyrics cache in background
       void warmLyricsCache(tracks, album.artistCredit);
     })
     .catch(async () => {
@@ -234,12 +235,14 @@ export async function deleteEvent(id: string): Promise<boolean> {
 
 export async function refreshEventCredits(
   eventId: string,
-): Promise<AggregatedCredits | null> {
+): Promise<{ credits: AggregatedCredits | null; debug?: Record<string, unknown> }> {
   const ref = adminDb.collection(EVENTS).doc(eventId);
   const snap = await ref.get();
-  if (!snap.exists) return null;
+  if (!snap.exists) return { credits: null };
   const ev = snap.data() as Event;
-  if (!ev.mbAlbumId) return null;
+  if (!ev.mbAlbumId) return { credits: null };
+
+  const debug: Record<string, unknown> = {};
 
   let credits: AggregatedCredits | null = null;
   let tracks: MusicBrainzTrack[] = [];
@@ -248,17 +251,25 @@ export async function refreshEventCredits(
     const cr = await fetchCredits(ev.mbAlbumId, true);
     credits = cr.credits;
     tracks = cr.tracks;
-    console.warn(`[refreshEventCredits] MB returned ${tracks.length} tracks`);
+    debug.mbTracks = tracks.length;
   } catch (err) {
-    console.warn('[refreshEventCredits] MB fetchCredits failed:', err);
+    debug.mbError = err instanceof Error ? err.message : String(err);
   }
 
   // Fallback to Genius when MusicBrainz has no tracks (or failed)
   const artist = ev.album?.artistCredit;
   if (tracks.length === 0 && artist && ev.album?.albumTitle) {
-    const geniusTracks = await searchGeniusTracks(artist, ev.album.albumTitle);
-    if (geniusTracks.length > 0) {
-      tracks = geniusTracks;
+    debug.geniusAttempted = true;
+    try {
+      const geniusTracks = await searchGeniusTracks(artist, ev.album.albumTitle);
+      if (geniusTracks.length > 0) {
+        tracks = geniusTracks;
+        debug.geniusTracks = tracks.length;
+      } else {
+        debug.geniusEmpty = true;
+      }
+    } catch (err) {
+      debug.geniusError = err instanceof Error ? err.message : String(err);
     }
   }
 
@@ -276,5 +287,5 @@ export async function refreshEventCredits(
     await warmLyricsCache(tracks, artist);
   }
 
-  return credits;
+  return { credits, debug };
 }

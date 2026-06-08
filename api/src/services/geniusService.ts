@@ -151,31 +151,19 @@ async function searchGeniusSong(
 /**
  * Search Genius for tracks of an album by artist + album title.
  * Used as a fallback when MusicBrainz returns zero tracks.
+ * Throws on API/auth errors so callers can surface the cause.
  */
 export async function searchGeniusTracks(
   artist: string,
   albumTitle: string,
 ): Promise<GeniusTrack[]> {
   if (!process.env.GENIUS_ACCESS_TOKEN) {
-    console.warn('[genius] searchGeniusTracks: no GENIUS_ACCESS_TOKEN set');
-    return [];
+    throw new Error('genius_no_token');
   }
-  try {
-    console.warn(`[genius] searchGeniusTracks: searching "${artist} ${albumTitle}"`);
-    const tracks = await searchGeniusWithQuery(`${artist} ${albumTitle}`, artist);
-    if (tracks.length > 0) {
-      console.warn(`[genius] searchGeniusTracks: found ${tracks.length} tracks via album search`);
-      return tracks;
-    }
+  const tracks = await searchGeniusWithQuery(`${artist} ${albumTitle}`, artist);
+  if (tracks.length > 0) return tracks;
 
-    console.warn(`[genius] searchGeniusTracks: album search empty, falling back to artist-only "${artist}"`);
-    const artistTracks = await searchGeniusWithQuery(artist, artist);
-    console.warn(`[genius] searchGeniusTracks: artist-only found ${artistTracks.length} tracks`);
-    return artistTracks;
-  } catch (err) {
-    console.warn('[genius] searchGeniusTracks error:', err);
-    return [];
-  }
+  return searchGeniusWithQuery(artist, artist);
 }
 
 async function searchGeniusWithQuery(
