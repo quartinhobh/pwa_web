@@ -207,13 +207,13 @@ describe('fetchLyrics (fetch + fallback, in-memory cache)', () => {
 
 const EMULATOR = !!process.env.FIRESTORE_EMULATOR_HOST;
 
-describe.skipIf(!EMULATOR)('GET /lyrics/:artist/:title (HTTP)', () => {
+describe.skipIf(!EMULATOR)('GET /lyrics?artist=...&title=... (HTTP)', () => {
   it('returns 200 with null lyrics when both providers fail', async () => {
     mockFetchByUrl([
       { match: 'api.lyrics.ovh', ok: false, status: 404, body: {} },
       { match: 'lrclib.net', ok: false, status: 404, body: {} },
     ]);
-    const res = await request(app).get('/lyrics/nobody/nothing');
+    const res = await request(app).get('/lyrics?artist=nobody&title=nothing');
     expect(res.status).toBe(200);
     expect(res.body.lyrics).toBeNull();
     expect(res.body.source).toBeNull();

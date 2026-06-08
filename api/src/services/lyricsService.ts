@@ -6,6 +6,7 @@
 
 import { adminDb } from '../config/firebase';
 import type { LyricsCache, LyricsSource } from '../types';
+import { fetchGeniusLyrics } from './geniusService';
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const COLLECTION = 'lyrics_cache';
@@ -114,6 +115,11 @@ export async function fetchLyrics(
   if (!lyrics) {
     lyrics = await fetchFromLyricsOvh(artist, title);
     source = lyrics ? 'lyrics.ovh' : null;
+  }
+
+  if (!lyrics) {
+    lyrics = await fetchGeniusLyrics(artist, title);
+    source = lyrics ? 'genius' : null;
   }
 
   if (lyrics && source) {

@@ -63,6 +63,7 @@ interface GeniusCustomPerformance {
 interface GeniusSong {
   id: number;
   title?: string;
+  url?: string;
   primary_artist?: GeniusArtist;
   writer_artists?: GeniusArtist[];
   custom_performances?: GeniusCustomPerformance[];
@@ -198,6 +199,112 @@ export async function fetchGeniusTrackCredits(
     return credits;
   } catch (err) {
     console.warn(`[genius] credit lookup failed for ${artist} — ${title}:`, err);
+    return null;
+  }
+}
+
+// ── Lyrics extraction via page scraping ────────────────────────────────
+
+function cleanHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, '/')
+    .replace(/&#(\d+);/g, (_: string, d: string) => String.fromCharCode(Number(d)));
+}
+
+function stripHtml(text: string): string {
+  return text
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, '');
+}
+
+function extractLyricsFromHtml(html: string): string | null {
+  const parts: string[] = [];
+  const marker = 'data-lyrics-container="true"';
+  let searchFrom = 0;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const markerIdx = html.indexOf(marker, searchFrom);
+    if (markerIdx === -1) break;
+
+    const tagStart = html.lastIndexOf('<div', markerIdx);
+    const tagEnd = html.indexOf('>', markerIdx) + 1;
+
+    if (tagStart === -1 || tagEnd === 0) {
+      searchFrom = markerIdx + marker.length;
+      continue;
+    }
+
+    // Count nested divs to find the matching closing tag
+    let depth = 1;
+    let pos = tagEnd;
+    let found = false;
+
+    while (depth > 0 && pos < html.length) {
+      const nextOpen = html.indexOf('<div', pos);
+      const nextClose = html.indexOf('</div>', pos);
+
+      if (nextClose === -1) break;
+
+      if (nextOpen !== -1 && nextOpen < nextClose) {
+        depth++;
+        pos = nextOpen + 4;
+      } else {
+        depth--;
+        if (depth === 0) {
+          const raw = html.substring(tagEnd, nextClose);
+          const text = cleanHtmlEntities(stripHtml(raw)).trim();
+          // Skip Genius metadata headers like "3 Contributors" or "TITLE Lyrics"
+          const cleaned = text
+            .replace(/^\d+\s*Contributors?/i, '')
+            .replace(/^[A-ZÃÕÁÉÍÓÚÂÊÔÇ\s]+\s+Lyrics/i, '')
+            .trim();
+          if (cleaned) parts.push(cleaned);
+          found = true;
+          pos = nextClose + 6;
+          break;
+        }
+        pos = nextClose + 6;
+      }
+    }
+
+    searchFrom = found ? pos : markerIdx + marker.length;
+  }
+
+  return parts.length > 0 ? parts.join('\n\n') : null;
+}
+
+/**
+ * Fetch song lyrics from Genius by scraping the song page.
+ * Uses the API to search and find the song URL, then extracts lyrics from the HTML.
+ * Returns null when no token is configured, no match is found, or scraping fails.
+ */
+export async function fetchGeniusLyrics(
+  artist: string,
+  title: string,
+): Promise<string | null> {
+  if (!process.env.GENIUS_ACCESS_TOKEN) return null;
+  try {
+    const songId = await searchGeniusSong(artist, title);
+    if (songId == null) return null;
+    const song = await fetchGeniusSong(songId);
+    if (!song?.url) return null;
+
+    await throttle();
+    const res = await fetch(song.url, {
+      headers: { 'User-Agent': USER_AGENT },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+
+    return extractLyricsFromHtml(html);
+  } catch (err) {
+    console.warn(`[genius] lyrics fetch failed for ${artist} — ${title}:`, err);
     return null;
   }
 }

@@ -14,6 +14,7 @@ import type {
 import { fetchAlbum, fetchCredits } from './musicbrainzService';
 import { fetchCoverArt } from './coverArtService';
 import { computeEventStatus, withDerivedStatus } from './eventStatus';
+import { fetchLyrics } from './lyricsService';
 
 const EVENTS = 'events';
 
@@ -214,5 +215,16 @@ export async function refreshEventCredits(
     'album.tracks': tracks,
     'album.creditsAttempted': true,
   });
+
+  // Fire-and-forget: refresh lyrics for all tracks (non-blocking)
+  const artist = ev.album.artistCredit;
+  if (artist) {
+    void Promise.allSettled(
+      tracks.map((t) =>
+        fetchLyrics(artist, t.title, { skipCache: true }),
+      ),
+    );
+  }
+
   return credits;
 }

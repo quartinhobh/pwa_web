@@ -355,8 +355,9 @@ export async function fetchLyrics(
   artist: string,
   title: string,
 ): Promise<LyricsResponse> {
+  const params = new URLSearchParams({ artist, title });
   const res = await fetch(
-    `${API_URL}/lyrics/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`,
+    `${API_URL}/lyrics?${params.toString()}`,
   );
   if (!res.ok) throw new Error(`GET /lyrics failed: ${res.status}`);
   return (await res.json()) as LyricsResponse;

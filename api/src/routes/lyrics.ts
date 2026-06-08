@@ -1,5 +1,5 @@
 // Lyrics routes — P3-C.
-// GET /lyrics/:artist/:title — public, global rate limit.
+// GET /lyrics?artist=...&title=... — public, global rate limit.
 // POST /lyrics/refresh — admin only, write rate limit, body { artist, title }.
 
 import { Router, type Request, type Response } from 'express';
@@ -11,10 +11,16 @@ import { fetchLyrics } from '../services/lyricsService';
 export const lyricsRouter: Router = Router();
 
 lyricsRouter.get(
-  '/:artist/:title',
+  '/',
   async (req: Request, res: Response) => {
     try {
-      const result = await fetchLyrics(req.params.artist!, req.params.title!);
+      const artist = typeof req.query.artist === 'string' ? req.query.artist : '';
+      const title = typeof req.query.title === 'string' ? req.query.title : '';
+      if (!artist || !title) {
+        res.status(400).json({ error: 'artist and title query params are required' });
+        return;
+      }
+      const result = await fetchLyrics(artist, title);
       res.status(200).json(result);
     } catch {
       res.status(200).json({ lyrics: null, source: null, cached: false });

@@ -166,7 +166,7 @@ export interface ChatMessage {
   isDeleted: boolean;
 }
 
-export type LyricsSource = 'lyrics.ovh' | 'lrclib';
+export type LyricsSource = 'lyrics.ovh' | 'lrclib' | 'genius';
 
 export interface LyricsCache {
   id: string;
