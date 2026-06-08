@@ -242,7 +242,7 @@ export async function refreshEventCredits(
   const ev = snap.data() as Event;
   if (!ev.mbAlbumId) return { credits: null };
 
-  const debug: Record<string, unknown> = {};
+  const debug: Record<string, unknown> = { v: '0.4.36' };
 
   let credits: AggregatedCredits | null = null;
   let tracks: MusicBrainzTrack[] = [];
