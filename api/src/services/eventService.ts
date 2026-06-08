@@ -280,7 +280,13 @@ export async function refreshEventCredits(
   if (credits) {
     update['album.credits'] = credits;
   }
-  await ref.update(update);
+  debug.updatePayload = { tracksCount: tracks.length, hasCredits: !!credits };
+  try {
+    await ref.update(update);
+    debug.updateOk = true;
+  } catch (err) {
+    debug.updateError = err instanceof Error ? err.message : String(err);
+  }
 
   // Refresh lyrics for all tracks and cache them
   if (artist) {
