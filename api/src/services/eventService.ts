@@ -8,6 +8,7 @@ import type {
   EventAlbumSnapshot,
   EventCreatePayload,
   EventStatus,
+  MusicBrainzTrack,
   RsvpDoc,
   RsvpEntry,
 } from '../types';
@@ -50,7 +51,17 @@ function maybeBackfillCredits(event: Event): void {
       // Fire-and-forget: warm lyrics cache in background
       void warmLyricsCache(tracks, album.artistCredit);
     })
-    .catch(() => {
+    .catch(async () => {
+      // MusicBrainz failed — try Genius for tracks anyway
+      const artist = album.artistCredit;
+      if (artist) {
+        const geniusTracks = await searchGeniusTracks(artist, album.albumTitle);
+        if (geniusTracks.length > 0) {
+          void ref.update({ 'album.tracks': geniusTracks, 'album.creditsAttempted': true });
+          void warmLyricsCache(geniusTracks, artist);
+          return;
+        }
+      }
       void ref.update({ 'album.creditsAttempted': true });
     });
 }
@@ -230,27 +241,38 @@ export async function refreshEventCredits(
   const ev = snap.data() as Event;
   if (!ev.mbAlbumId) return null;
 
-  const { credits, tracks } = await fetchCredits(ev.mbAlbumId, true);
-  let finalTracks = tracks;
+  let credits: AggregatedCredits | null = null;
+  let tracks: MusicBrainzTrack[] = [];
 
-  // Fallback to Genius when MusicBrainz has no tracks
+  try {
+    const cr = await fetchCredits(ev.mbAlbumId, true);
+    credits = cr.credits;
+    tracks = cr.tracks;
+  } catch {
+    // MusicBrainz unavailable — still try Genius for tracks
+  }
+
+  // Fallback to Genius when MusicBrainz has no tracks (or failed)
   const artist = ev.album?.artistCredit;
-  if (finalTracks.length === 0 && artist && ev.album?.albumTitle) {
+  if (tracks.length === 0 && artist && ev.album?.albumTitle) {
     const geniusTracks = await searchGeniusTracks(artist, ev.album.albumTitle);
     if (geniusTracks.length > 0) {
-      finalTracks = geniusTracks;
+      tracks = geniusTracks;
     }
   }
 
-  await ref.update({
-    'album.credits': credits,
-    'album.tracks': finalTracks,
+  const update: Record<string, unknown> = {
+    'album.tracks': tracks,
     'album.creditsAttempted': true,
-  });
+  };
+  if (credits) {
+    update['album.credits'] = credits;
+  }
+  await ref.update(update);
 
   // Refresh lyrics for all tracks and cache them
   if (artist) {
-    await warmLyricsCache(finalTracks, artist);
+    await warmLyricsCache(tracks, artist);
   }
 
   return credits;
