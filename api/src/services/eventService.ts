@@ -248,8 +248,9 @@ export async function refreshEventCredits(
     const cr = await fetchCredits(ev.mbAlbumId, true);
     credits = cr.credits;
     tracks = cr.tracks;
-  } catch {
-    // MusicBrainz unavailable — still try Genius for tracks
+    console.warn(`[refreshEventCredits] MB returned ${tracks.length} tracks`);
+  } catch (err) {
+    console.warn('[refreshEventCredits] MB fetchCredits failed:', err);
   }
 
   // Fallback to Genius when MusicBrainz has no tracks (or failed)

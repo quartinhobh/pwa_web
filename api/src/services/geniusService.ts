@@ -156,14 +156,24 @@ export async function searchGeniusTracks(
   artist: string,
   albumTitle: string,
 ): Promise<GeniusTrack[]> {
-  if (!process.env.GENIUS_ACCESS_TOKEN) return [];
+  if (!process.env.GENIUS_ACCESS_TOKEN) {
+    console.warn('[genius] searchGeniusTracks: no GENIUS_ACCESS_TOKEN set');
+    return [];
+  }
   try {
+    console.warn(`[genius] searchGeniusTracks: searching "${artist} ${albumTitle}"`);
     const tracks = await searchGeniusWithQuery(`${artist} ${albumTitle}`, artist);
-    if (tracks.length > 0) return tracks;
+    if (tracks.length > 0) {
+      console.warn(`[genius] searchGeniusTracks: found ${tracks.length} tracks via album search`);
+      return tracks;
+    }
 
-    // Fallback: search for artist only (broader results)
-    return searchGeniusWithQuery(artist, artist);
-  } catch {
+    console.warn(`[genius] searchGeniusTracks: album search empty, falling back to artist-only "${artist}"`);
+    const artistTracks = await searchGeniusWithQuery(artist, artist);
+    console.warn(`[genius] searchGeniusTracks: artist-only found ${artistTracks.length} tracks`);
+    return artistTracks;
+  } catch (err) {
+    console.warn('[genius] searchGeniusTracks error:', err);
     return [];
   }
 }
