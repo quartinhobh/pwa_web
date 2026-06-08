@@ -117,6 +117,14 @@ function isComposerLabel(label: string): boolean {
 
 // ── Search + fetch ────────────────────────────────────────────────────
 
+export interface GeniusTrack {
+  id: string;
+  recordingId: string;
+  title: string;
+  position: number;
+  length: number;
+}
+
 async function searchGeniusSong(
   artist: string,
   title: string,
@@ -138,6 +146,50 @@ async function searchGeniusSong(
     return r.id;
   }
   return null;
+}
+
+/**
+ * Search Genius for tracks of an album by artist + album title.
+ * Used as a fallback when MusicBrainz returns zero tracks.
+ */
+export async function searchGeniusTracks(
+  artist: string,
+  albumTitle: string,
+): Promise<GeniusTrack[]> {
+  if (!process.env.GENIUS_ACCESS_TOKEN) return [];
+  try {
+    const q = `${artist} ${albumTitle}`.trim();
+    const json = (await geniusFetch(
+      `/search?q=${encodeURIComponent(q)}&per_page=20`,
+    )) as { response?: { hits?: GeniusSearchHit[] } };
+    const hits = (json.response?.hits ?? []).filter((h) => h.type === 'song');
+
+    const tracks: GeniusTrack[] = [];
+    let position = 0;
+    const seen = new Set<string>();
+    for (const hit of hits) {
+      const r = hit.result;
+      if (!r?.title) continue;
+      if (artist && r.primary_artist?.name && !artistsMatch(r.primary_artist.name, artist)) {
+        continue;
+      }
+      const norm = normalize(r.title);
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      position++;
+      const sid = String(r.id);
+      tracks.push({
+        id: sid,
+        recordingId: sid,
+        title: r.title,
+        position,
+        length: 0,
+      });
+    }
+    return tracks;
+  } catch {
+    return [];
+  }
 }
 
 async function fetchGeniusSong(songId: number): Promise<GeniusSong | null> {

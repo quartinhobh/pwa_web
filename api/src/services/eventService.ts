@@ -15,8 +15,16 @@ import { fetchAlbum, fetchCredits } from './musicbrainzService';
 import { fetchCoverArt } from './coverArtService';
 import { computeEventStatus, withDerivedStatus } from './eventStatus';
 import { fetchLyrics } from './lyricsService';
+import { searchGeniusTracks } from './geniusService';
 
 const EVENTS = 'events';
+
+async function warmLyricsCache(tracks: { title: string }[], artist: string): Promise<void> {
+  if (!artist || tracks.length === 0) return;
+  await Promise.allSettled(
+    tracks.map((t) => fetchLyrics(artist, t.title, { skipCache: true })),
+  );
+}
 
 function maybeBackfillCredits(event: Event): void {
   const album = event.album;
@@ -26,18 +34,21 @@ function maybeBackfillCredits(event: Event): void {
   const ref = adminDb.collection(EVENTS).doc(event.id);
 
   fetchCredits(event.mbAlbumId)
-    .then((cr) => {
-      void ref.update({ 'album.credits': cr.credits, 'album.tracks': cr.tracks, 'album.creditsAttempted': true });
+    .then(async (cr) => {
+      let tracks = cr.tracks;
+
+      // Fallback to Genius when MusicBrainz has no tracks
+      if (tracks.length === 0 && album.artistCredit) {
+        const geniusTracks = await searchGeniusTracks(album.artistCredit, album.albumTitle);
+        if (geniusTracks.length > 0) {
+          tracks = geniusTracks;
+        }
+      }
+
+      void ref.update({ 'album.credits': cr.credits, 'album.tracks': tracks, 'album.creditsAttempted': true });
 
       // Fire-and-forget: warm lyrics cache in background
-      const artist = album.artistCredit;
-      if (artist) {
-        void Promise.allSettled(
-          cr.tracks.map((t) =>
-            fetchLyrics(artist, t.title, { skipCache: true }),
-          ),
-        );
-      }
+      void warmLyricsCache(tracks, album.artistCredit);
     })
     .catch(() => {
       void ref.update({ 'album.creditsAttempted': true });
@@ -220,20 +231,26 @@ export async function refreshEventCredits(
   if (!ev.mbAlbumId) return null;
 
   const { credits, tracks } = await fetchCredits(ev.mbAlbumId, true);
+  let finalTracks = tracks;
+
+  // Fallback to Genius when MusicBrainz has no tracks
+  const artist = ev.album?.artistCredit;
+  if (finalTracks.length === 0 && artist && ev.album?.albumTitle) {
+    const geniusTracks = await searchGeniusTracks(artist, ev.album.albumTitle);
+    if (geniusTracks.length > 0) {
+      finalTracks = geniusTracks;
+    }
+  }
+
   await ref.update({
     'album.credits': credits,
-    'album.tracks': tracks,
+    'album.tracks': finalTracks,
     'album.creditsAttempted': true,
   });
 
   // Refresh lyrics for all tracks and cache them
-  const artist = ev.album?.artistCredit;
   if (artist) {
-    await Promise.allSettled(
-      tracks.map((t) =>
-        fetchLyrics(artist, t.title, { skipCache: true }),
-      ),
-    );
+    await warmLyricsCache(finalTracks, artist);
   }
 
   return credits;
