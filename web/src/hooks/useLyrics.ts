@@ -49,7 +49,9 @@ export function useLyrics(
         const res = await fetchLyrics(artist, title);
         if (cancelled) return;
         const result = { lyrics: res.lyrics, source: res.source };
-        useApiCache.getState().set(cacheKey!, result);
+        if (res.lyrics) {
+          useApiCache.getState().set(cacheKey!, result);
+        }
         if (!cancelled) {
           setData(result);
           setLoading(false);

@@ -28,6 +28,16 @@ function maybeBackfillCredits(event: Event): void {
   fetchCredits(event.mbAlbumId)
     .then((cr) => {
       void ref.update({ 'album.credits': cr.credits, 'album.tracks': cr.tracks, 'album.creditsAttempted': true });
+
+      // Fire-and-forget: warm lyrics cache in background
+      const artist = album.artistCredit;
+      if (artist) {
+        void Promise.allSettled(
+          cr.tracks.map((t) =>
+            fetchLyrics(artist, t.title, { skipCache: true }),
+          ),
+        );
+      }
     })
     .catch(() => {
       void ref.update({ 'album.creditsAttempted': true });
@@ -216,10 +226,10 @@ export async function refreshEventCredits(
     'album.creditsAttempted': true,
   });
 
-  // Fire-and-forget: refresh lyrics for all tracks (non-blocking)
-  const artist = ev.album.artistCredit;
+  // Refresh lyrics for all tracks and cache them
+  const artist = ev.album?.artistCredit;
   if (artist) {
-    void Promise.allSettled(
+    await Promise.allSettled(
       tracks.map((t) =>
         fetchLyrics(artist, t.title, { skipCache: true }),
       ),

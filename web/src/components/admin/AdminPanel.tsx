@@ -368,6 +368,7 @@ const EventsTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
                         await refreshEventCredits(e.id, token);
                         useApiCache.getState().invalidatePrefix(`event:${e.id}`);
                         useApiCache.getState().invalidatePrefix('event:current');
+                        useApiCache.getState().invalidatePrefix('lyrics:');
                         alert('Ficha técnica atualizada!');
                       } catch (err) {
                         alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
