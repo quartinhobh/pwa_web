@@ -151,6 +151,8 @@ async function searchGeniusSong(
 /**
  * Search Genius for tracks of an album by artist + album title.
  * Used as a fallback when MusicBrainz returns zero tracks.
+ * Strategy: search for the artist → find any song → get album ID → fetch album tracks.
+ * Falls back to artist-only search if the album tracks endpoint is empty.
  * Throws on API/auth errors so callers can surface the cause.
  */
 export async function searchGeniusTracks(
@@ -160,38 +162,78 @@ export async function searchGeniusTracks(
   if (!process.env.GENIUS_ACCESS_TOKEN) {
     throw new Error('genius_no_token');
   }
-  const tracks = await searchGeniusWithQuery(`${artist} ${albumTitle}`, artist);
-  if (tracks.length > 0) return tracks;
 
-  return searchGeniusWithQuery(artist, artist);
-}
-
-async function searchGeniusWithQuery(
-  q: string,
-  artist: string,
-): Promise<GeniusTrack[]> {
+  // Step 1: search for just the artist to find any song
   const json = (await geniusFetch(
-    `/search?q=${encodeURIComponent(q.trim())}&per_page=30`,
+    `/search?q=${encodeURIComponent(artist)}&per_page=10`,
   )) as { response?: { hits?: GeniusSearchHit[] } };
   const hits = (json.response?.hits ?? []).filter((h) => h.type === 'song');
 
+  const normTitle = normalize(albumTitle);
+
+  for (const hit of hits) {
+    const r = hit.result;
+    if (!r?.id) continue;
+    if (r.primary_artist?.name && !artistsMatch(r.primary_artist.name, artist)) continue;
+
+    // Step 2: fetch song details to get album info
+    try {
+      const songJson = (await geniusFetch(`/songs/${r.id}`)) as {
+        response?: { song?: { album?: { id?: number; name?: string } } };
+      };
+      const album = songJson.response?.song?.album;
+      if (!album?.id) continue;
+
+      // Match album name (normalized containment)
+      const albumName = album.name ?? '';
+      const normName = normalize(albumName);
+      if (normName !== normTitle && !normName.includes(normTitle) && !normTitle.includes(normName)) {
+        continue;
+      }
+
+      // Step 3: fetch album tracks
+      const albumJson = (await geniusFetch(
+        `/albums/${album.id}/tracks?per_page=50`,
+      )) as { response?: { tracks?: Array<{ number: number; song?: { id: number; title?: string } }> } };
+      const albumTracks = albumJson.response?.tracks ?? [];
+      if (albumTracks.length === 0) continue;
+
+      const tracks: GeniusTrack[] = [];
+      for (const t of albumTracks) {
+        const song = t.song;
+        if (!song?.title) continue;
+        tracks.push({
+          id: String(song.id),
+          recordingId: String(song.id),
+          title: song.title,
+          position: t.number,
+          length: 0,
+        });
+      }
+      return tracks;
+    } catch {
+      continue;
+    }
+  }
+
+  // Last resort: return all songs by the artist (from initial search)
+  return hitsToTracks(hits);
+}
+
+function hitsToTracks(hits: GeniusSearchHit[]): GeniusTrack[] {
   const tracks: GeniusTrack[] = [];
   let position = 0;
   const seen = new Set<string>();
   for (const hit of hits) {
     const r = hit.result;
     if (!r?.title) continue;
-    if (artist && r.primary_artist?.name && !artistsMatch(r.primary_artist.name, artist)) {
-      continue;
-    }
     const norm = normalize(r.title);
     if (seen.has(norm)) continue;
     seen.add(norm);
     position++;
-    const sid = String(r.id);
     tracks.push({
-      id: sid,
-      recordingId: sid,
+      id: String(r.id),
+      recordingId: String(r.id),
       title: r.title,
       position,
       length: 0,
