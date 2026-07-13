@@ -7,7 +7,7 @@
 // `entryKey = 'firebase:abc123'`. We chose `:` (not `_`) to stay consistent with
 // the Firestore doc keys and avoid a second mental model.
 
-import { Router, type Request, type Response } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import { optionalAuth, requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/roleCheck';
 import { guestRsvpLimiter, writeLimiter } from '../middleware/rateLimit';
@@ -85,6 +85,17 @@ async function sendRsvpEmail(
   }
 }
 
+/** Run an Express middleware (e.g. a rate limiter) imperatively inside a handler. */
+function runMiddleware(
+  middleware: (req: Request, res: Response, next: NextFunction) => void,
+  req: Request,
+  res: Response,
+): Promise<void> {
+  return new Promise<void>((resolve, reject) =>
+    middleware(req, res, (err) => (err ? reject(err) : resolve())),
+  );
+}
+
 export const rsvpRouter: Router = Router({ mergeParams: true });
 
 // GET /events/:eventId/rsvp — public summary (counts + avatars)
@@ -112,11 +123,14 @@ rsvpRouter.get('/user', requireAuth, async (req: Request, res: Response) => {
 // Accepts both authenticated (firebase) and anonymous (guest) submissions.
 rsvpRouter.post(
   '/',
-  writeLimiter,
-  guestRsvpLimiter,
   optionalAuth,
   async (req: Request, res: Response) => {
     try {
+      // Authenticated users get the generous write limit (20/min); only
+      // anonymous guests are held to the strict 5/hour anti-spam limit.
+      const limiter = req.user ? writeLimiter : guestRsvpLimiter;
+      await runMiddleware(limiter, req, res);
+
       const body = (req.body ?? {}) as {
         email?: string;
         displayName?: string;

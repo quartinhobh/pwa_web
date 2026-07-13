@@ -39,10 +39,12 @@ export const authGuestLimiter: RateLimitRequestHandler = rateLimit({
   skip,
 });
 
-// Guest (unauthenticated) RSVP submissions — per IP, 5/hour.
+// Guest (unauthenticated) RSVP submissions — per IP, 100/hour.
+// Generous because guests at the venue share a NAT/carrier IP, so the whole
+// event (~100 people) can hit the same counter. Still caps runaway spam.
 export const guestRsvpLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 60 * ONE_MINUTE_MS,
-  max: 5,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
   skip,
