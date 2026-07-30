@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Listen } from '@/pages/Listen';
 import type { Event, RsvpSummary } from '@/types';
 
@@ -76,8 +76,14 @@ function setupDefaults() {
 
 function renderListen() {
   return render(
-    <MemoryRouter>
-      <Listen />
+    <MemoryRouter initialEntries={['/']}>
+      <Routes>
+        <Route path="/" element={<Listen />} />
+        <Route
+          path="/archive"
+          element={<div data-testid="archive-redirect-target" />}
+        />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -88,10 +94,25 @@ describe('Listen page', () => {
     setupDefaults();
   });
 
-  it('shows "sem evento no momento" when there is no event', () => {
+  it('redirects to /archive when there is no current event', () => {
     mockUseEvent.mockReturnValue({ event: null, album: null, tracks: [], loading: false, error: null });
     renderListen();
-    expect(screen.getByText(/sem evento no momento/i)).toBeInTheDocument();
+    expect(screen.getByTestId('archive-redirect-target')).toBeInTheDocument();
+    expect(screen.queryByText(/sem evento no momento/i)).not.toBeInTheDocument();
+  });
+
+  it('does not redirect while loading, even with no event', () => {
+    mockUseEvent.mockReturnValue({ event: null, album: null, tracks: [], loading: true, error: null });
+    renderListen();
+    expect(screen.getByTestId('loading-skeleton')).toBeInTheDocument();
+    expect(screen.queryByTestId('archive-redirect-target')).not.toBeInTheDocument();
+  });
+
+  it('does not redirect on error, even with no event', () => {
+    mockUseEvent.mockReturnValue({ event: null, album: null, tracks: [], loading: false, error: 'boom' });
+    renderListen();
+    expect(screen.getByText(/erro: boom/i)).toBeInTheDocument();
+    expect(screen.queryByTestId('archive-redirect-target')).not.toBeInTheDocument();
   });
 
   it('shows album title when event exists', () => {
