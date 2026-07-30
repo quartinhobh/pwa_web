@@ -319,13 +319,13 @@ eventsRouter.post(
   requireRole('admin'),
   async (req: Request, res: Response) => {
     try {
-      const { credits, debug } = await refreshEventCredits(req.params.eventId!);
-      if (!credits) {
+      const report = await refreshEventCredits(req.params.eventId!);
+      if (report.error === 'event_not_found' || report.error === 'event_not_found_or_no_mbid') {
         res.status(404).json({ error: 'event_not_found_or_no_mbid' });
         return;
       }
       invalidateCache();
-      res.status(200).json({ credits, debug });
+      res.status(200).json(report);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'refresh_failed';
       res.status(500).json({ error: msg });
