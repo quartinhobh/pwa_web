@@ -2,7 +2,14 @@ import cron from 'node-cron';
 import { adminDb } from '../config/firebase';
 import { buildRsvpEmail } from '../services/emailTemplateService';
 import { renderTransactionalEmail, sendEmail } from '../services/emailService';
-import type { Event, EmailTemplateKey, RsvpDoc, User } from '../types';
+import type {
+  Event,
+  EmailTemplateKey,
+  RsvpDoc,
+  User,
+  VenueRevealPolicy,
+} from '../types';
+import { policyFromLegacy } from '../services/venueReveal';
 
 export interface EventWithFlags extends Event {
   reminderEmailSent?: boolean;
@@ -14,10 +21,36 @@ export type SchedulerAction =
   | { kind: 'venue_reveal'; event: EventWithFlags };
 
 /**
+ * Walk a VenueRevealPolicy and return the day-N this scheduler can fire on,
+ * or null when the policy is not time-of-day-anchored. For
+ * `correlated OR`, the EARLIEST N among any `days_before_event` branch is
+ * used — that gives guests the earliest possible heads-up.
+ */
+export function venueRevealFireDay(policy: VenueRevealPolicy): number | null {
+  switch (policy.mode) {
+    case 'days_before_event':
+      return policy.days;
+    case 'correlated': {
+      if (policy.operator !== 'or') return null;
+      let earliest: number | null = null;
+      for (const sub of policy.policies) {
+        const d = venueRevealFireDay(sub);
+        if (d === null) continue;
+        if (earliest === null || d < earliest) earliest = d;
+      }
+      return earliest;
+    }
+    default:
+      return null;
+  }
+}
+
+/**
  * Pure decision: given an event and the current date (YYYY-MM-DD local),
  * return the email actions that should be dispatched right now. Reminder
  * fires when today is exactly 1 day before the event; venue_reveal fires
- * when today is exactly N days before (N = venueRevealDaysBefore ?? 7).
+ * when today matches the day-N derived from the venue-reveal policy
+ * (`days_before_event N`, or the earliest such N in a `correlated OR`).
  * Already-sent flags short-circuit so the job is idempotent day-to-day.
  */
 export function decideActions(event: EventWithFlags, todayISO: string): SchedulerAction[] {
@@ -28,9 +61,13 @@ export function decideActions(event: EventWithFlags, todayISO: string): Schedule
   if (!event.reminderEmailSent && daysUntil === 1) {
     actions.push({ kind: 'reminder', event });
   }
-  const revealN = event.venueRevealDaysBefore ?? 7;
-  if (!event.venueRevealEmailSent && daysUntil === revealN) {
-    actions.push({ kind: 'venue_reveal', event });
+  if (!event.venueRevealEmailSent) {
+    const policy = event.venueRevealPolicy
+      ?? policyFromLegacy(event.venueRevealDaysBefore);
+    const fireDay = venueRevealFireDay(policy);
+    if (fireDay !== null && daysUntil === fireDay) {
+      actions.push({ kind: 'venue_reveal', event });
+    }
   }
   return actions;
 }

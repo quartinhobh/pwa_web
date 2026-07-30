@@ -5,7 +5,11 @@
 // Both parsers share `isString` / `isNumber` / `isObject` helpers so the type-
 // guard rules are grep-able in one place.
 
-import type { EventCreatePayload, EventPatch } from '../types';
+import type {
+  EventCreatePayload,
+  EventPatch,
+  VenueRevealPolicy,
+} from '../types';
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null;
@@ -13,6 +17,43 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
 const isString = (v: unknown): v is string => typeof v === 'string';
 
 const isNumber = (v: unknown): v is number => typeof v === 'number';
+
+const isNonNegativeFinite = (v: unknown): v is number =>
+  isNumber(v) && Number.isFinite(v) && v >= 0;
+
+/** Recursively validate a VenueRevealPolicy shape. Returns null on any
+ *  deviation from the discriminated union. */
+function validateVenueRevealPolicy(input: unknown): VenueRevealPolicy | null {
+  if (!isObject(input) || !isString(input.mode)) return null;
+  switch (input.mode) {
+    case 'always':
+      return { mode: 'always' };
+    case 'days_before_event':
+    case 'days_after_creation': {
+      const days = Math.floor(input.days as number);
+      if (!isNonNegativeFinite(days)) return null;
+      return { mode: input.mode, days };
+    }
+    case 'after_n_previous_events': {
+      const count = Math.floor(input.count as number);
+      if (!isNonNegativeFinite(count)) return null;
+      return { mode: 'after_n_previous_events', count };
+    }
+    case 'correlated': {
+      if (input.operator !== 'and' && input.operator !== 'or') return null;
+      if (!Array.isArray(input.policies)) return null;
+      const subs: VenueRevealPolicy[] = [];
+      for (const sub of input.policies) {
+        const v = validateVenueRevealPolicy(sub);
+        if (!v) return null;
+        subs.push(v);
+      }
+      return { mode: 'correlated', operator: input.operator, policies: subs };
+    }
+    default:
+      return null;
+  }
+}
 
 /**
  * Validate a POST /events body. Returns the typed payload on success, or
@@ -32,6 +73,12 @@ export function parseEventCreate(body: unknown): EventCreatePayload | null {
   ) {
     return null;
   }
+  let venueRevealPolicy: VenueRevealPolicy | undefined;
+  if (body.venueRevealPolicy !== undefined && body.venueRevealPolicy !== null) {
+    const validated = validateVenueRevealPolicy(body.venueRevealPolicy);
+    if (!validated) return null;
+    venueRevealPolicy = validated;
+  }
   return {
     mbAlbumId: body.mbAlbumId,
     title: body.title,
@@ -44,6 +91,7 @@ export function parseEventCreate(body: unknown): EventCreatePayload | null {
       isNumber(body.venueRevealDaysBefore) && body.venueRevealDaysBefore >= 0
         ? Math.floor(body.venueRevealDaysBefore)
         : undefined,
+    venueRevealPolicy,
     spotifyPlaylistUrl: isString(body.spotifyPlaylistUrl) ? body.spotifyPlaylistUrl : null,
     chatEnabled: typeof body.chatEnabled === 'boolean' ? body.chatEnabled : undefined,
     chatOpensAt: isNumber(body.chatOpensAt)
@@ -77,6 +125,10 @@ export function parseEventPatch(body: unknown): EventPatch | null {
   }
   if (isNumber(body.venueRevealDaysBefore) && body.venueRevealDaysBefore >= 0) {
     patch.venueRevealDaysBefore = Math.floor(body.venueRevealDaysBefore);
+  }
+  if (body.venueRevealPolicy !== undefined && body.venueRevealPolicy !== null) {
+    const validated = validateVenueRevealPolicy(body.venueRevealPolicy);
+    if (validated) patch.venueRevealPolicy = validated;
   }
   if (isString(body.spotifyPlaylistUrl) || body.spotifyPlaylistUrl === null) {
     patch.spotifyPlaylistUrl = body.spotifyPlaylistUrl as string | null;
