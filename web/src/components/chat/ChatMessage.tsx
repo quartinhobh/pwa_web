@@ -113,7 +113,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           title={confirming === 'ban' ? `Banir ${message.displayName}` : 'Apagar mensagem'}
         >
           <div className="flex flex-col gap-3">
-            <label className="font-body text-sm" style={{ color: '#1A1A1A' }}>
+            <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream">
               Motivo (opcional)
             </label>
             <input

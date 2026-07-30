@@ -19,7 +19,7 @@ const TABS: Tab[] = [
  */
 export const TabNav: React.FC = () => {
   return (
-    <nav className="bg-zine-cream border-b-4 border-zine-cream">
+    <nav className="bg-zine-cream dark:bg-zine-surface-dark border-b-4 border-zine-cream dark:border-zine-cream/30">
       <div
         className="mx-auto max-w-[640px] grid font-body text-base"
         style={{ gridTemplateColumns: `repeat(${TABS.length}, minmax(0, 1fr))` }}
@@ -32,7 +32,7 @@ export const TabNav: React.FC = () => {
             className={({ isActive }) =>
               [
                 'text-center px-4 py-3',
-                i < TABS.length - 1 ? 'border-r border-zine-periwinkle' : '',
+                i < TABS.length - 1 ? 'border-r-2 border-zine-burntYellow' : '',
                 isActive
                   ? 'bg-zine-burntYellow text-zine-cream font-bold italic'
                   : 'text-zine-burntOrange hover:bg-zine-mint',
