@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useEvent } from '@/hooks/useEvent';
 import { useVotes } from '@/hooks/useVotes';
 import { useRsvp } from '@/hooks/useRsvp';
@@ -43,29 +43,8 @@ export const Listen: React.FC = () => {
     return <main className="font-body text-zine-burntOrange p-4">erro: {error}</main>;
   }
 
-  // No current event — show upcoming/empty state + link to archive.
   if (!event) {
-    return (
-      <main className="flex flex-col gap-4 p-4">
-        <ZineFrame bg="mint">
-          <div className="text-center py-4">
-            <h2 className="font-display text-2xl text-zine-cream mb-2">
-              sem evento no momento
-            </h2>
-            <p className="font-body text-zine-cream">
-              fique ligado — o próximo quartinho vem aí.
-            </p>
-          </div>
-        </ZineFrame>
-        <Link
-          to="/archive"
-          className="font-body font-bold italic text-center text-zine-burntYellow underline"
-          style={{ filter: 'url(#zine-wobble)' }}
-        >
-          ver eventos passados →
-        </Link>
-      </main>
-    );
+    return <Navigate to="/archive" replace />;
   }
 
   const isLive = event.status === 'live';
