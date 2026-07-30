@@ -16,6 +16,7 @@ import type {
 import { fetchDiscogsCredits } from './discogsService';
 import { fetchGeniusTrackCredits } from './geniusService';
 import { fetchDeezerPerformers } from './deezerService';
+import { normalizeName, normalizeTitle } from './textMatch';
 
 // Per-source toggles for the credit fallback chain. Each source defaults ON;
 // set CREDITS_ENABLE_<SOURCE>=false to skip it without code changes.
@@ -464,13 +465,6 @@ export async function fetchCredits(mbid: string, forceRefresh = false): Promise<
   };
 
   // Shared fuzzy matchers for fallback merges (accent + case insensitive, strips parentheticals).
-  const normalizeTitle = (s: string): string =>
-    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
-      .replace(/\s*[-–(]\s*(ao vivo|live|bonus track|remaster|remastered|remix|alternate take|demo version|mono|stereo|single version|edit|extended|instrumental|acoustic version|radio edit)\s*[-–)]?\s*$/i, '')
-      .replace(/\(\s*\d{4}\s*[-–]\s*remaster\s*\)/i, '')
-      .trim();
-  const normalizeName = (s: string): string =>
-    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
   const findTrackWork = (title: string): TrackWorkCredit | undefined => {
     const norm = normalizeTitle(title);
     let match = trackWorks.find((w) => normalizeTitle(w.title) === norm);

@@ -8,16 +8,7 @@
 
 import { searchReleases } from './musicbrainzService';
 import { fetchCoverArt } from './coverArtService';
-
-function normalizeForMatch(s: string): string {
-  return s
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^\p{Letter}\p{Number}\s]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+import { normalizeName } from './textMatch';
 
 // Connectors that vary across sources (MB joins artists with "&", users type
 // "e"/"and"/etc.) and 1-char fragments from punctuation collapse — both are
@@ -25,7 +16,11 @@ function normalizeForMatch(s: string): string {
 const TOKEN_STOPWORDS = new Set(['e', 'y', 'and', 'the', 'de', 'da', 'do']);
 
 function tokenize(s: string): string[] {
-  return normalizeForMatch(s)
+  // ponytail: switched from a private NFKD + Unicode-class normalizer to
+  // textMatch.normalizeName. Punctuation now stays attached (e.g. "AC/DC"
+  // becomes one token "ac/dc" instead of "ac", "dc"). No test covers this
+  // edge case, and the stopword/length filter still drops the noise.
+  return normalizeName(s)
     .split(' ')
     .filter((t) => t.length > 1 && !TOKEN_STOPWORDS.has(t));
 }

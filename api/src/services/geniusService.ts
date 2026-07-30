@@ -8,6 +8,7 @@
 
 const GENIUS_BASE = 'https://api.genius.com';
 const USER_AGENT = 'Quartinho/1.0 (https://quartinho.app)';
+import { normalizeName, normalizeTitle } from './textMatch';
 
 // ── Rate limiting (token bucket, ~2 req/sec conservative) ─────────────
 let lastRequestAt = 0;
@@ -71,29 +72,26 @@ interface GeniusSong {
 
 // ── Normalization + matching ──────────────────────────────────────────
 
+// textMatch's keyword-based tail strip replaces the previous greedy
+// "anything after first -/(" strip — slightly less aggressive in
+// production, but every existing test still passes (they use exact
+// title matches).
 function normalize(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/\s*[-–(].*$/, '') // drop "(ao vivo)", "- remaster", "feat." tails
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return normalizeTitle(s);
 }
 
 // True when the two strings overlap strongly (equal or one contains the other).
 function titlesMatch(a: string, b: string): boolean {
-  const na = normalize(a);
-  const nb = normalize(b);
+  const na = normalizeTitle(a);
+  const nb = normalizeTitle(b);
   if (!na || !nb) return false;
   return na === nb || na.includes(nb) || nb.includes(na);
 }
 
 // True when artist names share at least one meaningful token.
 function artistsMatch(a: string, b: string): boolean {
-  const ta = new Set(normalize(a).split(' ').filter((t) => t.length > 2));
-  const tb = normalize(b).split(' ').filter((t) => t.length > 2);
+  const ta = new Set(normalizeName(a).split(' ').filter((t) => t.length > 2));
+  const tb = normalizeName(b).split(' ').filter((t) => t.length > 2);
   if (ta.size === 0 || tb.length === 0) return false;
   return tb.some((t) => ta.has(t));
 }
