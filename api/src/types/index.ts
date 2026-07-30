@@ -240,6 +240,26 @@ export interface EventCreatePayload {
   chatClosesAt?: number | null;
 }
 
+/** Whitelisted subset of Event fields admins may patch. Mirrors the keys
+ *  accepted by `services/eventDto.ts#parseEventPatch` — keep in sync. */
+export type EventPatch = Partial<
+  Pick<
+    Event,
+    | 'title'
+    | 'date'
+    | 'startTime'
+    | 'endTime'
+    | 'location'
+    | 'venueRevealDaysBefore'
+    | 'extras'
+    | 'spotifyPlaylistUrl'
+    | 'rsvp'
+    | 'chatEnabled'
+    | 'chatOpensAt'
+    | 'chatClosesAt'
+  >
+>;
+
 export interface MusicBrainzTrack {
   id: string;
   recordingId: string;
