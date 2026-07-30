@@ -43,12 +43,12 @@ export const Header: React.FC = () => {
         <div className="mx-auto max-w-[640px] px-4 py-3 flex items-center justify-between gap-3">
           <Link to="/" className="flex items-center gap-2 shrink-0">
             <img src="/logo.svg" alt="Quartinho" className="h-9 w-9 shrink-0" />
-            <h1
-              className={`brand-name font-display text-zine-cream tracking-wide${isAdminOrMod ? ' brand-name--admin' : ''}`}
-              style={{ fontSize: 'clamp(1rem, 4vw, 1.875rem)' }}
+            <span
+              aria-label="Quartinho"
+              className={`brand-name font-display text-zine-cream tracking-wide text-base sm:text-2xl${isAdminOrMod ? ' brand-name--admin' : ''}`}
             >
               Quartinho
-            </h1>
+            </span>
           </Link>
           <nav className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button

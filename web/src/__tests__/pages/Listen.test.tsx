@@ -94,11 +94,12 @@ describe('Listen page', () => {
     setupDefaults();
   });
 
-  it('redirects to /archive when there is no current event', () => {
+  it('shows intro + archive link when there is no current event', () => {
     mockUseEvent.mockReturnValue({ event: null, album: null, tracks: [], loading: false, error: null });
     renderListen();
-    expect(screen.getByTestId('archive-redirect-target')).toBeInTheDocument();
-    expect(screen.queryByText(/sem evento no momento/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/somos um evento mensal/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /arquivo/i })).toBeInTheDocument();
+    expect(screen.queryByTestId('archive-redirect-target')).not.toBeInTheDocument();
   });
 
   it('does not redirect while loading, even with no event', () => {

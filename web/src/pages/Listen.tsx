@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useEvent } from '@/hooks/useEvent';
 import { useVotes } from '@/hooks/useVotes';
 import { useRsvp } from '@/hooks/useRsvp';
@@ -12,6 +12,7 @@ import { RsvpButton } from '@/components/rsvp/RsvpButton';
 import { RsvpStatus } from '@/components/rsvp/RsvpStatus';
 import { EventDetailSkeleton } from '@/components/common/LoadingState';
 import ZineFrame from '@/components/common/ZineFrame';
+import QuartinhoIntro from '@/components/common/QuartinhoIntro';
 import { parseTextWithLinks } from '../utils/parseTextWithLinks';
 import { resolveVenueReveal } from '@/utils/venueReveal';
 
@@ -44,7 +45,25 @@ export const Listen: React.FC = () => {
   }
 
   if (!event) {
-    return <Navigate to="/archive" replace />;
+    return (
+      <main className="flex flex-col gap-4 p-4">
+        <QuartinhoIntro />
+        <ZineFrame bg="mint">
+          <div className="flex flex-col items-center gap-3 text-center font-body text-zine-cream py-2">
+            <p className="text-zine-cream">
+              sem evento no momento — fica ligado, o próximo quartinho vem aí.
+            </p>
+            <Link
+              to="/archive"
+              className="font-body font-bold italic text-zine-burntYellow underline"
+              style={{ filter: 'url(#zine-wobble)' }}
+            >
+              ver arquivo de eventos passados →
+            </Link>
+          </div>
+        </ZineFrame>
+      </main>
+    );
   }
 
   const isLive = event.status === 'live';
@@ -70,12 +89,7 @@ export const Listen: React.FC = () => {
 
   return (
     <main className="flex flex-col gap-4 p-4">
-      {/* Introductory text with border */}
-      <ZineFrame bg="cream" borderColor="burntYellow">
-        <p className="font-body text-zine-burntOrange text-center leading-relaxed">
-          se você ainda não conhece o quartinho, somos um evento mensal que ouve discos de música brasileira por belo horizonte. o evento é gratuito, e pra participar é só confirmar sua presença abaixo e saber o local!
-        </p>
-      </ZineFrame>
+      <QuartinhoIntro />
 
       {/* Status badge */}
       {isLive && (
