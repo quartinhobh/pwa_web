@@ -36,6 +36,7 @@ import type {
   User,
   UserRole,
   UserVote,
+  VenueRevealPolicy,
   VoteTallies,
 } from '@/types';
 
@@ -134,6 +135,7 @@ export interface EventCreatePayload {
   endTime: string;
   location?: string | null;
   venueRevealDaysBefore?: number;
+  venueRevealPolicy?: VenueRevealPolicy;
   extras: EventExtras;
   spotifyPlaylistUrl: string | null;
   chatEnabled?: boolean;
