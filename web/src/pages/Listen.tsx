@@ -13,16 +13,7 @@ import { RsvpStatus } from '@/components/rsvp/RsvpStatus';
 import { EventDetailSkeleton } from '@/components/common/LoadingState';
 import ZineFrame from '@/components/common/ZineFrame';
 import { parseTextWithLinks } from '../utils/parseTextWithLinks';
-
-const DEFAULT_LOCATION_REVEAL_DAYS = 7;
-
-function shouldShowLocation(eventDate: string, revealDays: number): boolean {
-  const event = new Date(eventDate + 'T00:00:00');
-  const now = new Date();
-  const diff = event.getTime() - now.getTime();
-  const days = diff / (1000 * 60 * 60 * 24);
-  return days <= revealDays;
-}
+import { resolveVenueReveal } from '@/utils/venueReveal';
 
 export const Listen: React.FC = () => {
   const { event, album, tracks, initialRsvpSummary, loading, error } = useEvent(null);
@@ -79,9 +70,24 @@ export const Listen: React.FC = () => {
 
   const isLive = event.status === 'live';
   const isUpcoming = event.status === 'upcoming';
-  const revealDays = event.venueRevealDaysBefore ?? DEFAULT_LOCATION_REVEAL_DAYS;
-  const showLocation =
-    !!event.location && (isLive || (isUpcoming && shouldShowLocation(event.date, revealDays)));
+  const venueReveal = resolveVenueReveal(event);
+  const showLocation = !!event.location && (isLive || (isUpcoming && venueReveal.result.revealed));
+  const revealHint = (() => {
+    if (rsvpEnabled) return null;
+    const p = venueReveal.policy;
+    switch (p.mode) {
+      case 'always':
+        return 'local sempre público';
+      case 'days_before_event':
+        return `local revelado ${p.days} dias antes`;
+      case 'days_after_creation':
+        return `local revelado ${p.days} dias após criação`;
+      case 'after_n_previous_events':
+        return `local revelado após ${p.count} eventos`;
+      case 'correlated':
+        return 'local revelado por regra composta';
+    }
+  })();
 
   return (
     <main className="flex flex-col gap-4 p-4">
@@ -136,11 +142,11 @@ export const Listen: React.FC = () => {
               {event.location}
             </span>
           )}
-          {isUpcoming && event.location && !showLocation && (
+          {isUpcoming && event.location && !showLocation && revealHint && (
             <span className="text-zine-burntOrange/60 text-sm italic mt-1">
               {rsvpEnabled
                 ? 'confirme sua presença para saber onde'
-                : `local revelado ${revealDays} dias antes`}
+                : revealHint}
             </span>
           )}
         </div>
