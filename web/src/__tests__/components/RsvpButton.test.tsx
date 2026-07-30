@@ -104,8 +104,8 @@ describe('RsvpButton', () => {
       </GuestUpsellProvider>,
     );
     fireEvent.click(screen.getByRole('button', { name: /confirmar presença/i }));
-    expect(screen.getByLabelText('nome')).toBeInTheDocument();
-    expect(screen.getByLabelText('email')).toBeInTheDocument();
+    expect(screen.getByLabelText('Seu nome')).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toBeInTheDocument();
   });
 
   it('shows configuração inválida when guest but no eventId', () => {

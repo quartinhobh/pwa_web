@@ -16,8 +16,6 @@ const PALETTE = [
   '#8B9FD4', // periwinkle
   '#98D9C2', // mint
   '#D97642', // burntOrange
-  '#C4A6E0', // lavender
-  '#E07878', // coral
 ];
 
 function hashName(name: string): number {

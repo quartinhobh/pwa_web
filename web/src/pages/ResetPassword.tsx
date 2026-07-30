@@ -98,26 +98,32 @@ export const ResetPassword: React.FC = () => {
           nova senha
         </h2>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <input
-            type="password"
-            placeholder="Nova senha"
-            aria-label="nova senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-            className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
-          />
-          <input
-            type="password"
-            placeholder="Confirmar senha"
-            aria-label="confirmar senha"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            required
-            minLength={8}
-            className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
-          />
+          <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+            <span>Nova senha</span>
+            <input
+              type="password"
+              id="rp-new"
+              placeholder="mínimo 8 caracteres"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
+            />
+          </label>
+          <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+            <span>Confirmar senha</span>
+            <input
+              type="password"
+              id="rp-confirm"
+              placeholder="repita a senha"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+              minLength={8}
+              className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
+            />
+          </label>
           {password.length >= 8 &&
             !(/[0-9]/.test(password) && /[a-zA-Z]/.test(password)) && (
               <p className="font-body text-xs text-zine-burntOrange/50">

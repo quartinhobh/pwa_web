@@ -143,30 +143,30 @@ export const Listen: React.FC = () => {
             </span>
           )}
         </div>
-
-      {/* RSVP — show form for upcoming and live events to capture emails */}
-      {rsvpEnabled && event.rsvp && (isUpcoming || isLive) && rsvpSummary && (
-        <>
-            <div className="flex flex-col gap-3">
-              <RsvpStatus summary={rsvpSummary} isAdmin={role === 'admin' || role === 'moderator'} data-testid="rsvp-status" />
-            </div>
-          {!rsvpEntry && (
-            <RsvpButton
-              eventId={event.id}
-              config={event.rsvp}
-              summary={rsvpSummary}
-              userEntry={rsvpEntry}
-              isAuthenticated={!!idToken}
-              onSubmit={rsvpSubmit}
-              onCancel={rsvpCancel}
-              showFormDirectly
-              eventLocation={event.location ?? undefined}
-              isLive={isLive}
-            />
-          )}
-        </>
-      )}
       </ZineFrame>
+
+      {/* RSVP — own frame so it doesn't inherit the date frame's chrome */}
+      {rsvpEnabled && event.rsvp && (isUpcoming || isLive) && rsvpSummary && (
+        <ZineFrame bg="cream">
+          <div className="flex flex-col gap-3">
+            <RsvpStatus summary={rsvpSummary} isAdmin={role === 'admin' || role === 'moderator'} data-testid="rsvp-status" />
+            {!rsvpEntry && (
+              <RsvpButton
+                eventId={event.id}
+                config={event.rsvp}
+                summary={rsvpSummary}
+                userEntry={rsvpEntry}
+                isAuthenticated={!!idToken}
+                onSubmit={rsvpSubmit}
+                onCancel={rsvpCancel}
+                showFormDirectly
+                eventLocation={event.location ?? undefined}
+                isLive={isLive}
+              />
+            )}
+          </div>
+        </ZineFrame>
+      )}
 
 
       {/* Event links — Spotify, extras */}

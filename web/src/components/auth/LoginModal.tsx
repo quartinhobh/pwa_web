@@ -117,15 +117,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     return (
       <Modal isOpen={isOpen} onClose={handleClose} title="Recuperar senha">
         <form onSubmit={handleForgot} className="flex flex-col gap-3">
-          <input
-            type="email"
-            placeholder="Email"
-            aria-label="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
-          />
+          <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+            <span>Email</span>
+            <input
+              type="email"
+              placeholder="seu email de cadastro"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
+            />
+          </label>
           {forgotSent && (
             <p role="status" className="font-body text-sm text-zine-burntOrange">
               se o email existir, um link foi enviado
@@ -189,25 +191,29 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
           }}
           className="flex flex-col gap-3"
         >
-          <input
-            type="email"
-            placeholder="Email"
-            aria-label="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
-          />
-          <input
-            type="password"
-            placeholder="Senha"
-            aria-label="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={isSignup ? 8 : 6}
-            className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
-          />
+          <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+            <span>Email</span>
+            <input
+              type="email"
+              placeholder="seu email de cadastro"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
+            />
+          </label>
+          <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+            <span>Senha</span>
+            <input
+              type="password"
+              placeholder={isSignup ? 'mínimo 8 caracteres' : 'sua senha'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={isSignup ? 8 : 6}
+              className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
+            />
+          </label>
           {showWeakHint && (
             <p className="font-body text-xs text-zine-burntOrange/50">
               dica: mistura letras e números pra uma senha mais forte
