@@ -90,6 +90,25 @@ export interface EventAlbumSnapshot {
   creditsAttempted?: boolean;
 }
 
+export type VenueRevealPolicy =
+  | { mode: 'always' }
+  | { mode: 'days_before_event'; days: number }
+  | { mode: 'days_after_creation'; days: number }
+  | { mode: 'after_n_previous_events'; count: number }
+  | { mode: 'correlated'; operator: 'and' | 'or'; policies: VenueRevealPolicy[] };
+
+export interface VenueRevealContext {
+  nowMs: number;                  // ms epoch
+  eventDateMs: number;            // ms epoch (midnight of event.date in local TZ)
+  eventCreatedAtMs: number | null;
+  previousEventCount: number;     // snapshot: how many events with date < eventDateMs existed at creation time
+}
+
+export interface VenueRevealResult {
+  revealed: boolean;
+  reason: string;                 // short, debug-friendly
+}
+
 export interface Event {
   id: string;
   mbAlbumId: string;
@@ -99,6 +118,9 @@ export interface Event {
   endTime: string; // HH:mm
   location: string | null; // venue / address
   venueRevealDaysBefore?: number; // days before event date when location becomes public (default 7)
+  venueRevealPolicy?: VenueRevealPolicy;
+  eventCreatedAt?: number;        // snapshot
+  previousEventCount?: number;    // snapshot (computed at createEvent)
   status: EventStatus;
   album: EventAlbumSnapshot | null; // populated on create, avoids MB re-fetch
   extras: EventExtras;
@@ -233,6 +255,7 @@ export interface EventCreatePayload {
   endTime: string;
   location: string | null;
   venueRevealDaysBefore?: number;
+  venueRevealPolicy?: VenueRevealPolicy;
   extras: EventExtras;
   spotifyPlaylistUrl: string | null;
   chatEnabled?: boolean;
@@ -251,6 +274,7 @@ export type EventPatch = Partial<
     | 'endTime'
     | 'location'
     | 'venueRevealDaysBefore'
+    | 'venueRevealPolicy'
     | 'extras'
     | 'spotifyPlaylistUrl'
     | 'rsvp'

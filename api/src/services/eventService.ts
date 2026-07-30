@@ -111,6 +111,14 @@ export async function createEvent(
     endTime: payload.endTime,
     location: payload.location ?? null,
     venueRevealDaysBefore: payload.venueRevealDaysBefore ?? 7,
+    venueRevealPolicy: payload.venueRevealPolicy,
+    eventCreatedAt: now,
+    previousEventCount: await adminDb
+      .collection(EVENTS)
+      .where('date', '<', payload.date)
+      .get()
+      .then((s) => s.size)
+      .catch(() => 0),
     status: 'upcoming' satisfies EventStatus,
     album,
     extras: payload.extras,
