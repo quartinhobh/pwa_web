@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ZineFrame from '@/components/common/ZineFrame';
 import { LoadingState } from '@/components/common/LoadingState';
 import Button from '@/components/common/Button';
-import HelperBox from '@/components/admin/HelperBox';
+import HelperBox, { NoticeBanner } from '@/components/admin/HelperBox';
 import { useModeration } from '@/hooks/useModeration';
 import { useIdToken } from '@/hooks/useIdToken';
 import { fetchModerationUserProfile, fetchEvents, updateEvent, clearChat } from '@/services/api';
@@ -62,6 +62,7 @@ export const ModerationPanel: React.FC<ModerationPanelProps> = () => {
   const [chatSaving, setChatSaving] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [clearingChat, setClearingChat] = useState(false);
+  const [chatOk, setChatOk] = useState<string | null>(null);
 
   useEffect(() => {
     void fetchEvents().then((list) => {
@@ -106,9 +107,10 @@ export const ModerationPanel: React.FC<ModerationPanelProps> = () => {
     if (!confirm('Tem certeza que quer apagar TODAS as mensagens do chat? Isso não pode ser desfeito.')) return;
     setClearingChat(true);
     setChatError(null);
+    setChatOk(null);
     try {
       await clearChat(selectedEventId, idToken);
-      alert('Chat apagado com sucesso.');
+      setChatOk('Chat apagado com sucesso.');
     } catch (err) {
       setChatError(err instanceof Error ? err.message : 'Erro ao apagar chat');
     } finally {
@@ -118,6 +120,7 @@ export const ModerationPanel: React.FC<ModerationPanelProps> = () => {
 
   return (
     <div className="flex flex-col gap-4">
+      <NoticeBanner kind="ok" message={chatOk} onDismiss={() => setChatOk(null)} />
       <HelperBox>Veja banimentos ativos e o histórico de moderação. Usuários banidos não conseguem usar o chat nem confirmar presença. Clique em 'desbanir' pra liberar o acesso novamente.</HelperBox>
 
       {/* Chat config */}

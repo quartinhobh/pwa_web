@@ -11,7 +11,7 @@ import {
   reorderProducts,
 } from '@/services/api';
 import { useShopData } from '@/hooks/useShopData';
-import HelperBox from '@/components/admin/HelperBox';
+import HelperBox, { NoticeBanner } from '@/components/admin/HelperBox';
 import type { Product } from '@/types';
 
 const inputClass =
@@ -64,6 +64,7 @@ export const ShopPanel: React.FC<ShopPanelProps> = ({ idToken, mode = 'all' }) =
   }
 
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function addProduct() {
     setFeedback(null);
@@ -96,6 +97,7 @@ export const ShopPanel: React.FC<ShopPanelProps> = ({ idToken, mode = 'all' }) =
 
   async function handleDelete(id: string) {
     if (deletingIds.has(id)) return;
+    setDeleteError(null);
     const token = await getToken();
     if (!token) return;
     setDeletingIds((s) => new Set(s).add(id));
@@ -103,7 +105,7 @@ export const ShopPanel: React.FC<ShopPanelProps> = ({ idToken, mode = 'all' }) =
       await deleteShopProduct(id, token);
       await refresh();
     } catch (err) {
-      alert(`Erro ao apagar: ${err instanceof Error ? err.message : String(err)}`);
+      setDeleteError(`Erro ao apagar: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setDeletingIds((s) => {
         const next = new Set(s);
@@ -118,6 +120,7 @@ export const ShopPanel: React.FC<ShopPanelProps> = ({ idToken, mode = 'all' }) =
 
   return (
     <div className="flex flex-col gap-4">
+      <NoticeBanner kind="error" message={deleteError} onDismiss={() => setDeleteError(null)} />
       {showPix && <HelperBox>Configure os dados de PIX para recebimento de pagamentos. <br /> Vai gerar QRCODE na lojinha.</HelperBox>}
       {showProducts && <HelperBox>Adicione, edite e remova produtos da lojinha. Arraste para reordenar.</HelperBox>}
       {/* PIX Config */}

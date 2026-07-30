@@ -15,7 +15,7 @@ import RsvpPanel from '@/components/admin/RsvpPanel';
 import BarSuggestionsPanel from '@/components/admin/BarSuggestionsPanel';
 import AlbumSuggestionsPanel from '@/components/admin/AlbumSuggestionsPanel';
 import { CanShow } from '@/components/admin/CanShow';
-import HelperBox from '@/components/admin/HelperBox';
+import HelperBox, { NoticeBanner } from '@/components/admin/HelperBox';
 import { HelperProvider, useHelper } from '@/components/admin/HelperContext';
 import { useIdToken } from '@/hooks/useIdToken';
 import { auth } from '@/services/firebase';
@@ -263,6 +263,8 @@ const EventsTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
   const [refreshingIds, setRefreshingIds] = useState<Set<string>>(new Set());
   const [cancelTarget, setCancelTarget] = useState<Event | null>(null);
   const [broadcastTarget, setBroadcastTarget] = useState<Event | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
 
   async function refresh(): Promise<void> {
     const list = await fetchEvents();
@@ -275,9 +277,10 @@ const EventsTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
 
   async function handleDelete(id: string): Promise<void> {
     if (deletingIds.has(id)) return;
+    setError(null);
     const token = await resolveToken(idToken);
     if (!token) {
-      alert('Sessão expirada. Faça login novamente.');
+      setError('Sessão expirada. Faça login novamente.');
       return;
     }
     setDeletingIds((s) => new Set(s).add(id));
@@ -285,7 +288,7 @@ const EventsTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
       await apiDeleteEvent(id, token);
       await refresh();
     } catch (err) {
-      alert(`Erro ao apagar evento: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro ao apagar evento: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setDeletingIds((s) => {
         const next = new Set(s);
@@ -324,6 +327,8 @@ const EventsTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
 
   return (
     <ZineFrame bg="cream">
+      <NoticeBanner kind="error" message={error} onDismiss={() => setError(null)} />
+      <NoticeBanner kind="ok" message={ok} onDismiss={() => setOk(null)} />
       <HelperBox>Aqui você cria e gerencia os eventos do site. Use 'Novo evento' pra adicionar, ou clique em 'editar' e 'apagar' nos existentes. Eventos com status 'upcoming' aparecem na página inicial, 'live' ativa o chat e as votações.</HelperBox>
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-display text-2xl text-zine-burntOrange">Eventos</h2>
@@ -361,17 +366,22 @@ const EventsTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
                 {e.mbAlbumId && (
                   <Button
                     onClick={async () => {
+                      setError(null);
+                      setOk(null);
                       const token = await resolveToken(idToken);
-                      if (!token) return;
+                      if (!token) {
+                        setError('Sessão expirada. Faça login novamente.');
+                        return;
+                      }
                       setRefreshingIds((s) => new Set(s).add(e.id));
                       try {
                         await refreshEventCredits(e.id, token);
                         useApiCache.getState().invalidatePrefix(`event:${e.id}`);
                         useApiCache.getState().invalidatePrefix('event:current');
                         useApiCache.getState().invalidatePrefix('lyrics:');
-                        alert('Ficha técnica atualizada!');
+                        setOk('Ficha técnica atualizada!');
                       } catch (err) {
-                        alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+                        setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
                       } finally {
                         setRefreshingIds((s) => {
                           const next = new Set(s);
@@ -610,6 +620,7 @@ const PhotosTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
   const [eventId, setEventId] = useState<string>('');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void fetchEvents().then((list) => {
@@ -627,6 +638,7 @@ const PhotosTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
 
   async function handleDelete(p: Photo): Promise<void> {
     if (deletingIds.has(p.id)) return;
+    setError(null);
     const token = await resolveToken(idToken);
     if (!token) return;
     setDeletingIds((s) => new Set(s).add(p.id));
@@ -635,7 +647,7 @@ const PhotosTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
       const fresh = await fetchPhotos(eventId);
       setPhotos(fresh);
     } catch (err) {
-      alert(`Erro ao apagar: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro ao apagar: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setDeletingIds((s) => {
         const next = new Set(s);
@@ -647,6 +659,7 @@ const PhotosTab: React.FC<{ idToken: string | null }> = ({ idToken }) => {
 
   return (
     <div className="flex flex-col gap-4">
+      <NoticeBanner kind="error" message={error} onDismiss={() => setError(null)} />
       <HelperBox>Selecione um evento e faça upload de fotos para a galeria. Você também pode apagar fotos existentes.</HelperBox>
       <ZineFrame bg="cream">
         <label className="font-body text-zine-burntOrange flex flex-col gap-1">

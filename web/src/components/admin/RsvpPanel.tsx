@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { read, utils, writeFile } from 'xlsx';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
-import HelperBox from '@/components/admin/HelperBox';
+import HelperBox, { NoticeBanner } from '@/components/admin/HelperBox';
 import {
   fetchAdminRsvpList,
   approveRejectRsvp,
@@ -61,6 +61,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
   const [capacity, setCapacity] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterTab>('all');
   const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -94,6 +95,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
   }, [load]);
 
   async function handleAction(entryKey: string, status: 'confirmed' | 'rejected'): Promise<void> {
+    setError(null);
     setActionBusy(entryKey + status);
     // Optimistic update
     setEntries((prev) =>
@@ -102,7 +104,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
     try {
       await approveRejectRsvp(eventId, entryKey, status, idToken);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao atualizar');
+      setError(err instanceof Error ? err.message : 'Erro ao atualizar');
       await load();
     } finally {
       setActionBusy(null);
@@ -111,6 +113,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
 
   async function handleRemove(entryKey: string): Promise<void> {
     if (!window.confirm('tem certeza?')) return;
+    setError(null);
     setActionBusy(entryKey + 'remove');
     // Optimistic update
     const removed = entries.find((e) => e.entryKey === entryKey);
@@ -118,7 +121,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
     try {
       await adminCancelRsvp(idToken, eventId, entryKey);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao remover');
+      setError(err instanceof Error ? err.message : 'Erro ao remover');
       if (removed) {
         setEntries((prev) => [...prev, removed]);
       }
@@ -129,6 +132,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
 
   async function handleMoveToWaitlist(entryKey: string): Promise<void> {
     if (!window.confirm('tem certeza?')) return;
+    setError(null);
     setActionBusy(entryKey + 'waitlist');
     // Optimistic update
     setEntries((prev) =>
@@ -137,7 +141,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
     try {
       await moveRsvpToWaitlist(idToken, eventId, entryKey);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao mover');
+      setError(err instanceof Error ? err.message : 'Erro ao mover');
       await load();
     } finally {
       setActionBusy(null);
@@ -145,6 +149,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
   }
 
   async function handleExportCsv(): Promise<void> {
+    setError(null);
     try {
       const csv = await exportRsvpCsv(eventId, idToken);
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -156,11 +161,12 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
       URL.revokeObjectURL(url);
       setShowExportMenu(false);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao exportar');
+      setError(err instanceof Error ? err.message : 'Erro ao exportar');
     }
   }
 
   async function handleExportExcel(): Promise<void> {
+    setError(null);
     try {
       const data = visible.map((e) => ({
         nome: e.displayName,
@@ -177,11 +183,12 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
       writeFile(wb, `rsvp-${eventId}.xlsx`);
       setShowExportMenu(false);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao exportar Excel');
+      setError(err instanceof Error ? err.message : 'Erro ao exportar Excel');
     }
   }
 
   async function handleExportJson(): Promise<void> {
+    setError(null);
     try {
       const json = await exportRsvpJson(visible);
       const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
@@ -193,17 +200,18 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
       URL.revokeObjectURL(url);
       setShowExportMenu(false);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao exportar JSON');
+      setError(err instanceof Error ? err.message : 'Erro ao exportar JSON');
     }
   }
 
   async function generatePdf(): Promise<void> {
+    setError(null);
     try {
       const eventsRes = await fetchEvents();
       const event = (eventsRes ?? []).find((e) => e.id === eventId);
 
       if (!event) {
-        alert('Evento não encontrado');
+        setError('Evento não encontrado');
         return;
       }
 
@@ -222,11 +230,12 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao gerar PDF');
+      setError(err instanceof Error ? err.message : 'Erro ao gerar PDF');
     }
   }
 
   async function handleImportFile(file: File): Promise<void> {
+    setError(null);
     try {
       const text = await file.text();
       let parsed: RawImportRow[] = [];
@@ -259,12 +268,13 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
       setImportFile(file);
       setImportPreview(preview);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao ler arquivo');
+      setError(err instanceof Error ? err.message : 'Erro ao ler arquivo');
     }
   }
 
   async function handleConfirmImport(): Promise<void> {
     if (!importFile || !importPreview) return;
+    setError(null);
     setImportBusy(true);
     try {
       const text = await importFile.text();
@@ -293,13 +303,13 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
         }));
 
       const result = await importRsvp(eventId, entries, idToken);
-      alert(`Importado: ${result.imported} · Duplicado/Ignorado: ${result.skipped}`);
+      setNotice(`Importado: ${result.imported} · Duplicado/Ignorado: ${result.skipped}`);
       setShowImportModal(false);
       setImportFile(null);
       setImportPreview(null);
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao importar');
+      setError(err instanceof Error ? err.message : 'Erro ao importar');
     } finally {
       setImportBusy(false);
     }
@@ -442,7 +452,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
     }
     setBulkBusy(false);
     setSelected(new Set());
-    alert(`${ok}/${selectedApprovable.length} aprovados`);
+    setNotice(`${ok}/${selectedApprovable.length} aprovados`);
   }
 
   async function handleBulkReject(): Promise<void> {
@@ -465,7 +475,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
     if (ok < selectedRejectable.length) await load();
     setBulkBusy(false);
     setSelected(new Set());
-    alert(`${ok}/${selectedRejectable.length} recusados`);
+    setNotice(`${ok}/${selectedRejectable.length} recusados`);
   }
 
   async function handleBulkWaitlist(): Promise<void> {
@@ -488,7 +498,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
     if (ok < selectedWaitlistable.length) await load();
     setBulkBusy(false);
     setSelected(new Set());
-    alert(`${ok}/${selectedWaitlistable.length} movidos para fila`);
+    setNotice(`${ok}/${selectedWaitlistable.length} movidos para fila`);
   }
 
   async function handleBulkRemove(): Promise<void> {
@@ -509,7 +519,7 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
     if (ok < selectedRemovable.length) await load();
     setBulkBusy(false);
     setSelected(new Set());
-    alert(`${ok}/${selectedRemovable.length} removidos`);
+    setNotice(`${ok}/${selectedRemovable.length} removidos`);
   }
 
   const allVisibleSelected =
@@ -517,6 +527,8 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
 
   return (
     <ZineFrame bg="cream">
+      <NoticeBanner kind="error" message={error} onDismiss={() => setError(null)} />
+      <NoticeBanner kind="ok" message={notice} onDismiss={() => setNotice(null)} />
       <HelperBox>Lista completa de presença do evento. Filtre por status, aprove ou recuse entradas pendentes, e exporte o CSV para uso externo.</HelperBox>
 
       <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
@@ -611,7 +623,6 @@ export const RsvpPanel: React.FC<RsvpPanelProps> = ({ eventId, idToken }) => {
       />
 
       {loading && <p className="font-body italic text-zine-burntOrange/60">carregando…</p>}
-      {error && <p role="alert" className="font-body text-zine-burntOrange">{error}</p>}
 
       {!loading && !error && visible.length === 0 && (
         <p className="font-body italic text-zine-burntOrange/70">Nenhum registro.</p>

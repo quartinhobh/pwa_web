@@ -28,7 +28,7 @@ import {
   type UnsubscribedUser,
   type EmailConfig,
 } from '@/services/api';
-import HelperBox from '@/components/admin/HelperBox';
+import HelperBox, { NoticeBanner } from '@/components/admin/HelperBox';
 import { EmailTemplatesPanel } from '@/components/admin/EmailTemplatesPanel';
 import type { EmailTemplate, EmailTemplateKey, User } from '@/types';
 
@@ -171,6 +171,8 @@ const NewsletterForm: React.FC<{
   const [includeGroups, setIncludeGroups] = useState<string[]>([]);
   const [excludeGroups, setExcludeGroups] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
 
   function toggleGroup(id: string, list: string[], setList: (v: string[]) => void) {
     setList(list.includes(id) ? list.filter((g) => g !== id) : [...list, id]);
@@ -200,17 +202,19 @@ const NewsletterForm: React.FC<{
     const target = getTargetDescription();
     if (!confirm(`Enviar newsletter para: ${target}?\n\nAssunto: ${subject}`)) return;
 
+    setError(null);
+    setOk(null);
     setSending(true);
     try {
       const result = await sendNewsletter(
         { subject, html: body, includeGroups, excludeGroups },
         idToken,
       );
-      alert(`Enviado para ${result.sentCount} pessoa(s)!`);
+      setOk(`Enviado para ${result.sentCount} pessoa(s)!`);
       setSubject('');
       setBody('');
     } catch (err) {
-      alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSending(false);
     }
@@ -218,6 +222,8 @@ const NewsletterForm: React.FC<{
 
   return (
     <ZineFrame bg="cream">
+      <NoticeBanner kind="error" message={error} onDismiss={() => setError(null)} />
+      <NoticeBanner kind="ok" message={ok} onDismiss={() => setOk(null)} />
       <h3 className="font-display text-xl text-zine-burntOrange mb-3">Enviar Newsletter</h3>
       <HelperBox>Escreva o assunto e o corpo do email. Use os grupos para filtrar quem recebe: "incluir" envia só para esses grupos, "excluir" remove esses grupos do envio.</HelperBox>
       <div className="flex flex-col gap-3">
@@ -301,18 +307,22 @@ const SingleEmailForm: React.FC<{ idToken: string | null }> = ({ idToken }) => {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
 
   async function handleSend() {
     if (!idToken || !to || !subject || !body) return;
+    setError(null);
+    setOk(null);
     setSending(true);
     try {
       await sendSingleEmail({ to, subject, html: body }, idToken);
-      alert('Email enviado!');
+      setOk('Email enviado!');
       setTo('');
       setSubject('');
       setBody('');
     } catch (err) {
-      alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSending(false);
     }
@@ -320,6 +330,8 @@ const SingleEmailForm: React.FC<{ idToken: string | null }> = ({ idToken }) => {
 
   return (
     <ZineFrame bg="cream">
+      <NoticeBanner kind="error" message={error} onDismiss={() => setError(null)} />
+      <NoticeBanner kind="ok" message={ok} onDismiss={() => setOk(null)} />
       <h3 className="font-display text-xl text-zine-burntOrange mb-3">Email avulso</h3>
       <HelperBox>Envie um email avulso para uma pessoa só. Útil pra comunicação direta com alguém específico.</HelperBox>
       <div className="flex flex-col gap-3">
@@ -362,6 +374,7 @@ const GroupsManager: React.FC<{
   const [desc, setDesc] = useState('');
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
     if (!idToken) return;
@@ -371,26 +384,28 @@ const GroupsManager: React.FC<{
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!idToken || !name) return;
+    setError(null);
     try {
       await createContactGroup(name, desc, idToken);
       setName('');
       setDesc('');
       await refresh();
     } catch (err) {
-      alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
   async function handleDelete(id: string) {
     if (!idToken || deletingIds.has(id)) return;
     if (!confirm('Remover grupo? Membros não serão removidos da newsletter.')) return;
+    setError(null);
     setDeletingIds((s) => new Set(s).add(id));
     try {
       await deleteContactGroup(id, idToken);
       if (openGroupId === id) setOpenGroupId(null);
       await refresh();
     } catch (err) {
-      alert(`Erro ao apagar: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro ao apagar: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setDeletingIds((s) => {
         const next = new Set(s);
@@ -402,6 +417,7 @@ const GroupsManager: React.FC<{
 
   return (
     <div className="flex flex-col gap-4">
+      <NoticeBanner kind="error" message={error} onDismiss={() => setError(null)} />
       <HelperBox>Grupos permitem segmentar os envios de email. Crie grupos (ex: "VIPs", "Imprensa") e adicione membros. Na hora de enviar a newsletter, escolha incluir ou excluir grupos específicos.</HelperBox>
       {/* Criar grupo */}
       <ZineFrame bg="cream">
@@ -480,6 +496,7 @@ const GroupMembers: React.FC<{ groupId: string; idToken: string | null }> = ({ g
   const [adding, setAdding] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
+  const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
     if (!idToken) return;
@@ -504,6 +521,7 @@ const GroupMembers: React.FC<{ groupId: string; idToken: string | null }> = ({ g
 
   async function handleAddSelected() {
     if (!idToken || selected.size === 0) return;
+    setError(null);
     setAdding(true);
     try {
       for (const userId of selected) {
@@ -515,7 +533,7 @@ const GroupMembers: React.FC<{ groupId: string; idToken: string | null }> = ({ g
       setPage(0);
       await refresh();
     } catch (err) {
-      alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setAdding(false);
     }
@@ -563,6 +581,7 @@ const GroupMembers: React.FC<{ groupId: string; idToken: string | null }> = ({ g
 
   return (
     <div className="mt-3 ml-5 flex flex-col gap-2">
+      <NoticeBanner kind="error" message={error} onDismiss={() => setError(null)} />
       {/* Membros atuais */}
       <div className="font-body text-xs text-zine-burntOrange/60 font-bold">
         {members.length} membro(s)
@@ -751,6 +770,7 @@ export const EmailConfigPanel: React.FC<{
   const [pauseAll, setPauseAll] = useState(initialConfig.pauseAllTransactional);
   const [unsubscribed, setUnsubscribed] = useState<UnsubscribedUser[]>(initialUnsubscribed);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => {
     try {
       return localStorage.getItem(DISMISS_DEFAULTS_BANNER_KEY) === '1';
@@ -793,6 +813,7 @@ export const EmailConfigPanel: React.FC<{
   async function handleDisableAllRsvp() {
     if (!idToken) return;
     if (!confirm('Desativar todos os 6 e-mails de RSVP (confirmação, fila, lembrete, etc.)? Você pode reativar um por um depois.')) return;
+    setError(null);
     setBulkBusy(true);
     try {
       const updatedMap = new Map<EmailTemplateKey, EmailTemplate>();
@@ -804,7 +825,7 @@ export const EmailConfigPanel: React.FC<{
       onTemplatesChange(next);
       dismissBanner();
     } catch (err) {
-      alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setBulkBusy(false);
     }
@@ -819,6 +840,7 @@ export const EmailConfigPanel: React.FC<{
 
   return (
     <>
+      <NoticeBanner kind="error" message={error} onDismiss={() => setError(null)} />
       <HelperBox>Configurações gerais de e-mail: envios automáticos de eventos/RSVP e lista de pessoas que se desinscreveram. Os modelos de cada e-mail automático (confirmação, lembrete, etc.) ficam na aba "Modelos".</HelperBox>
 
       {showBanner && (
