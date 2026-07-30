@@ -307,6 +307,13 @@ export function wrapTemplate(body: string, recipientEmail?: string): string {
 /**
  * Template transacional (sem unsubscribe) — convites, promoções, etc.
  */
+export function renderTransactionalEmail(bodyText: string): { html: string; text: string } {
+  return {
+    html: wrapTransactionalTemplate(`<p>${bodyText.replace(/\n/g, '<br>')}</p>`),
+    text: bodyText,
+  };
+}
+
 export function wrapTransactionalTemplate(body: string): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">

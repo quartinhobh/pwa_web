@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { adminDb } from '../config/firebase';
 import { buildRsvpEmail } from '../services/emailTemplateService';
-import { sendEmail, wrapTransactionalTemplate } from '../services/emailService';
+import { renderTransactionalEmail, sendEmail } from '../services/emailService';
 import type { Event, EmailTemplateKey, RsvpDoc, User } from '../types';
 
 export interface EventWithFlags extends Event {
@@ -90,8 +90,8 @@ async function dispatchAction(action: SchedulerAction): Promise<void> {
         anySent = true;
         break;
       }
-      const html = wrapTransactionalTemplate(`<p>${result.bodyText.replace(/\n/g, '<br>')}</p>`);
-      await sendEmail(r.email, result.subject, html);
+      const rendered = renderTransactionalEmail(result.bodyText);
+      await sendEmail(r.email, result.subject, rendered.html);
       anySent = true;
     } catch (err) {
       console.error(`[emailScheduler] ${key} failed for ${r.email} on event ${ev.id}:`, err);

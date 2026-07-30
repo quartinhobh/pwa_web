@@ -8,7 +8,7 @@ import { writeLimiter } from '../middleware/rateLimit';
 import { adminDb } from '../config/firebase';
 import { createR2Client, getR2PublicUrl, R2_BUCKET } from '../config/r2';
 import type { FavoriteAlbum, SocialLink, SocialPlatform, User, UserRole } from '../types';
-import { sendEmail, wrapTransactionalTemplate } from '../services/emailService';
+import { renderTransactionalEmail, sendEmail } from '../services/emailService';
 import { buildRsvpEmail } from '../services/emailTemplateService';
 
 async function sendRoleEmail(
@@ -22,8 +22,8 @@ async function sendRoleEmail(
     const roleName = role === 'admin' ? 'administrador' : 'moderador';
     const result = await buildRsvpEmail(key, { nome, role: roleName, link: `${frontendUrl}/admin` });
     if (!result) return;
-    const html = wrapTransactionalTemplate(`<p>${result.bodyText.replace(/\n/g, '<br>')}</p>`);
-    await sendEmail(email, result.subject, html);
+    const rendered = renderTransactionalEmail(result.bodyText);
+    await sendEmail(email, result.subject, rendered.html);
   } catch (err) {
     console.error(`[users] ${key} email failed:`, err);
   }
