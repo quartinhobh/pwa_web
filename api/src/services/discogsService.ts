@@ -157,7 +157,9 @@ export function extractDiscogsCredits(release: DiscogsRelease): DiscogsCredits {
 
   function addToMap(map: Map<string, Set<string>>, key: string, value: string) {
     if (!map.has(key)) map.set(key, new Set());
-    // Strip Discogs disambiguation numbers like "Toninho (7)"
+    // ponytail: kept inline — Discogs disambiguation numbers like "Toninho (7)"
+    // aren't a generalize-able normalize; textMatch would also lowercase the
+    // artist name, which downstream UI displays verbatim.
     const clean = value.replace(/\s*\(\d+\)$/, '');
     map.get(key)!.add(clean);
   }
