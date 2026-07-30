@@ -18,7 +18,7 @@ import {
 } from '../services/eventService';
 import { getRsvpSummary } from '../services/rsvpService';
 import { buildRsvpEmail } from '../services/emailTemplateService';
-import { sendBulk, wrapTransactionalTemplate } from '../services/emailService';
+import { renderTransactionalEmail, sendBulk } from '../services/emailService';
 import type { Event, EventCreatePayload } from '../types';
 import { rsvpRouter } from './rsvp';
 
@@ -248,13 +248,11 @@ eventsRouter.post(
             motivo: reason?.trim() || 'não informado',
           });
           if (!built) return;
-          const html = wrapTransactionalTemplate(
-            `<p>${built.bodyText.replace(/\n/g, '<br>')}</p>`,
-          );
+          const rendered = renderTransactionalEmail(built.bodyText);
           await sendBulk(
             recipients.map((r) => r.email),
             built.subject,
-            html,
+            rendered.html,
           );
         } catch (err) {
           console.error('[events.cancel] broadcast failed', err);
@@ -315,13 +313,11 @@ eventsRouter.post(
         res.status(200).json({ sentCount: 0 });
         return;
       }
-      const html = wrapTransactionalTemplate(
-        `<p>${built.bodyText.replace(/\n/g, '<br>')}</p>`,
-      );
+      const rendered = renderTransactionalEmail(built.bodyText);
       const sent = await sendBulk(
         recipients.map((r) => r.email),
         built.subject,
-        html,
+        rendered.html,
       );
       res.status(200).json({ sentCount: sent });
     } catch (err) {
