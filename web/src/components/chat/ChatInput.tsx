@@ -36,8 +36,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
         maxLength={500}
         className="flex-1 font-body px-3 py-2 border-4 border-zine-cream dark:border-zine-cream/30 bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream placeholder:text-zine-burntOrange/50 dark:placeholder:text-zine-cream/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-zine-burntYellow"
       />
-      <Button type="submit" disabled={!canSend} aria-label="send">
-        Send
+      <Button type="submit" disabled={!canSend} aria-label="enviar mensagem">
+        Enviar
       </Button>
     </form>
   );

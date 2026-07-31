@@ -75,7 +75,7 @@ describe('LoginModal — forgot password', () => {
     fireEvent.click(screen.getByRole('button', { name: /entrar com email/i }));
     fireEvent.click(screen.getByRole('button', { name: /esqueceu a senha/i }));
 
-    fireEvent.change(screen.getByLabelText('email'), {
+    fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'test@example.com' },
     });
     fireEvent.click(screen.getByRole('button', { name: /enviar link de recuperação/i }));
@@ -100,7 +100,7 @@ describe('LoginModal — forgot password', () => {
     fireEvent.click(screen.getByRole('button', { name: /entrar com email/i }));
     fireEvent.click(screen.getByRole('button', { name: /esqueceu a senha/i }));
 
-    fireEvent.change(screen.getByLabelText('email'), {
+    fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'nope@example.com' },
     });
     fireEvent.click(screen.getByRole('button', { name: /enviar link de recuperação/i }));
@@ -144,8 +144,8 @@ describe('LoginModal — signup flow hardening', () => {
     fireEvent.click(screen.getByRole('button', { name: /entrar com email/i }));
     fireEvent.click(screen.getByRole('button', { name: /criar conta nova/i }));
 
-    fireEvent.change(screen.getByLabelText('email'), { target: { value: 'u@ex.com' } });
-    const pw = screen.getByLabelText('password') as HTMLInputElement;
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'u@ex.com' } });
+    const pw = screen.getByLabelText('Senha') as HTMLInputElement;
     // Native minLength would also block, but remove the attribute so our JS guard runs.
     pw.removeAttribute('minLength');
     fireEvent.change(pw, { target: { value: 'short' } });
@@ -162,8 +162,8 @@ describe('LoginModal — signup flow hardening', () => {
     fireEvent.click(screen.getByRole('button', { name: /entrar com email/i }));
     fireEvent.click(screen.getByRole('button', { name: /criar conta nova/i }));
 
-    fireEvent.change(screen.getByLabelText('email'), { target: { value: 'u@ex.com' } });
-    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'abcdefgh' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'u@ex.com' } });
+    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'abcdefgh' } });
     fireEvent.click(screen.getByRole('button', { name: /criar conta/i }));
 
     expect(await screen.findByText(/enviamos um link de verificação/i)).toBeInTheDocument();
@@ -181,8 +181,8 @@ describe('LoginModal — signup flow hardening', () => {
     fireEvent.click(screen.getByRole('button', { name: /entrar com email/i }));
     fireEvent.click(screen.getByRole('button', { name: /criar conta nova/i }));
 
-    fireEvent.change(screen.getByLabelText('email'), { target: { value: 'u@ex.com' } });
-    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'abcdefgh' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'u@ex.com' } });
+    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'abcdefgh' } });
     fireEvent.click(screen.getByRole('button', { name: /criar conta/i }));
 
     expect(await screen.findByText(/não foi possível criar conta/i)).toBeInTheDocument();
@@ -200,8 +200,8 @@ describe('LoginModal — signup flow hardening', () => {
     render(<LoginModal isOpen={true} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /entrar com email/i }));
 
-    fireEvent.change(screen.getByLabelText('email'), { target: { value: 'u@ex.com' } });
-    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'whatever' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'u@ex.com' } });
+    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: 'whatever' } });
     fireEvent.click(screen.getByRole('button', { name: /^entrar$/i }));
 
     expect(await screen.findByText(/email ou senha incorretos/i)).toBeInTheDocument();

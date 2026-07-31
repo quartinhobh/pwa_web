@@ -47,17 +47,18 @@ describe('EventForm', () => {
     expect(screen.getByLabelText('startTime')).toBeInTheDocument();
     expect(screen.getByLabelText('endTime')).toBeInTheDocument();
     expect(screen.getByLabelText('location')).toBeInTheDocument();
-    expect(screen.getByLabelText('venueRevealDaysBefore')).toBeInTheDocument();
+    expect(screen.getByLabelText('venue-reveal-mode')).toBeInTheDocument();
     expect(screen.getByLabelText('extras-text')).toBeInTheDocument();
     expect(screen.getByLabelText('spotifyPlaylistUrl')).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/OK Computer/i)).toBeInTheDocument();
   });
 
-  it('pre-fills default time (19:00-23:00) and reveal days (7) in create mode', () => {
+  it('pre-fills default time (19:00-23:00) and reveal mode (days_before_event, 7) in create mode', () => {
     render(<EventForm mode="create" idToken="tok" />);
     expect(screen.getByLabelText('startTime')).toHaveValue('19:00');
     expect(screen.getByLabelText('endTime')).toHaveValue('23:00');
-    expect(screen.getByLabelText('venueRevealDaysBefore')).toHaveValue(7);
+    expect(screen.getByLabelText('venue-reveal-mode')).toHaveValue('days_before_event');
+    expect(screen.getByLabelText('venue-reveal-number')).toHaveValue(7);
   });
 
   it('pre-fills date with the 4th Wednesday of the current (or next) month in create mode', () => {
@@ -101,5 +102,54 @@ describe('EventForm', () => {
     expect(id).toBe('e1');
     expect(patch.title).toBe('Edited');
     expect(token).toBe('fake-token');
+  });
+
+  it('switches between reveal modes and toggles the number / sub-mode inputs', async () => {
+    render(<EventForm mode="create" idToken="tok" />);
+    expect(screen.getByLabelText('venue-reveal-number')).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('venue-reveal-mode'), 'always');
+    expect(screen.queryByLabelText('venue-reveal-number')).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('venue-reveal-mode'), 'correlated_or');
+    expect(screen.getByLabelText('venue-reveal-sub-mode')).toBeInTheDocument();
+    expect(screen.getByLabelText('venue-reveal-sub-number')).toBeInTheDocument();
+  });
+
+  it('sends venueRevealPolicy with mode=always on submit when always is selected', async () => {
+    createMock.mockResolvedValue({ ...baseEvent, id: 'new' });
+    render(<EventForm mode="create" idToken="tok" />);
+    await userEvent.type(screen.getByLabelText('title'), 'X');
+    await userEvent.selectOptions(screen.getByLabelText('venue-reveal-mode'), 'always');
+    await userEvent.click(screen.getByRole('button', { name: /criar/i }));
+    await waitFor(() => expect(createMock).toHaveBeenCalled());
+    const [payload] = createMock.mock.calls[0]!;
+    expect(payload.venueRevealPolicy).toEqual({ mode: 'always' });
+    expect(payload.venueRevealDaysBefore).toBeUndefined();
+  });
+
+  it('seeds picker from legacy venueRevealDaysBefore when editing a legacy event', () => {
+    render(
+      <EventForm
+        mode="edit"
+        initial={{ ...baseEvent, venueRevealDaysBefore: 3 }}
+        idToken="tok"
+      />,
+    );
+    expect(screen.getByLabelText('venue-reveal-mode')).toHaveValue('days_before_event');
+    expect(screen.getByLabelText('venue-reveal-number')).toHaveValue(3);
+  });
+
+  it('seeds picker from explicit venueRevealPolicy when editing', () => {
+    render(
+      <EventForm
+        mode="edit"
+        initial={{
+          ...baseEvent,
+          venueRevealPolicy: { mode: 'after_n_previous_events', count: 5 },
+        }}
+        idToken="tok"
+      />,
+    );
+    expect(screen.getByLabelText('venue-reveal-mode')).toHaveValue('after_n_previous_events');
+    expect(screen.getByLabelText('venue-reveal-number')).toHaveValue(5);
   });
 });

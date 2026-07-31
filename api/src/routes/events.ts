@@ -18,8 +18,9 @@ import {
 } from '../services/eventService';
 import { getRsvpSummary } from '../services/rsvpService';
 import { buildRsvpEmail } from '../services/emailTemplateService';
-import { sendBulk, wrapTransactionalTemplate } from '../services/emailService';
-import type { Event, EventCreatePayload } from '../types';
+import { renderTransactionalEmail, sendBulk } from '../services/emailService';
+import { parseEventCreate, parseEventPatch } from '../services/eventDto';
+import type { Event } from '../types';
 import { rsvpRouter } from './rsvp';
 
 export const eventsRouter: Router = Router();
@@ -98,85 +99,13 @@ eventsRouter.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
-function parsePayload(body: unknown): EventCreatePayload | null {
-  if (!body || typeof body !== 'object') return null;
-  const b = body as Record<string, unknown>;
-  if (
-    typeof b.mbAlbumId !== 'string' ||
-    typeof b.title !== 'string' ||
-    typeof b.date !== 'string' ||
-    typeof b.startTime !== 'string' ||
-    typeof b.endTime !== 'string' ||
-    typeof b.extras !== 'object' ||
-    b.extras === null
-  ) {
-    return null;
-  }
-  return {
-    mbAlbumId: b.mbAlbumId,
-    title: b.title,
-    date: b.date,
-    startTime: b.startTime,
-    endTime: b.endTime,
-    extras: b.extras as EventCreatePayload['extras'],
-    location: typeof b.location === 'string' ? b.location : null,
-    venueRevealDaysBefore:
-      typeof b.venueRevealDaysBefore === 'number' && b.venueRevealDaysBefore >= 0
-        ? Math.floor(b.venueRevealDaysBefore)
-        : undefined,
-    spotifyPlaylistUrl:
-      typeof b.spotifyPlaylistUrl === 'string' ? b.spotifyPlaylistUrl : null,
-    chatEnabled: typeof b.chatEnabled === 'boolean' ? b.chatEnabled : undefined,
-    chatOpensAt:
-      typeof b.chatOpensAt === 'number'
-        ? b.chatOpensAt
-        : b.chatOpensAt === null
-        ? null
-        : undefined,
-    chatClosesAt:
-      typeof b.chatClosesAt === 'number'
-        ? b.chatClosesAt
-        : b.chatClosesAt === null
-        ? null
-        : undefined,
-  };
-}
-
-/** Whitelist for PUT /events/:id patches — keeps arbitrary fields out of Firestore. */
-function parseUpdatePatch(body: unknown): Partial<Event> {
-  if (!body || typeof body !== 'object') return {};
-  const b = body as Record<string, unknown>;
-  const patch: Partial<Event> = {};
-  if (typeof b.title === 'string') patch.title = b.title;
-  if (typeof b.date === 'string') patch.date = b.date;
-  if (typeof b.startTime === 'string') patch.startTime = b.startTime;
-  if (typeof b.endTime === 'string') patch.endTime = b.endTime;
-  if (typeof b.location === 'string' || b.location === null) patch.location = b.location as string | null;
-  if (typeof b.venueRevealDaysBefore === 'number' && b.venueRevealDaysBefore >= 0) {
-    patch.venueRevealDaysBefore = Math.floor(b.venueRevealDaysBefore);
-  }
-  if (typeof b.spotifyPlaylistUrl === 'string' || b.spotifyPlaylistUrl === null) {
-    patch.spotifyPlaylistUrl = b.spotifyPlaylistUrl as string | null;
-  }
-  if (b.extras && typeof b.extras === 'object') patch.extras = b.extras as Event['extras'];
-  if (b.rsvp && typeof b.rsvp === 'object') patch.rsvp = b.rsvp as Event['rsvp'];
-  if (typeof b.chatEnabled === 'boolean') patch.chatEnabled = b.chatEnabled;
-  if (typeof b.chatOpensAt === 'number' || b.chatOpensAt === null) {
-    patch.chatOpensAt = b.chatOpensAt as number | null;
-  }
-  if (typeof b.chatClosesAt === 'number' || b.chatClosesAt === null) {
-    patch.chatClosesAt = b.chatClosesAt as number | null;
-  }
-  return patch;
-}
-
 eventsRouter.post(
   '/',
   writeLimiter,
   requireAuth,
   requireRole('admin'),
   async (req: Request, res: Response) => {
-    const payload = parsePayload(req.body);
+    const payload = parseEventCreate(req.body);
     if (!payload) {
       res.status(400).json({ error: 'invalid_payload' });
       return;
@@ -199,7 +128,11 @@ eventsRouter.put(
   requireRole('admin'),
   async (req: Request, res: Response) => {
     try {
-      const patch = parseUpdatePatch(req.body);
+      const patch = parseEventPatch(req.body);
+      if (!patch) {
+        res.status(400).json({ error: 'invalid_payload' });
+        return;
+      }
       const updated = await updateEvent(req.params.id!, patch);
       if (!updated) {
         res.status(404).json({ error: 'not_found' });
@@ -248,13 +181,11 @@ eventsRouter.post(
             motivo: reason?.trim() || 'não informado',
           });
           if (!built) return;
-          const html = wrapTransactionalTemplate(
-            `<p>${built.bodyText.replace(/\n/g, '<br>')}</p>`,
-          );
+          const rendered = renderTransactionalEmail(built.bodyText);
           await sendBulk(
             recipients.map((r) => r.email),
             built.subject,
-            html,
+            rendered.html,
           );
         } catch (err) {
           console.error('[events.cancel] broadcast failed', err);
@@ -315,13 +246,11 @@ eventsRouter.post(
         res.status(200).json({ sentCount: 0 });
         return;
       }
-      const html = wrapTransactionalTemplate(
-        `<p>${built.bodyText.replace(/\n/g, '<br>')}</p>`,
-      );
+      const rendered = renderTransactionalEmail(built.bodyText);
       const sent = await sendBulk(
         recipients.map((r) => r.email),
         built.subject,
-        html,
+        rendered.html,
       );
       res.status(200).json({ sentCount: sent });
     } catch (err) {
@@ -390,13 +319,13 @@ eventsRouter.post(
   requireRole('admin'),
   async (req: Request, res: Response) => {
     try {
-      const { credits, debug } = await refreshEventCredits(req.params.eventId!);
-      if (!credits) {
+      const report = await refreshEventCredits(req.params.eventId!);
+      if (report.error === 'event_not_found' || report.error === 'event_not_found_or_no_mbid') {
         res.status(404).json({ error: 'event_not_found_or_no_mbid' });
         return;
       }
       invalidateCache();
-      res.status(200).json({ credits, debug });
+      res.status(200).json(report);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'refresh_failed';
       res.status(500).json({ error: msg });

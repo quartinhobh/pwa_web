@@ -11,7 +11,7 @@ import {
   deleteInvite,
 } from '@/services/api';
 import type { RoleInvite } from '@/services/api';
-import HelperBox from '@/components/admin/HelperBox';
+import HelperBox, { NoticeBanner } from '@/components/admin/HelperBox';
 import type { User, UserRole } from '@/types';
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -30,6 +30,7 @@ export const UsersPanel: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'admin' | 'moderator'>('all');
   const [busy, setBusy] = useState<string | null>(null);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   // invite form
   const [invEmail, setInvEmail] = useState('');
@@ -48,12 +49,13 @@ export const UsersPanel: React.FC = () => {
 
   async function handleRoleChange(userId: string, role: UserRole): Promise<void> {
     if (!idToken) return;
+    setError(null);
     setBusy(userId);
     try {
       await updateUserRole(userId, role, idToken);
       await refresh();
     } catch (err) {
-      alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setBusy(null);
     }
@@ -62,23 +64,25 @@ export const UsersPanel: React.FC = () => {
   async function handleInvite(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     if (!idToken || !invEmail) return;
+    setError(null);
     try {
       await createInvite(invEmail, invRole, idToken);
       setInvEmail('');
       await refresh();
     } catch (err) {
-      alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
   async function handleDeleteInvite(email: string): Promise<void> {
     if (!idToken || deletingIds.has(email)) return;
+    setError(null);
     setDeletingIds((s) => new Set(s).add(email));
     try {
       await deleteInvite(email, idToken);
       await refresh();
     } catch (err) {
-      alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setDeletingIds((s) => {
         const next = new Set(s);
@@ -95,6 +99,7 @@ export const UsersPanel: React.FC = () => {
 
   return (
     <>
+      <NoticeBanner kind="error" message={error} onDismiss={() => setError(null)} />
       <HelperBox>Gerencie permissões dos usuários. Admin tem acesso total ao painel. Moderador pode gerenciar o chat e banir usuários. Usuário é o papel padrão de quem se cadastra. Use o convite por email pra adicionar admins antes deles criarem conta.</HelperBox>
       {/* Invite by email */}
       <ZineFrame bg="cream" borderColor="burntYellow">

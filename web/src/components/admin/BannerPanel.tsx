@@ -12,7 +12,7 @@ import {
   deactivateBanner,
   deleteBanner,
 } from '@/services/api';
-import HelperBox from '@/components/admin/HelperBox';
+import HelperBox, { NoticeBanner } from '@/components/admin/HelperBox';
 import type { Banner, BannerRoute } from '@/types';
 
 const inputClass =
@@ -48,6 +48,7 @@ export const BannerPanel: React.FC = () => {
   // Pending-delete tracking — disables the row's delete button while the
   // request is in flight so a panicked double-click can't fire twice.
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!idToken) return;
@@ -106,6 +107,7 @@ export const BannerPanel: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!idToken || !hasImage || !altText.trim()) return;
+    setError(null);
     setSaving(true);
     try {
       let finalUrl = imageUrl.trim();
@@ -134,7 +136,7 @@ export const BannerPanel: React.FC = () => {
       resetForm();
       await load();
     } catch (err) {
-      alert(`Erro ao salvar: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro ao salvar: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSaving(false);
     }
@@ -158,6 +160,7 @@ export const BannerPanel: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (!idToken || deletingIds.has(id)) return;
+    setError(null);
     setDeletingIds((s) => new Set(s).add(id));
     try {
       await deleteBanner(id, idToken);
@@ -165,7 +168,7 @@ export const BannerPanel: React.FC = () => {
       // If the user was editing the row they just deleted, clear the form.
       if (editingId === id) resetForm();
     } catch (err) {
-      alert(`Erro ao apagar: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro ao apagar: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setDeletingIds((s) => {
         const next = new Set(s);
@@ -181,6 +184,7 @@ export const BannerPanel: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      <NoticeBanner kind="error" message={error} onDismiss={() => setError(null)} />
       <HelperBox>Crie e gerencie banners para exibir no site. Escolha a rota, imagem e tempo de exibição.</HelperBox>
 
       {/* Form — create OR edit, never both. */}

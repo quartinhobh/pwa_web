@@ -51,6 +51,7 @@ import {
   interpolate,
 } from '../services/emailTemplateService';
 import type { EmailTemplateKey } from '../types';
+import { renderTransactionalEmail, wrapTransactionalTemplate } from '../services/emailService';
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -81,6 +82,24 @@ function wireTemplateAndConfig(opts: {
     }),
   });
 }
+
+describe('renderTransactionalEmail', () => {
+  it('converts body newlines to HTML line breaks and preserves text', () => {
+    const bodyText = 'Primeira linha\nSegunda linha';
+
+    const rendered = renderTransactionalEmail(bodyText);
+
+    expect(rendered.html).toContain('<p>Primeira linha<br>Segunda linha</p>');
+    expect(rendered.text).toBe(bodyText);
+  });
+
+  it('matches the previous inline rendering byte-for-byte', () => {
+    const bodyText = 'Olá, Ana!\nSeu lugar está confirmado.';
+    const oldHtml = wrapTransactionalTemplate(`<p>${bodyText.replace(/\n/g, '<br>')}</p>`);
+
+    expect(renderTransactionalEmail(bodyText).html).toBe(oldHtml);
+  });
+});
 
 // ── DEFAULTS structure ────────────────────────────────────────────────────────
 

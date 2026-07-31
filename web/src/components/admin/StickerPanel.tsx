@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
-import HelperBox from '@/components/admin/HelperBox';
+import HelperBox, { NoticeBanner } from '@/components/admin/HelperBox';
 import { LoadingState } from '@/components/common/LoadingState';
 import { useIdToken } from '@/hooks/useIdToken';
 import { useApiCache } from '@/store/apiCache';
@@ -21,6 +21,8 @@ export const StickerPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
 
   useEffect(() => {
     void fetchStickerConfig()
@@ -47,6 +49,7 @@ export const StickerPanel: React.FC = () => {
 
   async function handleSave() {
     if (!config || !idToken) return;
+    setError(null);
     setSaving(true);
     try {
       const updated = await apiUpdateStickerConfig(
@@ -67,18 +70,20 @@ export const StickerPanel: React.FC = () => {
       useApiCache.getState().invalidate('stickerConfig:global');
       setSavedAt(Date.now());
     } catch (err) {
-      alert(`Erro ao salvar: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro ao salvar: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSaving(false);
     }
   }
 
   function handleResetCooldown() {
+    setError(null);
+    setOk(null);
     try {
       localStorage.removeItem('qbh:stickerCooldown');
-      alert('Cooldown local resetado. Recarregue a página pra ver os stickers voltarem.');
+      setOk('Cooldown local resetado. Recarregue a página pra ver os stickers voltarem.');
     } catch {
-      alert('Não foi possível acessar o localStorage.');
+      setError('Não foi possível acessar o localStorage.');
     }
   }
 
@@ -86,6 +91,8 @@ export const StickerPanel: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      <NoticeBanner kind="error" message={error} onDismiss={() => setError(null)} />
+      <NoticeBanner kind="ok" message={ok} onDismiss={() => setOk(null)} />
       <HelperBox>
         Aqui você controla os stickers que flutuam pela tela. A ideia é que sejam uma surpresa, então valores baixos e intervalos longos funcionam melhor. Salve no fim pra aplicar pra todo mundo (a próxima visita já pega).
       </HelperBox>

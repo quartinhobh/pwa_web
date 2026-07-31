@@ -20,9 +20,9 @@ import RsvpForm from '@/components/rsvp/RsvpForm';
 const submitMock = api.submitRsvpGuest as unknown as ReturnType<typeof vi.fn>;
 
 function fillAndSubmit(firstName = 'Ana', lastName = 'Silva', email = 'ana@x.com') {
-  fireEvent.change(screen.getByLabelText('nome'), { target: { value: firstName } });
-  fireEvent.change(screen.getByLabelText('sobrenome'), { target: { value: lastName } });
-  fireEvent.change(screen.getByLabelText('email'), { target: { value: email } });
+  fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: firstName } });
+  fireEvent.change(screen.getByLabelText('Sobrenome'), { target: { value: lastName } });
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: email } });
   fireEvent.click(screen.getByRole('button', { name: /confirmar presença/i }));
 }
 
@@ -33,18 +33,18 @@ describe('RsvpForm', () => {
 
   it('renders required inputs and submit button', () => {
     render(<GuestUpsellProvider><RsvpForm eventId="e1" isOpen onClose={() => {}} /></GuestUpsellProvider>);
-    expect(screen.getByLabelText('nome')).toBeInTheDocument();
-    expect(screen.getByLabelText('sobrenome')).toBeInTheDocument();
-    expect(screen.getByLabelText('email')).toBeInTheDocument();
+    expect(screen.getByLabelText('Seu nome')).toBeInTheDocument();
+    expect(screen.getByLabelText('Sobrenome')).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toBeInTheDocument();
     expect(screen.getByLabelText(/levar \+1/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /confirmar presença/i })).toBeInTheDocument();
   });
 
   it('shows +1 name input only when +1 checked', () => {
     render(<GuestUpsellProvider><RsvpForm eventId="e1" isOpen onClose={() => {}} /></GuestUpsellProvider>);
-    expect(screen.queryByLabelText(/nome do acompanhante/i)).toBeNull();
+    expect(screen.queryByLabelText(/Nome do acompanhante/i)).toBeNull();
     fireEvent.click(screen.getByLabelText(/levar \+1/i));
-    expect(screen.getByLabelText(/nome do acompanhante/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Nome do acompanhante/i)).toBeInTheDocument();
   });
 
   it('calls submitRsvpGuest and shows confirmed success state', async () => {

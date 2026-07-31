@@ -6,6 +6,8 @@
 // Owner: feature-builder.
 
 const DEEZER_BASE = 'https://api.deezer.com';
+import type { CreditSource, CreditSourceResult } from './creditSource';
+import { isDeezerEnabled } from './creditSource';
 
 interface DeezerSearchAlbum {
   id: number;
@@ -69,3 +71,20 @@ export async function fetchDeezerPerformers(
     return null;
   }
 }
+
+// CREDIT ADAPTER — exposed via creditSource.ts
+export const deezerAdapter: CreditSource = {
+  name: 'deezer',
+  enabled: () => isDeezerEnabled(),
+  async fetchAlbumTracksAndCredits(_mbAlbumId, state): Promise<CreditSourceResult | null> {
+    // Deezer only carries performers (no composers/lyricists), so it's only
+    // useful when the prior sources found none.
+    if (state.performers && state.performers.size > 0) return null;
+    const artist = state.artistCredit;
+    const album = state.albumTitle;
+    if (!artist || !album) return null;
+    const dz = await fetchDeezerPerformers(artist, album);
+    if (!dz) return null;
+    return { tracks: [], performers: dz };
+  },
+};

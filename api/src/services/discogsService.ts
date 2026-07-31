@@ -3,6 +3,8 @@
 // Owner: feature-builder.
 
 import type { AlbumCredits } from '../types';
+import type { CreditSource, CreditSourceResult } from './creditSource';
+import { isDiscogsEnabled } from './creditSource';
 
 const DISCOGS_BASE = 'https://api.discogs.com';
 const USER_AGENT = 'Quartinho/1.0 (https://quartinho.app)';
@@ -157,7 +159,9 @@ export function extractDiscogsCredits(release: DiscogsRelease): DiscogsCredits {
 
   function addToMap(map: Map<string, Set<string>>, key: string, value: string) {
     if (!map.has(key)) map.set(key, new Set());
-    // Strip Discogs disambiguation numbers like "Toninho (7)"
+    // ponytail: kept inline — Discogs disambiguation numbers like "Toninho (7)"
+    // aren't a generalize-able normalize; textMatch would also lowercase the
+    // artist name, which downstream UI displays verbatim.
     const clean = value.replace(/\s*\(\d+\)$/, '');
     map.get(key)!.add(clean);
   }
@@ -204,3 +208,23 @@ export async function fetchDiscogsCredits(
 
   return extractDiscogsCredits(release);
 }
+
+// CREDIT ADAPTER — exposed via creditSource.ts
+export const discogsAdapter: CreditSource = {
+  name: 'discogs',
+  enabled: () => isDiscogsEnabled(),
+  async fetchAlbumTracksAndCredits(_mbAlbumId, state): Promise<CreditSourceResult | null> {
+    const artist = state.artistCredit;
+    const album = state.albumTitle;
+    if (!artist || !album) return null;
+    const dg = await fetchDiscogsCredits(artist, album);
+    if (!dg) return null;
+    return {
+      tracks: [],
+      albumCredits: dg.albumCredits,
+      performers: dg.performers,
+      composers: dg.composers,
+      lyricists: dg.lyricists,
+    };
+  },
+};

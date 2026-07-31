@@ -99,6 +99,9 @@ export interface Event {
   endTime: string;
   location: string | null;
   venueRevealDaysBefore?: number;
+  venueRevealPolicy?: VenueRevealPolicy;
+  eventCreatedAt?: number;
+  previousEventCount?: number;
   status: EventStatus;
   album: EventAlbumSnapshot | null;
   extras: EventExtras;
@@ -164,6 +167,25 @@ export interface ChatMessage {
   text: string;
   timestamp: number;
   isDeleted: boolean;
+}
+
+export type VenueRevealPolicy =
+  | { mode: 'always' }
+  | { mode: 'days_before_event'; days: number }
+  | { mode: 'days_after_creation'; days: number }
+  | { mode: 'after_n_previous_events'; count: number }
+  | { mode: 'correlated'; operator: 'and' | 'or'; policies: VenueRevealPolicy[] };
+
+export interface VenueRevealContext {
+  nowMs: number;
+  eventDateMs: number;
+  eventCreatedAtMs: number | null;
+  previousEventCount: number;
+}
+
+export interface VenueRevealResult {
+  revealed: boolean;
+  reason: string;
 }
 
 export type LyricsSource = 'lyrics.ovh' | 'lrclib';

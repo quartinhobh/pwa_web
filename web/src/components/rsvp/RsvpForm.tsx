@@ -144,70 +144,79 @@ export const RsvpForm: React.FC<RsvpFormProps> = ({ eventId, isOpen = false, onC
       <p className="font-display text-lg text-zine-burntOrange">
         confirma sua presença
       </p>
-      <input
-        type="text"
-        placeholder="seu nome"
-        aria-label="nome"
-        value={firstName}
-        onChange={(e) => setFirstName(e.target.value)}
-        required
-        className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
-      />
-      <input
-        type="text"
-        placeholder="seu sobrenome"
-        aria-label="sobrenome"
-        value={lastName}
-        onChange={(e) => setLastName(e.target.value)}
-        required
-        className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
-      />
-      <div>
+      <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+        <span>Seu nome</span>
         <input
-          type="email"
-          placeholder="seu email"
-          aria-label="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          placeholder="como aparece no email"
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
           required
-          className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange w-full"
+          className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
         />
+      </label>
+      <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+        <span>Sobrenome</span>
+        <input
+          type="text"
+          placeholder="sobrenome"
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
+          required
+          className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
+        />
+      </label>
+      <div>
+        <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+          <span>Email</span>
+          <input
+            type="email"
+            placeholder="seu email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange w-full"
+          />
+        </label>
         <p className="font-body text-xs text-zine-burntOrange/70 italic mt-1">
           vamos te enviar o local por e-mail
         </p>
       </div>
-      <input
-        type="text"
-        placeholder="seu instagram (opcional)"
-        aria-label="instagram"
-        value={instagram}
-        onChange={(e) => setInstagram(e.target.value)}
-        maxLength={30}
-        className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
-      />
+      <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+        <span>Instagram (opcional)</span>
+        <input
+          type="text"
+          placeholder="@seuuser"
+          value={instagram}
+          onChange={(e) => setInstagram(e.target.value)}
+          maxLength={30}
+          className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
+        />
+      </label>
       <label className="flex items-center gap-2 font-body text-sm text-zine-burntOrange cursor-pointer">
         <input
           type="checkbox"
           checked={plusOne}
           onChange={(e) => setPlusOne(e.target.checked)}
-          aria-label="levar +1"
           className="accent-zine-burntYellow"
         />
         levar +1
       </label>
       {plusOne && (
-        <input
-          type="text"
-          placeholder="nome do acompanhante"
-          aria-label="nome do acompanhante"
-          value={plusOneName}
-          onChange={(e) => setPlusOneName(e.target.value)}
-          required
-          className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
-        />
+        <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+          <span>Nome do acompanhante</span>
+          <input
+            type="text"
+            placeholder="quem vai com você"
+            value={plusOneName}
+            onChange={(e) => setPlusOneName(e.target.value)}
+            required
+            className="font-body px-3 py-2 border-2 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
+          />
+        </label>
       )}
       {error && (
-        <p role="alert" className="font-body text-sm text-red-600">
+        <p role="alert" className="font-body text-sm text-zine-burntOrange">
           {error}
         </p>
       )}

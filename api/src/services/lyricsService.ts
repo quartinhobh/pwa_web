@@ -7,6 +7,7 @@
 import { adminDb } from '../config/firebase';
 import type { LyricsCache, LyricsSource } from '../types';
 import { fetchGeniusLyrics } from './geniusService';
+import { songKey } from './textMatch';
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const COLLECTION = 'lyrics_cache';
@@ -25,14 +26,7 @@ export interface LyricsCacheStore {
 }
 
 export function normalizeKey(artist: string, title: string): string {
-  const norm = (s: string): string =>
-    s
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/\s+/g, ' ')
-      .trim();
-  return `${norm(artist)}-${norm(title)}`;
+  return songKey(artist, title);
 }
 
 export const firestoreLyricsCache: LyricsCacheStore = {

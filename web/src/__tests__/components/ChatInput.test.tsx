@@ -6,7 +6,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 describe('ChatInput', () => {
   it('disables send button when empty', () => {
     render(<ChatInput onSend={vi.fn()} />);
-    const btn = screen.getByRole('button', { name: /send/i });
+    const btn = screen.getByRole('button', { name: /enviar/i });
     expect(btn).toBeDisabled();
   });
 
@@ -16,7 +16,7 @@ describe('ChatInput', () => {
     render(<ChatInput onSend={onSend} />);
     const input = screen.getByPlaceholderText(/mensagem/i) as HTMLInputElement;
     await user.type(input, 'hi there');
-    const btn = screen.getByRole('button', { name: /send/i });
+    const btn = screen.getByRole('button', { name: /enviar/i });
     expect(btn).not.toBeDisabled();
     await user.click(btn);
     expect(onSend).toHaveBeenCalledWith('hi there');
@@ -34,8 +34,8 @@ describe('ChatInput', () => {
 
   it('renders the zine Button primitive', () => {
     render(<ChatInput onSend={vi.fn()} />);
-    const btn = screen.getByRole('button', { name: /send/i });
-    // Button primitive uses burntYellow background
-    expect(btn.className).toMatch(/zine-burntYellow/);
+    const btn = screen.getByRole('button', { name: /enviar/i });
+    // Button primitive uses burntOrange background (F7 Path A)
+    expect(btn.className).toMatch(/zine-burntOrange/);
   });
 });

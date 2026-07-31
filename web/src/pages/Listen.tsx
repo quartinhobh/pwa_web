@@ -12,17 +12,9 @@ import { RsvpButton } from '@/components/rsvp/RsvpButton';
 import { RsvpStatus } from '@/components/rsvp/RsvpStatus';
 import { EventDetailSkeleton } from '@/components/common/LoadingState';
 import ZineFrame from '@/components/common/ZineFrame';
+import QuartinhoIntro from '@/components/common/QuartinhoIntro';
 import { parseTextWithLinks } from '../utils/parseTextWithLinks';
-
-const DEFAULT_LOCATION_REVEAL_DAYS = 7;
-
-function shouldShowLocation(eventDate: string, revealDays: number): boolean {
-  const event = new Date(eventDate + 'T00:00:00');
-  const now = new Date();
-  const diff = event.getTime() - now.getTime();
-  const days = diff / (1000 * 60 * 60 * 24);
-  return days <= revealDays;
-}
+import { resolveVenueReveal } from '@/utils/venueReveal';
 
 export const Listen: React.FC = () => {
   const { event, album, tracks, initialRsvpSummary, loading, error } = useEvent(null);
@@ -52,45 +44,52 @@ export const Listen: React.FC = () => {
     return <main className="font-body text-zine-burntOrange p-4">erro: {error}</main>;
   }
 
-  // No current event — show upcoming/empty state + link to archive.
   if (!event) {
     return (
       <main className="flex flex-col gap-4 p-4">
+        <QuartinhoIntro />
         <ZineFrame bg="mint">
-          <div className="text-center py-4">
-            <h2 className="font-display text-2xl text-zine-cream mb-2">
-              sem evento no momento
-            </h2>
-            <p className="font-body text-zine-cream">
-              fique ligado — o próximo quartinho vem aí.
+          <div className="flex flex-col items-center gap-3 text-center font-body text-zine-cream py-2">
+            <p className="text-zine-cream">
+              sem evento no momento — fica ligado, o próximo quartinho vem aí.
             </p>
+            <Link
+              to="/archive"
+              className="font-body font-bold italic text-zine-burntYellow underline"
+              style={{ filter: 'url(#zine-wobble)' }}
+            >
+              ver arquivo de eventos passados →
+            </Link>
           </div>
         </ZineFrame>
-        <Link
-          to="/archive"
-          className="font-body font-bold italic text-center text-zine-burntYellow underline"
-          style={{ filter: 'url(#zine-wobble)' }}
-        >
-          ver eventos passados →
-        </Link>
       </main>
     );
   }
 
   const isLive = event.status === 'live';
   const isUpcoming = event.status === 'upcoming';
-  const revealDays = event.venueRevealDaysBefore ?? DEFAULT_LOCATION_REVEAL_DAYS;
-  const showLocation =
-    !!event.location && (isLive || (isUpcoming && shouldShowLocation(event.date, revealDays)));
+  const venueReveal = resolveVenueReveal(event);
+  const showLocation = !!event.location && (isLive || (isUpcoming && venueReveal.result.revealed));
+  const revealHint = (() => {
+    if (rsvpEnabled) return null;
+    const p = venueReveal.policy;
+    switch (p.mode) {
+      case 'always':
+        return 'local sempre público';
+      case 'days_before_event':
+        return `local revelado ${p.days} dias antes`;
+      case 'days_after_creation':
+        return `local revelado ${p.days} dias após criação`;
+      case 'after_n_previous_events':
+        return `local revelado após ${p.count} eventos`;
+      case 'correlated':
+        return 'local revelado por regra composta';
+    }
+  })();
 
   return (
     <main className="flex flex-col gap-4 p-4">
-      {/* Introductory text with border */}
-      <ZineFrame bg="cream" borderColor="burntYellow">
-        <p className="font-body text-zine-burntOrange text-center leading-relaxed">
-          se você ainda não conhece o quartinho, somos um evento mensal que ouve discos de música brasileira por belo horizonte. o evento é gratuito, e pra participar é só confirmar sua presença abaixo e saber o local!
-        </p>
-      </ZineFrame>
+      <QuartinhoIntro />
 
       {/* Status badge */}
       {isLive && (
@@ -136,38 +135,38 @@ export const Listen: React.FC = () => {
               {event.location}
             </span>
           )}
-          {isUpcoming && event.location && !showLocation && (
+          {isUpcoming && event.location && !showLocation && revealHint && (
             <span className="text-zine-burntOrange/60 text-sm italic mt-1">
               {rsvpEnabled
                 ? 'confirme sua presença para saber onde'
-                : `local revelado ${revealDays} dias antes`}
+                : revealHint}
             </span>
           )}
         </div>
-
-      {/* RSVP — show form for upcoming and live events to capture emails */}
-      {rsvpEnabled && event.rsvp && (isUpcoming || isLive) && rsvpSummary && (
-        <>
-            <div className="flex flex-col gap-3">
-              <RsvpStatus summary={rsvpSummary} isAdmin={role === 'admin' || role === 'moderator'} data-testid="rsvp-status" />
-            </div>
-          {!rsvpEntry && (
-            <RsvpButton
-              eventId={event.id}
-              config={event.rsvp}
-              summary={rsvpSummary}
-              userEntry={rsvpEntry}
-              isAuthenticated={!!idToken}
-              onSubmit={rsvpSubmit}
-              onCancel={rsvpCancel}
-              showFormDirectly
-              eventLocation={event.location ?? undefined}
-              isLive={isLive}
-            />
-          )}
-        </>
-      )}
       </ZineFrame>
+
+      {/* RSVP — own frame so it doesn't inherit the date frame's chrome */}
+      {rsvpEnabled && event.rsvp && (isUpcoming || isLive) && rsvpSummary && (
+        <ZineFrame bg="cream">
+          <div className="flex flex-col gap-3">
+            <RsvpStatus summary={rsvpSummary} isAdmin={role === 'admin' || role === 'moderator'} data-testid="rsvp-status" />
+            {!rsvpEntry && (
+              <RsvpButton
+                eventId={event.id}
+                config={event.rsvp}
+                summary={rsvpSummary}
+                userEntry={rsvpEntry}
+                isAuthenticated={!!idToken}
+                onSubmit={rsvpSubmit}
+                onCancel={rsvpCancel}
+                showFormDirectly
+                eventLocation={event.location ?? undefined}
+                isLive={isLive}
+              />
+            )}
+          </div>
+        </ZineFrame>
+      )}
 
 
       {/* Event links — Spotify, extras */}

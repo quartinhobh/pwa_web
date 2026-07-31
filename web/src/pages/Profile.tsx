@@ -379,7 +379,7 @@ export const Profile: React.FC = () => {
               />
             </div>
             {usernameError ? (
-              <span className="font-body text-xs text-red-600 dark:text-red-400">{usernameError}</span>
+              <span className="font-body text-xs text-zine-burntOrange dark:text-zine-burntOrange-bright">{usernameError}</span>
             ) : (
               <span className="font-body text-xs text-zine-burntOrange/60">
                 3-20 caracteres. Letras, números, _ ou -. <br /> Ficaria p/ acessar como: {username && `quartinhobh.web.app/u/${username}`}
@@ -456,7 +456,7 @@ export const Profile: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleAlbumRemove(idx)}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-600 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-700"
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-zine-burntOrange text-zine-cream rounded-full text-xs flex items-center justify-center hover:bg-zine-burntOrange/80"
                           title="Remover"
                         >
                           &times;
@@ -521,7 +521,7 @@ export const Profile: React.FC = () => {
             </Button>
             {message && (
               <span
-                className={`font-body text-sm ${message.type === 'ok' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+                className={`font-body text-sm ${message.type === 'ok' ? 'text-zine-burntOrange dark:text-zine-burntOrange-bright' : 'text-zine-burntOrange dark:text-zine-burntOrange-bright'}`}
                 role="alert"
               >
                 {message.text}
@@ -587,7 +587,7 @@ export const Profile: React.FC = () => {
 
             {passwordMsg && (
               <span
-                className={`font-body text-sm ${passwordMsg.type === 'ok' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+                className={`font-body text-sm ${passwordMsg.type === 'ok' ? 'text-zine-burntOrange dark:text-zine-burntOrange-bright' : 'text-zine-burntOrange dark:text-zine-burntOrange-bright'}`}
                 role="alert"
               >
                 {passwordMsg.text}

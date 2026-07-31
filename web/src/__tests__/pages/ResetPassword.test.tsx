@@ -59,8 +59,8 @@ describe('ResetPassword page', () => {
 
     renderAt('/reset-password?mode=resetPassword&oobCode=good');
 
-    const newPw = await screen.findByLabelText('nova senha');
-    const confirmPw = screen.getByLabelText('confirmar senha');
+    const newPw = await screen.findByLabelText('Nova senha');
+    const confirmPw = screen.getByLabelText('Confirmar senha');
     const submit = screen.getByRole('button', { name: /redefinir senha/i });
 
     // Mismatch

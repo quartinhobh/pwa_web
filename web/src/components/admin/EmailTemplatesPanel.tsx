@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import ZineFrame from '@/components/common/ZineFrame';
 import Button from '@/components/common/Button';
 import { LoadingState } from '@/components/common/LoadingState';
-import HelperBox from '@/components/admin/HelperBox';
+import HelperBox, { NoticeBanner } from '@/components/admin/HelperBox';
 import { fetchEmailTemplates, updateEmailTemplate, restoreEmailTemplate, sendTestEmail } from '@/services/api';
 import type { EmailTemplate, EmailTemplateKey } from '@/types';
 
@@ -111,6 +111,7 @@ const TemplateEditor: React.FC<{
   const [testEmail, setTestEmail] = useState('');
   const [testStatus, setTestStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [testError, setTestError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   const isDirty = subject !== template.subject || body !== template.body;
@@ -142,12 +143,13 @@ const TemplateEditor: React.FC<{
 
   async function handleSave() {
     if (!idToken) return;
+    setError(null);
     setSaving(true);
     try {
       const updated = await updateEmailTemplate(template.key, { subject, body }, idToken);
       onSaved(updated);
     } catch (err) {
-      alert(`Erro ao salvar: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro ao salvar: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSaving(false);
     }
@@ -156,6 +158,7 @@ const TemplateEditor: React.FC<{
   async function handleRestore() {
     if (!confirm('Restaurar o texto padrão? Isso apagará suas edições atuais neste template.')) return;
     if (!idToken) return;
+    setError(null);
     setSaving(true);
     try {
       const restored = await restoreEmailTemplate(template.key, idToken);
@@ -163,7 +166,7 @@ const TemplateEditor: React.FC<{
       setBody(restored.body);
       onSaved(restored);
     } catch (err) {
-      alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSaving(false);
     }
@@ -200,6 +203,8 @@ const TemplateEditor: React.FC<{
       >
         ← voltar
       </button>
+
+      <NoticeBanner kind="error" message={error} onDismiss={() => setError(null)} />
 
       <ZineFrame bg="cream">
         <h3 className="font-display text-xl text-zine-burntOrange mb-1">
@@ -386,6 +391,7 @@ export const EmailTemplatesPanel: React.FC<{
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<EmailTemplate | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialTemplates) {
@@ -414,13 +420,14 @@ export const EmailTemplatesPanel: React.FC<{
 
   async function handleToggle(t: EmailTemplate, enabled: boolean) {
     if (!idToken) return;
+    setToggleError(null);
     setToggling(t.key);
     try {
       const updated = await updateEmailTemplate(t.key, { enabled }, idToken);
       applyUpdate(updated);
       if (editing?.key === updated.key) setEditing(updated);
     } catch (err) {
-      alert(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+      setToggleError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setToggling(null);
     }
@@ -447,12 +454,15 @@ export const EmailTemplatesPanel: React.FC<{
   }
 
   return (
-    <TemplateList
-      templates={templates}
-      onEdit={setEditing}
-      onToggle={(t, v) => void handleToggle(t, v)}
-      toggling={toggling}
-    />
+    <div className="flex flex-col gap-3">
+      <NoticeBanner kind="error" message={toggleError} onDismiss={() => setToggleError(null)} />
+      <TemplateList
+        templates={templates}
+        onEdit={setEditing}
+        onToggle={(t, v) => void handleToggle(t, v)}
+        toggling={toggling}
+      />
+    </div>
   );
 };
 

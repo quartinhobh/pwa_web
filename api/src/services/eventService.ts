@@ -3,68 +3,22 @@
 
 import { adminDb } from '../config/firebase';
 import type {
-  AggregatedCredits,
   Event,
   EventAlbumSnapshot,
   EventCreatePayload,
   EventStatus,
-  MusicBrainzTrack,
   RsvpDoc,
   RsvpEntry,
 } from '../types';
-import { fetchAlbum, fetchCredits } from './musicbrainzService';
+import { fetchAlbum } from './musicbrainzService';
 import { fetchCoverArt } from './coverArtService';
 import { computeEventStatus, withDerivedStatus } from './eventStatus';
-import { fetchLyrics } from './lyricsService';
-import { searchGeniusTracks } from './geniusService';
+import { backfillEventCredits, type CreditBackfillReport } from './creditBackfill';
 
 const EVENTS = 'events';
 
-async function warmLyricsCache(tracks: { title: string }[], artist: string): Promise<void> {
-  if (!artist || tracks.length === 0) return;
-  await Promise.allSettled(
-    tracks.map((t) => fetchLyrics(artist, t.title, { skipCache: true })),
-  );
-}
-
-function maybeBackfillCredits(event: Event): void {
-  const album = event.album;
-  if (!album || !event.mbAlbumId) return;
-  if (album.credits || album.creditsAttempted) return;
-
-  const ref = adminDb.collection(EVENTS).doc(event.id);
-
-  fetchCredits(event.mbAlbumId)
-    .then(async (cr) => {
-      let tracks = cr.tracks;
-
-      if (tracks.length === 0 && album.artistCredit) {
-        try {
-          const geniusTracks = await searchGeniusTracks(album.artistCredit, album.albumTitle);
-          if (geniusTracks.length > 0) {
-            tracks = geniusTracks;
-          }
-        } catch {
-          // Genius fallback failed silently in background
-        }
-      }
-
-      void ref.update({ 'album.credits': cr.credits, 'album.tracks': tracks, 'album.creditsAttempted': true });
-      void warmLyricsCache(tracks, album.artistCredit);
-    })
-    .catch(async () => {
-      // MusicBrainz failed — try Genius for tracks anyway
-      const artist = album.artistCredit;
-      if (artist) {
-        const geniusTracks = await searchGeniusTracks(artist, album.albumTitle);
-        if (geniusTracks.length > 0) {
-          void ref.update({ 'album.tracks': geniusTracks, 'album.creditsAttempted': true });
-          void warmLyricsCache(geniusTracks, artist);
-          return;
-        }
-      }
-      void ref.update({ 'album.creditsAttempted': true });
-    });
+function logBackfillEvent(event: string, payload?: unknown): void {
+  console.error(event, payload);
 }
 
 export async function listEvents(): Promise<Event[]> {
@@ -75,7 +29,7 @@ export async function listEvents(): Promise<Event[]> {
   return snap.docs.map((d) => withDerivedStatus(d.data() as Event));
 }
 
-export async function getCurrentEvent(): Promise<Event | null> {
+export async function getCurrentEvent(opts?: { await?: boolean }): Promise<Event | null> {
   // Status is derived from date now, so we can't query by `status` anymore.
   // Pull a window of recent + upcoming events ordered by date asc and pick
   // the first one whose computed status is not 'archived'. The window is
@@ -92,18 +46,22 @@ export async function getCurrentEvent(): Promise<Event | null> {
     const ev = doc.data() as Event;
     if (computeEventStatus(ev) !== 'archived') {
       const result = withDerivedStatus(ev);
-      maybeBackfillCredits(result);
+      const fire = backfillEventCredits(result.id, { logger: logBackfillEvent });
+      if (opts?.await) await fire;
+      else fire.catch((err) => logBackfillEvent('backfill_fire_error', { eventId: result.id, err: String(err) }));
       return result;
     }
   }
   return null;
 }
 
-export async function getEventById(id: string): Promise<Event | null> {
+export async function getEventById(id: string, opts?: { await?: boolean }): Promise<Event | null> {
   const snap = await adminDb.collection(EVENTS).doc(id).get();
   if (!snap.exists) return null;
   const ev = withDerivedStatus(snap.data() as Event);
-  maybeBackfillCredits(ev);
+  const fire = backfillEventCredits(ev.id, { logger: logBackfillEvent });
+  if (opts?.await) await fire;
+  else fire.catch((err) => logBackfillEvent('backfill_fire_error', { eventId: ev.id, err: String(err) }));
   return ev;
 }
 
@@ -128,7 +86,7 @@ export async function createEvent(
       });
       // Credits (genres, label, performers, composers) are the slow part:
       // one rate-limited MusicBrainz call per track (~N seconds). We skip them
-      // here so the admin gets a fast response, and let maybeBackfillCredits
+      // here so the admin gets a fast response, and let backfillEventCredits
       // populate them in the background. creditsAttempted:false keeps the
       // read-path backfill enabled as a safety net.
       album = {
@@ -153,6 +111,14 @@ export async function createEvent(
     endTime: payload.endTime,
     location: payload.location ?? null,
     venueRevealDaysBefore: payload.venueRevealDaysBefore ?? 7,
+    venueRevealPolicy: payload.venueRevealPolicy,
+    eventCreatedAt: now,
+    previousEventCount: await adminDb
+      .collection(EVENTS)
+      .where('date', '<', payload.date)
+      .get()
+      .then((s) => s.size)
+      .catch(() => 0),
     status: 'upcoming' satisfies EventStatus,
     album,
     extras: payload.extras,
@@ -166,8 +132,9 @@ export async function createEvent(
   };
   await ref.set(event);
   // Fire-and-forget: start fetching credits now so they're ready by the time
-  // anyone opens the event. The read-path also retries via maybeBackfillCredits.
-  maybeBackfillCredits(event);
+  // anyone opens the event. The read path retries through the same adapter.
+  backfillEventCredits(event.id, { logger: logBackfillEvent })
+    .catch((err) => logBackfillEvent('backfill_fire_error', { eventId: event.id, err: String(err) }));
   return event;
 }
 
@@ -233,65 +200,16 @@ export async function deleteEvent(id: string): Promise<boolean> {
   return true;
 }
 
-export async function refreshEventCredits(
-  eventId: string,
-): Promise<{ credits: AggregatedCredits | null; debug?: Record<string, unknown> }> {
-  const ref = adminDb.collection(EVENTS).doc(eventId);
-  const snap = await ref.get();
-  if (!snap.exists) return { credits: null };
-  const ev = snap.data() as Event;
-  if (!ev.mbAlbumId) return { credits: null };
-
-  const debug: Record<string, unknown> = { v: '0.4.36' };
-
-  let credits: AggregatedCredits | null = null;
-  let tracks: MusicBrainzTrack[] = [];
-
-  try {
-    const cr = await fetchCredits(ev.mbAlbumId, true);
-    credits = cr.credits;
-    tracks = cr.tracks;
-    debug.mbTracks = tracks.length;
-  } catch (err) {
-    debug.mbError = err instanceof Error ? err.message : String(err);
+export async function refreshEventCredits(eventId: string): Promise<CreditBackfillReport> {
+  if (!eventId.trim()) {
+    return {
+      eventId,
+      creditsAttempted: false,
+      tracksCount: 0,
+      creditsCount: 0,
+      lyricsWarmed: false,
+      error: 'event_id_required',
+    };
   }
-
-  // Fallback to Genius when MusicBrainz has no tracks (or failed)
-  const artist = ev.album?.artistCredit;
-  if (tracks.length === 0 && artist && ev.album?.albumTitle) {
-    debug.geniusAttempted = true;
-    try {
-      const geniusTracks = await searchGeniusTracks(artist, ev.album.albumTitle);
-      if (geniusTracks.length > 0) {
-        tracks = geniusTracks;
-        debug.geniusTracks = tracks.length;
-      } else {
-        debug.geniusEmpty = true;
-      }
-    } catch (err) {
-      debug.geniusError = err instanceof Error ? err.message : String(err);
-    }
-  }
-
-  const update: Record<string, unknown> = {
-    'album.tracks': tracks,
-    'album.creditsAttempted': true,
-  };
-  if (credits) {
-    update['album.credits'] = credits;
-  }
-  debug.updatePayload = { tracksCount: tracks.length, hasCredits: !!credits };
-  try {
-    await ref.update(update);
-    debug.updateOk = true;
-  } catch (err) {
-    debug.updateError = err instanceof Error ? err.message : String(err);
-  }
-
-  // Refresh lyrics for all tracks and cache them
-  if (artist) {
-    await warmLyricsCache(tracks, artist);
-  }
-
-  return { credits, debug };
+  return backfillEventCredits(eventId, { await: true, logger: logBackfillEvent });
 }

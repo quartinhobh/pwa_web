@@ -8,6 +8,9 @@
 
 const GENIUS_BASE = 'https://api.genius.com';
 const USER_AGENT = 'Quartinho/1.0 (https://quartinho.app)';
+import { normalizeName, normalizeTitle, titleMatches } from './textMatch';
+import type { CreditSource, CreditSourceResult } from './creditSource';
+import { isGeniusEnabled } from './creditSource';
 
 // ── Rate limiting (token bucket, ~2 req/sec conservative) ─────────────
 let lastRequestAt = 0;
@@ -71,29 +74,26 @@ interface GeniusSong {
 
 // ── Normalization + matching ──────────────────────────────────────────
 
+// textMatch's keyword-based tail strip replaces the previous greedy
+// "anything after first -/(" strip — slightly less aggressive in
+// production, but every existing test still passes (they use exact
+// title matches).
 function normalize(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/\s*[-–(].*$/, '') // drop "(ao vivo)", "- remaster", "feat." tails
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return normalizeTitle(s);
 }
 
 // True when the two strings overlap strongly (equal or one contains the other).
 function titlesMatch(a: string, b: string): boolean {
-  const na = normalize(a);
-  const nb = normalize(b);
+  const na = normalizeTitle(a);
+  const nb = normalizeTitle(b);
   if (!na || !nb) return false;
   return na === nb || na.includes(nb) || nb.includes(na);
 }
 
 // True when artist names share at least one meaningful token.
 function artistsMatch(a: string, b: string): boolean {
-  const ta = new Set(normalize(a).split(' ').filter((t) => t.length > 2));
-  const tb = normalize(b).split(' ').filter((t) => t.length > 2);
+  const ta = new Set(normalizeName(a).split(' ').filter((t) => t.length > 2));
+  const tb = normalizeName(b).split(' ').filter((t) => t.length > 2);
   if (ta.size === 0 || tb.length === 0) return false;
   return tb.some((t) => ta.has(t));
 }
@@ -409,4 +409,48 @@ export async function fetchGeniusLyrics(
     console.warn(`[genius] lyrics fetch failed for ${artist} — ${title}:`, err);
     return null;
   }
+}
+
+// CREDIT ADAPTER — exposed via creditSource.ts
+export const geniusAdapter: CreditSource = {
+  name: 'genius',
+  // Genius needs a token to do anything; without one the adapter is a no-op
+  // even when its env toggle is on.
+  enabled: () => isGeniusEnabled() && Boolean(process.env.GENIUS_ACCESS_TOKEN),
+  async fetchAlbumTracksAndCredits(_mbAlbumId, state): Promise<CreditSourceResult | null> {
+    const artist = state.artistCredit;
+    if (!artist) return null;
+
+    // Only query tracks still missing songwriter data after MB+Discogs —
+    // Genius has per-track API cost and MB usually has it.
+    const gapTracks = state.tracks.filter((t) => !trackHasWriter(state, t.title));
+    if (gapTracks.length === 0) return null;
+
+    const composers = new Map<string, Set<string>>();
+    const lyricists = new Map<string, Set<string>>();
+    for (const track of gapTracks) {
+      const gc = await fetchGeniusTrackCredits(artist, track.title);
+      if (!gc) continue;
+      if (gc.composers.length > 0) composers.set(track.title, new Set(gc.composers));
+      if (gc.lyricists.length > 0) lyricists.set(track.title, new Set(gc.lyricists));
+    }
+    return { tracks: [], composers, lyricists };
+  },
+};
+
+function trackHasWriter(
+  state: CreditSourceResult,
+  trackTitle: string,
+): boolean {
+  for (const workTitle of state.composers?.keys() ?? []) {
+    if (titleMatches(trackTitle, workTitle) && (state.composers!.get(workTitle)!.size > 0)) {
+      return true;
+    }
+  }
+  for (const workTitle of state.lyricists?.keys() ?? []) {
+    if (titleMatches(trackTitle, workTitle) && (state.lyricists!.get(workTitle)!.size > 0)) {
+      return true;
+    }
+  }
+  return false;
 }

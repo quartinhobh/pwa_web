@@ -13,13 +13,109 @@ import {
   formatLocalDate,
   isFourthWednesday,
 } from '@/utils/wednesdays';
-import type { Event, RsvpApprovalMode } from '@/types';
+import type { Event, RsvpApprovalMode, VenueRevealPolicy } from '@/types';
 
 export interface EventFormProps {
   mode: 'create' | 'edit';
   initial?: Event;
   idToken?: string | null; // deprecated — uses useIdToken() internally
   onSaved?: (event: Event) => void;
+}
+
+type RevealMode =
+  | 'always'
+  | 'days_before_event'
+  | 'days_after_creation'
+  | 'after_n_previous_events'
+  | 'correlated_or'
+  | 'correlated_and';
+
+type RevealNumberedMode = 'days_before_event' | 'days_after_creation' | 'after_n_previous_events';
+
+interface RevealFormState {
+  mode: RevealMode;
+  number: string;
+  subMode: RevealNumberedMode;
+}
+
+function buildRevealPolicy(state: RevealFormState): VenueRevealPolicy {
+  const n = Math.max(0, Math.floor(Number(state.number) || 0));
+  switch (state.mode) {
+    case 'always':
+      return { mode: 'always' };
+    case 'days_before_event':
+      return { mode: 'days_before_event', days: n };
+    case 'days_after_creation':
+      return { mode: 'days_after_creation', days: n };
+    case 'after_n_previous_events':
+      return { mode: 'after_n_previous_events', count: n };
+    case 'correlated_or':
+    case 'correlated_and': {
+      const sub = buildSubPolicy(state.subMode, n);
+      return {
+        mode: 'correlated',
+        operator: state.mode === 'correlated_or' ? 'or' : 'and',
+        policies: [sub],
+      };
+    }
+  }
+}
+
+function buildSubPolicy(mode: RevealNumberedMode, n: number): VenueRevealPolicy {
+  switch (mode) {
+    case 'days_before_event':
+      return { mode: 'days_before_event', days: n };
+    case 'days_after_creation':
+      return { mode: 'days_after_creation', days: n };
+    case 'after_n_previous_events':
+      return { mode: 'after_n_previous_events', count: n };
+  }
+}
+
+function initialRevealState(initial?: Event): RevealFormState {
+  const policy = initial?.venueRevealPolicy;
+  if (policy) {
+    if (policy.mode === 'always') {
+      return { mode: 'always', number: '7', subMode: 'days_before_event' };
+    }
+    if (policy.mode === 'days_before_event') {
+      return { mode: 'days_before_event', number: String(policy.days), subMode: 'days_before_event' };
+    }
+    if (policy.mode === 'days_after_creation') {
+      return { mode: 'days_after_creation', number: String(policy.days), subMode: 'days_before_event' };
+    }
+    if (policy.mode === 'after_n_previous_events') {
+      return { mode: 'after_n_previous_events', number: String(policy.count), subMode: 'days_before_event' };
+    }
+    if (policy.mode === 'correlated') {
+      const op: RevealMode = policy.operator === 'or' ? 'correlated_or' : 'correlated_and';
+      const sub = policy.policies[0];
+      if (sub && sub.mode !== 'always' && sub.mode !== 'correlated') {
+        const n =
+          sub.mode === 'days_before_event'
+            ? String(sub.days)
+            : sub.mode === 'days_after_creation'
+              ? String(sub.days)
+              : String(sub.count);
+        const sm: RevealNumberedMode =
+          sub.mode === 'days_before_event'
+            ? 'days_before_event'
+            : sub.mode === 'days_after_creation'
+              ? 'days_after_creation'
+              : 'after_n_previous_events';
+        return { mode: op, number: n, subMode: sm };
+      }
+      return { mode: op, number: '7', subMode: 'days_before_event' };
+    }
+  }
+  if (initial?.venueRevealDaysBefore != null) {
+    return {
+      mode: 'days_before_event',
+      number: String(initial.venueRevealDaysBefore),
+      subMode: 'days_before_event',
+    };
+  }
+  return { mode: 'days_before_event', number: '7', subMode: 'days_before_event' };
 }
 
 const inputClass =
@@ -134,9 +230,7 @@ export const EventForm: React.FC<EventFormProps> = ({
   const [startTime, setStartTime] = useState(initial?.startTime ?? (isCreate ? '19:00' : ''));
   const [endTime, setEndTime] = useState(initial?.endTime ?? (isCreate ? '23:00' : ''));
   const [location, setLocation] = useState(initial?.location ?? '');
-  const [venueRevealDaysBefore, setVenueRevealDaysBefore] = useState<string>(
-    initial?.venueRevealDaysBefore != null ? String(initial.venueRevealDaysBefore) : '7',
-  );
+  const [revealState, setRevealState] = useState<RevealFormState>(() => initialRevealState(initial));
   const [extrasText, setExtrasText] = useState(initial?.extras?.text ?? '');
   const extrasLinks = (initial?.extras?.links ?? []).map((l) => `${l.label}|${l.url}`).join('\n');
   const extrasImages = (initial?.extras?.images ?? []).join('\n');
@@ -199,12 +293,11 @@ export const EventForm: React.FC<EventFormProps> = ({
         opensAt: rsvpOpensAt ? new Date(rsvpOpensAt).getTime() : null,
         closesAt: rsvpClosesAt ? new Date(rsvpClosesAt).getTime() : null,
       } : { enabled: false, capacity: null, waitlistEnabled: false, plusOneAllowed: false, approvalMode: 'auto' as const, opensAt: null, closesAt: null };
-      const parsedReveal = Number(venueRevealDaysBefore);
+      const parsedReveal = buildRevealPolicy(revealState);
       const payload = {
         mbAlbumId, title, date, startTime, endTime,
         location: location || null,
-        venueRevealDaysBefore:
-          Number.isFinite(parsedReveal) && parsedReveal >= 0 ? Math.floor(parsedReveal) : 3,
+        venueRevealPolicy: parsedReveal,
         extras: { text: extrasText, links, images },
         spotifyPlaylistUrl: spotifyPlaylistUrl || null,
         rsvp,
@@ -310,17 +403,76 @@ export const EventForm: React.FC<EventFormProps> = ({
           />
         </label>
 
-        <label className="font-body text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
-          <span>Mostrar local quantos dias antes</span>
-          <input
-            type="number"
-            min={0}
-            aria-label="venueRevealDaysBefore"
-            value={venueRevealDaysBefore}
-            onChange={(e) => setVenueRevealDaysBefore(e.target.value)}
-            className={inputClass}
-          />
-        </label>
+        <fieldset className="flex flex-col gap-2 border-2 border-dashed border-zine-burntYellow p-3">
+          <legend className="font-body font-bold text-zine-burntOrange dark:text-zine-cream px-1">
+            Estratégia de revelação do local
+          </legend>
+          <label className="font-body text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+            <span>Modo</span>
+            <select
+              aria-label="venue-reveal-mode"
+              value={revealState.mode}
+              onChange={(e) => setRevealState((s) => ({ ...s, mode: e.target.value as RevealMode }))}
+              className={inputClass}
+            >
+              <option value="always">Sempre público</option>
+              <option value="days_before_event">N dias antes do evento</option>
+              <option value="days_after_creation">N dias após criação</option>
+              <option value="after_n_previous_events">Após N eventos anteriores</option>
+              <option value="correlated_or">Qualquer das condições a seguir (OR)</option>
+              <option value="correlated_and">Todas as condições a seguir (AND)</option>
+            </select>
+          </label>
+
+          {revealState.mode !== 'always' && revealState.mode !== 'correlated_or' && revealState.mode !== 'correlated_and' && (
+            <label className="font-body text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+              <span>
+                {revealState.mode === 'days_before_event'
+                  ? 'Dias antes do evento'
+                  : revealState.mode === 'days_after_creation'
+                    ? 'Dias após criação'
+                    : 'Quantidade de eventos anteriores'}
+              </span>
+              <input
+                type="number"
+                min={0}
+                aria-label="venue-reveal-number"
+                value={revealState.number}
+                onChange={(e) => setRevealState((s) => ({ ...s, number: e.target.value }))}
+                className={inputClass}
+              />
+            </label>
+          )}
+
+          {(revealState.mode === 'correlated_or' || revealState.mode === 'correlated_and') && (
+            <>
+              <label className="font-body text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+                <span>Tipo da condição</span>
+                <select
+                  aria-label="venue-reveal-sub-mode"
+                  value={revealState.subMode}
+                  onChange={(e) => setRevealState((s) => ({ ...s, subMode: e.target.value as RevealNumberedMode }))}
+                  className={inputClass}
+                >
+                  <option value="days_before_event">N dias antes do evento</option>
+                  <option value="days_after_creation">N dias após criação</option>
+                  <option value="after_n_previous_events">Após N eventos anteriores</option>
+                </select>
+              </label>
+              <label className="font-body text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+                <span>Valor da condição</span>
+                <input
+                  type="number"
+                  min={0}
+                  aria-label="venue-reveal-sub-number"
+                  value={revealState.number}
+                  onChange={(e) => setRevealState((s) => ({ ...s, number: e.target.value }))}
+                  className={inputClass}
+                />
+              </label>
+            </>
+          )}
+        </fieldset>
 
         <label className="font-body text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
           <span>Notas</span>

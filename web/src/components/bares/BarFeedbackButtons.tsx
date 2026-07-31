@@ -75,7 +75,7 @@ export const BarFeedbackButtons: React.FC<BarFeedbackButtonsProps> = ({
           type="button"
           onClick={() => void handleDislikeClick()}
           aria-pressed={!isAnonymous && userVote === 'disliked'}
-          aria-label={`nao gostei, ${dislikedCount} votos`}
+          aria-label={`não gostei, ${dislikedCount} votos`}
           style={{ filter: 'url(#zine-wobble)' }}
           className={[
             'font-body text-sm px-3 py-2 min-h-[44px] border-2 border-zine-burntYellow',
@@ -85,7 +85,7 @@ export const BarFeedbackButtons: React.FC<BarFeedbackButtonsProps> = ({
             'focus-visible:ring-2 focus-visible:ring-zine-burntOrange',
           ].join(' ')}
         >
-          💀 nao gostei ({dislikedCount})
+          💀 não gostei ({dislikedCount})
         </button>
 
         {trailingAction}

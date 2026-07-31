@@ -10,7 +10,7 @@ import {
   deleteLink,
   reorderLinks,
 } from '@/services/api';
-import HelperBox from '@/components/admin/HelperBox';
+import HelperBox, { NoticeBanner } from '@/components/admin/HelperBox';
 import type { LinkTreeItem } from '@/types';
 
 const inputClass =
@@ -26,6 +26,7 @@ export const LinkTreePanel: React.FC = () => {
   const [emoji, setEmoji] = useState('');
   const [saving, setSaving] = useState(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   const dragIdx = useRef<number | null>(null);
   const [dropTarget, setDropTarget] = useState<{ idx: number; half: 'top' | 'bottom' } | null>(null);
@@ -62,6 +63,7 @@ export const LinkTreePanel: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (!idToken || deletingIds.has(id)) return;
+    setError(null);
     setDeletingIds((s) => new Set(s).add(id));
     const prev = links;
     try {
@@ -69,7 +71,7 @@ export const LinkTreePanel: React.FC = () => {
       setLinks((l) => l.filter((x) => x.id !== id));
     } catch (err) {
       setLinks(prev);
-      alert(`Erro ao apagar: ${err instanceof Error ? err.message : String(err)}`);
+      setError(`Erro ao apagar: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setDeletingIds((s) => {
         const next = new Set(s);
@@ -126,6 +128,7 @@ export const LinkTreePanel: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      <NoticeBanner kind="error" message={error} onDismiss={() => setError(null)} />
       <HelperBox>Organize os links da página de links do site. Arraste para reordenar e use o toggle para ativar/desativar.</HelperBox>
       {/* Add form */}
       <ZineFrame bg="cream">

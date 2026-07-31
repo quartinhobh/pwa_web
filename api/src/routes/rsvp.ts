@@ -28,7 +28,7 @@ import {
   type SubmitRsvpInput,
 } from '../services/rsvpService';
 import { buildRsvpEmail } from '../services/emailTemplateService';
-import { sendEmail, wrapTransactionalTemplate } from '../services/emailService';
+import { renderTransactionalEmail, sendEmail } from '../services/emailService';
 import { adminDb } from '../config/firebase';
 import type { RsvpDoc, RsvpEntry } from '../types';
 
@@ -78,8 +78,8 @@ async function sendRsvpEmail(
     if (!email) return;
     const result = await buildRsvpEmail(key, { ...variables, nome: displayName });
     if (!result) return;
-    const html = wrapTransactionalTemplate(`<p>${result.bodyText.replace(/\n/g, '<br>')}</p>`);
-    await sendEmail(email, result.subject, html);
+    const rendered = renderTransactionalEmail(result.bodyText);
+    await sendEmail(email, result.subject, rendered.html);
   } catch (err) {
     console.error(`[rsvp-email] Failed to send ${key} to ${entryKey}:`, err);
   }

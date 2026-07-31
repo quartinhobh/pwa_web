@@ -5,7 +5,6 @@
 
 import type {
   AggregatedCredits,
-  AggregatedPerformer,
   AlbumCredits,
   MusicBrainzRelease,
   MusicBrainzTrack,
@@ -13,15 +12,11 @@ import type {
   TrackPerformer,
   TrackWorkCredit,
 } from '../types';
-import { fetchDiscogsCredits } from './discogsService';
-import { fetchGeniusTrackCredits } from './geniusService';
-import { fetchDeezerPerformers } from './deezerService';
-
-// Per-source toggles for the credit fallback chain. Each source defaults ON;
-// set CREDITS_ENABLE_<SOURCE>=false to skip it without code changes.
-function sourceEnabled(source: 'DISCOGS' | 'GENIUS' | 'DEEZER'): boolean {
-  return process.env[`CREDITS_ENABLE_${source}`] !== 'false';
-}
+import type { CreditSource, CreditSourceResult } from './creditSource';
+import { runCreditsPipeline } from './creditSource';
+import { discogsAdapter } from './discogsService';
+import { geniusAdapter } from './geniusService';
+import { deezerAdapter } from './deezerService';
 
 const MB_BASE = 'https://musicbrainz.org/ws/2';
 export const MB_USER_AGENT = 'Quartinho/1.0 (https://quartinho.app)';
@@ -396,55 +391,32 @@ export interface FetchCreditsResult {
   tracks: MusicBrainzTrack[];
 }
 
-export async function fetchCredits(mbid: string, forceRefresh = false): Promise<FetchCreditsResult> {
-  const cacheKey = `credits:${mbid}`;
-  if (!forceRefresh) {
-    const cached = cacheGet(cacheKey) as FetchCreditsResult | undefined;
-    if (cached) return cached;
-  }
+// ── MB-only credit fetch (used by musicbrainzAdapter) ─────────────────
 
+async function fetchMbCreditsRaw(mbid: string): Promise<CreditSourceResult> {
   const json = (await mbFetch(
     `/release/${encodeURIComponent(mbid)}?inc=artist-credits+recordings+labels+genres+tags+release-groups&fmt=json`,
   )) as MbReleaseJson;
 
-  const albumCredits = extractAlbumCredits(json);
   const tracks = extractTracks(json.media);
-  const totalTracks = tracks.length;
 
   const trackCredits: TrackCredits[] = [];
   for (const track of tracks) {
-    const tc = await fetchRecordingCredits(track.recordingId);
-    trackCredits.push(tc);
+    trackCredits.push(await fetchRecordingCredits(track.recordingId));
   }
 
-  // Aggregate performers at album level
-  const performerMap = new Map<string, { instruments: Set<string>; tracks: Set<string> }>();
+  const performers = new Map<string, Set<string>>();
+  const trackWorks: TrackWorkCredit[] = [];
+  const workSeen = new Set<string>();
   for (const tc of trackCredits) {
     for (const p of tc.performers) {
-      if (!performerMap.has(p.name)) {
-        performerMap.set(p.name, { instruments: new Set(), tracks: new Set() });
-      }
-      const entry = performerMap.get(p.name)!;
-      for (const inst of p.instruments) entry.instruments.add(inst);
-      entry.tracks.add(tc.recordingId);
+      if (!performers.has(p.name)) performers.set(p.name, new Set(p.instruments));
+      else for (const inst of p.instruments) performers.get(p.name)!.add(inst);
     }
-  }
-
-  const performers: AggregatedPerformer[] = [...performerMap.entries()]
-    .map(([name, entry]) => ({
-      name,
-      instruments: [...entry.instruments],
-      trackCount: entry.tracks.size,
-      totalTracks,
-    }))
-    .sort((a, b) => b.trackCount - a.trackCount || a.name.localeCompare(b.name));
-
-  // Collect all unique work credits across tracks, preserving recordingId
-  const workSeen = new Set<string>();
-  const trackWorks: TrackWorkCredit[] = [];
-  for (const tc of trackCredits) {
     for (const w of tc.works) {
       const key = `${tc.recordingId}|${w.title}|${w.composers.join(',')}|${w.lyricists.join(',')}`;
+      // Bug 1 fix: recording-level composers/lyricists are surfaced as a work
+      // entry too — fetchRecordingCredits pushes one in when found.
       if (!workSeen.has(key)) {
         workSeen.add(key);
         trackWorks.push({ ...w, recordingId: tc.recordingId });
@@ -452,179 +424,42 @@ export async function fetchCredits(mbid: string, forceRefresh = false): Promise<
     }
   }
 
-  const credits: AggregatedCredits = {
-    label: albumCredits.label,
-    catalogNumber: albumCredits.catalogNumber,
-    country: albumCredits.country,
-    releaseYear: albumCredits.releaseYear,
-    genres: albumCredits.genres,
-    releaseType: albumCredits.releaseType,
+  return {
+    tracks,
+    artistCredit: joinArtistCredit(json['artist-credit']) || undefined,
+    albumTitle: json.title,
+    albumCredits: extractAlbumCredits(json),
     performers,
     trackWorks,
+    // totalTracks flows through performers shape; AggregatedPerformer.trackCount
+    // is set by the reducer from totalTracks.
   };
+}
 
-  // Shared fuzzy matchers for fallback merges (accent + case insensitive, strips parentheticals).
-  const normalizeTitle = (s: string): string =>
-    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
-      .replace(/\s*[-–(]\s*(ao vivo|live|bonus track|remaster|remastered|remix|alternate take|demo version|mono|stereo|single version|edit|extended|instrumental|acoustic version|radio edit)\s*[-–)]?\s*$/i, '')
-      .replace(/\(\s*\d{4}\s*[-–]\s*remaster\s*\)/i, '')
-      .trim();
-  const normalizeName = (s: string): string =>
-    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-  const findTrackWork = (title: string): TrackWorkCredit | undefined => {
-    const norm = normalizeTitle(title);
-    let match = trackWorks.find((w) => normalizeTitle(w.title) === norm);
-    if (!match) {
-      match = trackWorks.find((w) => {
-        const wNorm = normalizeTitle(w.title);
-        return wNorm.length > 0 && (wNorm.includes(norm) || norm.includes(wNorm));
-      });
-    }
-    return match;
-  };
+// CREDIT ADAPTER — exposed via creditSource.ts
+export const musicbrainzAdapter: CreditSource = {
+  name: 'musicbrainz',
+  enabled: () => true,
+  fetchAlbumTracksAndCredits: fetchMbCreditsRaw,
+};
 
-  // Merge Discogs credits (fills gaps and adds missing data)
-  const artistName = joinArtistCredit(json['artist-credit']);
-  if (artistName && sourceEnabled('DISCOGS')) {
-    try {
-      const dg = await fetchDiscogsCredits(artistName, json.title);
-      if (dg) {
-        // Fill album info gaps
-        if (!credits.label && dg.albumCredits.label) credits.label = dg.albumCredits.label;
-        if (!credits.catalogNumber && dg.albumCredits.catalogNumber) credits.catalogNumber = dg.albumCredits.catalogNumber;
-        if (!credits.country && dg.albumCredits.country) credits.country = dg.albumCredits.country;
-        if (!credits.releaseYear && dg.albumCredits.releaseYear) credits.releaseYear = dg.albumCredits.releaseYear;
-        if (!credits.genres || credits.genres.length === 0) {
-          credits.genres = dg.albumCredits.genres;
-        } else if (dg.albumCredits.genres) {
-          credits.genres = [...new Set([...credits.genres, ...dg.albumCredits.genres])];
-        }
+// Pipeline assembled once. Co-located with fetchCredits because the MB adapter
+// is defined here; the Discogs/Genius/Deezer adapters live in their own
+// service files.
+export const defaultPipeline: readonly CreditSource[] = [
+  musicbrainzAdapter,
+  discogsAdapter,
+  geniusAdapter,
+  deezerAdapter,
+];
 
-        // Merge performers from Discogs (only add if not already in MB)
-        const existingNames = new Set(credits.performers.map((p) => p.name));
-        const existingInstruments = new Map(credits.performers.map((p) => [p.name, p.instruments]));
-        for (const [name, instruments] of dg.performers) {
-          if (!existingNames.has(name)) {
-            credits.performers.push({
-              name,
-              instruments: [...instruments],
-              trackCount: 0,
-              totalTracks,
-            });
-          } else {
-            const current = existingInstruments.get(name) ?? [];
-            for (const inst of instruments) {
-              if (!current.includes(inst)) {
-                const idx = credits.performers.findIndex((p) => p.name === name);
-                if (idx >= 0) credits.performers[idx]!.instruments.push(inst);
-              }
-            }
-          }
-        }
-
-        // Merge composers/lyricists from Discogs (fuzzy title match via shared matchers above)
-        for (const [workTitle, composerSet] of dg.composers) {
-          if (workTitle === 'album') continue;
-          const existing = findTrackWork(workTitle);
-          if (existing) {
-            for (const c of composerSet) {
-              if (!existing.composers.some((e) => normalizeName(e) === normalizeName(c))) {
-                existing.composers.push(c);
-              }
-            }
-          } else {
-            trackWorks.push({
-              recordingId:
-                tracks.find(
-                  (t) => normalizeTitle(t.title) === normalizeTitle(workTitle),
-                )?.recordingId ?? '',
-              title: workTitle,
-              composers: [...composerSet],
-              lyricists: [],
-            });
-          }
-        }
-        for (const [workTitle, lyricistSet] of dg.lyricists) {
-          if (workTitle === 'album') continue;
-          const existing = findTrackWork(workTitle);
-          if (existing) {
-            for (const l of lyricistSet) {
-              if (!existing.lyricists.some((e) => normalizeName(e) === normalizeName(l))) {
-                existing.lyricists.push(l);
-              }
-            }
-          } else {
-            trackWorks.push({
-              recordingId:
-                tracks.find(
-                  (t) => normalizeTitle(t.title) === normalizeTitle(workTitle),
-                )?.recordingId ?? '',
-              title: workTitle,
-              composers: [],
-              lyricists: [...lyricistSet],
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.warn(`[musicbrainz] Discogs fallback failed for ${artistName} — ${json.title}:`, err);
-    }
+export async function fetchCredits(mbid: string, forceRefresh = false): Promise<FetchCreditsResult> {
+  const cacheKey = `credits:${mbid}`;
+  if (!forceRefresh) {
+    const cached = cacheGet(cacheKey) as FetchCreditsResult | undefined;
+    if (cached) return cached;
   }
-
-  // Genius fallback — digital-first, covers streaming-only albums with no physical
-  // release. Only queries tracks still missing songwriter data after MB+Discogs,
-  // and is a no-op unless GENIUS_ACCESS_TOKEN is configured.
-  if (artistName && sourceEnabled('GENIUS') && process.env.GENIUS_ACCESS_TOKEN) {
-    const gapTracks = tracks.filter((t) => {
-      const w = findTrackWork(t.title);
-      return !w || (w.composers.length === 0 && w.lyricists.length === 0);
-    });
-    for (const track of gapTracks) {
-      const gc = await fetchGeniusTrackCredits(artistName, track.title);
-      if (!gc) continue;
-      const existing = findTrackWork(track.title);
-      if (existing) {
-        for (const c of gc.composers) {
-          if (!existing.composers.some((e) => normalizeName(e) === normalizeName(c))) {
-            existing.composers.push(c);
-          }
-        }
-        for (const l of gc.lyricists) {
-          if (!existing.lyricists.some((e) => normalizeName(e) === normalizeName(l))) {
-            existing.lyricists.push(l);
-          }
-        }
-      } else {
-        trackWorks.push({
-          recordingId: track.recordingId,
-          title: track.title,
-          composers: gc.composers,
-          lyricists: gc.lyricists,
-        });
-      }
-    }
-  }
-
-  // Deezer fallback — last resort, no API key needed. Deezer only exposes
-  // performing artists (no composers/lyricists), so it only fills the
-  // album-level performers list when the prior sources found none.
-  if (artistName && sourceEnabled('DEEZER') && credits.performers.length === 0) {
-    const dz = await fetchDeezerPerformers(artistName, json.title);
-    if (dz) {
-      const existingNames = new Set(credits.performers.map((p) => p.name));
-      for (const [name, roles] of dz) {
-        if (existingNames.has(name)) continue;
-        credits.performers.push({
-          name,
-          instruments: [...roles],
-          trackCount: 0,
-          totalTracks,
-        });
-      }
-    }
-  }
-
-  const result: FetchCreditsResult = { credits, tracks };
+  const result = await runCreditsPipeline(defaultPipeline, mbid);
   cacheSet(cacheKey, result);
   return result;
 }

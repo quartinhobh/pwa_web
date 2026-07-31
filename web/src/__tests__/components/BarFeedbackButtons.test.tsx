@@ -30,7 +30,7 @@ describe('BarFeedbackButtons', () => {
   it('renders liked count and disliked count', () => {
     render(<BarFeedbackButtons barId="bar-1" idToken={null} firebaseUid={null} />);
     expect(screen.getByRole('button', { name: /curti.*3/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /nao gostei.*1/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /não gostei.*1/i })).toBeInTheDocument();
   });
 
   it('when firebaseUid=null and no onRequestLogin: clicking vote button is a no-op', () => {

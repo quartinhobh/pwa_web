@@ -24,19 +24,19 @@ describe('GuestUpsellModal', () => {
     render(
       <GuestUpsellModal isOpen={true} onClose={vi.fn()} email="ana@x.com" displayName="Ana" />,
     );
-    const emailInput = screen.getByLabelText('email') as HTMLInputElement;
+    const emailInput = screen.getByLabelText('Email') as HTMLInputElement;
     expect(emailInput.value).toBe('ana@x.com');
     expect(emailInput.disabled).toBe(true);
-    expect(screen.getByLabelText('senha')).toBeInTheDocument();
-    expect(screen.getByLabelText('confirmar senha')).toBeInTheDocument();
+    expect(screen.getByLabelText('Senha')).toBeInTheDocument();
+    expect(screen.getByLabelText('Confirmar senha')).toBeInTheDocument();
   });
 
   it('shows mismatch error when passwords differ', async () => {
     render(
       <GuestUpsellModal isOpen={true} onClose={vi.fn()} email="a@x.com" displayName="A" />,
     );
-    fireEvent.change(screen.getByLabelText('senha'), { target: { value: '123456' } });
-    fireEvent.change(screen.getByLabelText('confirmar senha'), { target: { value: '654321' } });
+    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: '123456' } });
+    fireEvent.change(screen.getByLabelText('Confirmar senha'), { target: { value: '654321' } });
     fireEvent.click(screen.getByRole('button', { name: /criar conta/i }));
     expect(await screen.findByText(/senhas não batem/i)).toBeInTheDocument();
     expect(createMock).not.toHaveBeenCalled();
@@ -47,8 +47,8 @@ describe('GuestUpsellModal', () => {
     render(
       <GuestUpsellModal isOpen={true} onClose={vi.fn()} email="a@x.com" displayName="A" />,
     );
-    fireEvent.change(screen.getByLabelText('senha'), { target: { value: '123456' } });
-    fireEvent.change(screen.getByLabelText('confirmar senha'), { target: { value: '123456' } });
+    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: '123456' } });
+    fireEvent.change(screen.getByLabelText('Confirmar senha'), { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: /criar conta/i }));
     await waitFor(() => {
       expect(createMock).toHaveBeenCalledWith(expect.anything(), 'a@x.com', '123456');
@@ -63,8 +63,8 @@ describe('GuestUpsellModal', () => {
     render(
       <GuestUpsellModal isOpen={true} onClose={vi.fn()} email="a@x.com" displayName="A" />,
     );
-    fireEvent.change(screen.getByLabelText('senha'), { target: { value: '123456' } });
-    fireEvent.change(screen.getByLabelText('confirmar senha'), { target: { value: '123456' } });
+    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: '123456' } });
+    fireEvent.change(screen.getByLabelText('Confirmar senha'), { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: /criar conta/i }));
     expect(await screen.findByText(/já tem conta/i)).toBeInTheDocument();
     errSpy.mockRestore();
@@ -76,8 +76,8 @@ describe('GuestUpsellModal', () => {
     render(
       <GuestUpsellModal isOpen={true} onClose={vi.fn()} email="a@x.com" displayName="A" />,
     );
-    fireEvent.change(screen.getByLabelText('senha'), { target: { value: '123456' } });
-    fireEvent.change(screen.getByLabelText('confirmar senha'), { target: { value: '123456' } });
+    fireEvent.change(screen.getByLabelText('Senha'), { target: { value: '123456' } });
+    fireEvent.change(screen.getByLabelText('Confirmar senha'), { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: /criar conta/i }));
     expect(await screen.findByText(/não foi possível criar/i)).toBeInTheDocument();
     errSpy.mockRestore();

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import ZineFrame from '@/components/common/ZineFrame';
+import QuartinhoIntro from '@/components/common/QuartinhoIntro';
 import { LoadingState } from '@/components/common/LoadingState';
 import EventCard from '@/components/events/EventCard';
 import { fetchEvents } from '@/services/api';
@@ -38,6 +39,9 @@ export const Archive: React.FC<ArchiveProps> = ({ onOpenEvent }) => {
   return (
     <ZineFrame bg="mint">
       <h1 className="font-display text-3xl text-zine-cream mb-2">Arquivo</h1>
+      <div className="mb-4">
+        <QuartinhoIntro compact />
+      </div>
       {loading && <LoadingState />}
       {error && (
         <p role="alert" className="font-body text-zine-cream">

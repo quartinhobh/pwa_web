@@ -100,43 +100,51 @@ export const GuestUpsellModal: React.FC<GuestUpsellModalProps> = ({
           ou fecha essa janela que já tá tudo certo.
         </p>
         {hasEmail ? (
-          <input
-            type="email"
-            value={email}
-            disabled
-            aria-label="email"
-            className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream/50 dark:bg-zine-surface-dark/50 text-zine-burntOrange/60 dark:text-zine-cream/60"
-          />
+          <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+            <span>Email</span>
+            <input
+              type="email"
+              value={email}
+              disabled
+              className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream/50 dark:bg-zine-surface-dark/50 text-zine-burntOrange/60 dark:text-zine-cream/60"
+            />
+          </label>
         ) : (
+          <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+            <span>Email</span>
+            <input
+              type="email"
+              placeholder="seu email (necessário pra criar conta)"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
+            />
+          </label>
+        )}
+        <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+          <span>Senha</span>
           <input
-            type="email"
-            placeholder="seu email (necessário pra criar conta)"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            aria-label="email"
+            type="password"
+            placeholder="mínimo 6 caracteres"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
             className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
           />
-        )}
-        <input
-          type="password"
-          placeholder="senha (mínimo 6 caracteres)"
-          aria-label="senha"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={6}
-          className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
-        />
-        <input
-          type="password"
-          placeholder="confirmar senha"
-          aria-label="confirmar senha"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          required
-          minLength={6}
-          className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
-        />
+        </label>
+        <label className="font-body text-sm text-zine-burntOrange dark:text-zine-cream flex flex-col gap-1">
+          <span>Confirmar senha</span>
+          <input
+            type="password"
+            placeholder="repita a senha"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            minLength={6}
+            className="font-body px-3 py-2 border-4 border-zine-burntYellow bg-zine-cream dark:bg-zine-surface-dark text-zine-burntOrange dark:text-zine-cream focus:outline-none focus:border-zine-burntOrange"
+          />
+        </label>
         {error && (
           <p role="alert" className="font-body text-sm text-zine-burntOrange">
             {error}
