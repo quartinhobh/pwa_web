@@ -104,7 +104,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({ eventId }) => 
 
       {error && (
         <ZineFrame bg="cream" borderColor="burntYellow">
-          <p className="font-body text-zine-burntOrange text-center py-2">{error}</p>
+          <p className="font-body text-red-500 text-center py-2">{error}</p>
         </ZineFrame>
       )}
 
